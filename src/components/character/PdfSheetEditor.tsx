@@ -1,4 +1,4 @@
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, ImagePlus, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy } from 'pdfjs-dist'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
@@ -223,6 +223,90 @@ function buildFieldStyle(field: PdfSheetTemplateField) {
   } satisfies React.CSSProperties
 }
 
+// Zonas de imagem na página 1 (coordenadas em % da página)
+const imageZones: { key: string; style: React.CSSProperties }[] = [
+  {
+    key: 'FOTO',
+    style: { left: '3.2%', top: '11%', width: '60%', height: '36%' },
+  },
+  {
+    key: 'FOTO2',
+    style: { left: '65.1%', top: '46.9%', width: '31.8%', height: '14.7%' },
+  },
+]
+
+function ImageUploadZone({
+  value,
+  canEdit,
+  onChange,
+}: {
+  value: string
+  canEdit: boolean
+  onChange: (dataUrl: string) => void
+  style?: React.CSSProperties
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const handleFile = (file: File) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      const MAX = 600
+      const scale = Math.min(1, MAX / Math.max(img.width, img.height))
+      const w = Math.round(img.width * scale)
+      const h = Math.round(img.height * scale)
+      const canvas = document.createElement('canvas')
+      canvas.width = w
+      canvas.height = h
+      canvas.getContext('2d')!.drawImage(img, 0, 0, w, h)
+      URL.revokeObjectURL(url)
+      onChange(canvas.toDataURL('image/jpeg', 0.85))
+    }
+    img.src = url
+  }
+
+  return (
+    <>
+      {value ? (
+        <>
+          <img
+            src={value}
+            className="absolute h-full w-full object-cover"
+          />
+          {canEdit && (
+            <button
+              type="button"
+              onClick={() => onChange('')}
+              className="absolute right-1 top-1 rounded bg-black/60 p-1 text-white opacity-0 transition hover:bg-black/80 hover:opacity-100 group-hover/img:opacity-100"
+              title="Remover foto"
+            >
+              <X size={12} />
+            </button>
+          )}
+        </>
+      ) : canEdit ? (
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="absolute flex h-full w-full items-center justify-center gap-2 text-stone-500 transition hover:text-stone-300 hover:bg-white/5"
+        >
+          <ImagePlus size={20} />
+          <span className="text-xs">Adicionar foto</span>
+        </button>
+      ) : null}
+      {canEdit && (
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+        />
+      )}
+    </>
+  )
+}
+
 function TemplatePdfPage({
   pageNumber,
   templateUrl,
@@ -301,6 +385,16 @@ function TemplatePdfPage({
       ) : (
         <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
       )}
+
+      {pageNumber === 1 && imageZones.map((zone) => (
+        <div key={zone.key} className="group/img absolute overflow-hidden" style={zone.style}>
+          <ImageUploadZone
+            value={fieldData[zone.key] ?? ''}
+            canEdit={canEdit}
+            onChange={(dataUrl) => onFieldChange(zone.key, dataUrl)}
+          />
+        </div>
+      ))}
 
       {pageFields.map((field) => {
         const style = buildFieldStyle(field)

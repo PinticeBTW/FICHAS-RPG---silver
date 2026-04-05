@@ -18,6 +18,7 @@ interface AuthContextValue {
   signIn: (input: AuthFormInput) => Promise<void>
   signUp: (input: AuthFormInput) => Promise<{ needsEmailConfirmation: boolean }>
   signOut: () => Promise<void>
+  updateDisplayName: (name: string) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -133,6 +134,24 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   }
 
+  const updateDisplayName = async (name: string) => {
+    if (!supabase || !profile) {
+      throw new Error(SUPABASE_CONFIG_ERROR)
+    }
+
+    const trimmed = name.trim()
+    if (!trimmed) return
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ display_name: trimmed })
+      .eq('id', profile.id)
+
+    if (error) throw error
+
+    setProfile((prev) => prev ? { ...prev, displayName: trimmed } : prev)
+  }
+
   const signOut = async () => {
     if (!supabase) {
       setProfile(null)
@@ -157,6 +176,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         signIn,
         signUp,
         signOut,
+        updateDisplayName,
       }}
     >
       {children}

@@ -145,7 +145,7 @@ function ProfileCard({
 export function SheetWorkspacePage() {
   const { profileId } = useParams()
   const navigate = useNavigate()
-  const { profile, signOut } = useAuth()
+  const { profile, signOut, updateDisplayName } = useAuth()
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [sheet, setSheet] = useState<WebSheetRecord | null>(null)
   const [draftFields, setDraftFields] = useState<Record<string, string>>({})
@@ -178,6 +178,8 @@ export function SheetWorkspacePage() {
   const [newFichaName, setNewFichaName] = useState('')
   const [addingFicha, setAddingFicha] = useState(false)
   const [creatingFicha, setCreatingFicha] = useState(false)
+  const [editingName, setEditingName] = useState(false)
+  const [nameInput, setNameInput] = useState('')
 
   const accessibleProfiles = useMemo(() => {
     if (!profile) {
@@ -609,14 +611,51 @@ export function SheetWorkspacePage() {
           <div className="mt-4 space-y-1">
             {/* Player: só o seu card */}
             {!isGm && selectedProfile && (
-              <button
-                type="button"
-                className="w-full border border-[#f3e600] bg-[#f3e600]/10 px-4 py-3 text-left"
-              >
-                <p className="truncate text-sm font-semibold text-white">{selectedProfile.displayName}</p>
-                <p className="mt-1 truncate text-xs text-stone-400">{selectedProfile.email}</p>
-                <p className="mt-2 text-[0.68rem] uppercase tracking-[0.22em] text-stone-500">Jogador</p>
-              </button>
+              <div className="border border-[#f3e600] bg-[#f3e600]/10 px-4 py-3">
+                {editingName ? (
+                  <div className="flex items-center gap-1">
+                    <input
+                      autoFocus
+                      type="text"
+                      value={nameInput}
+                      onChange={(e) => setNameInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          void updateDisplayName(nameInput).then(() => setEditingName(false))
+                        }
+                        if (e.key === 'Escape') setEditingName(false)
+                      }}
+                      className="min-w-0 flex-1 border border-white/20 bg-black/40 px-2 py-1 text-xs text-white outline-none focus:border-[#f3e600]/50"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void updateDisplayName(nameInput).then(() => setEditingName(false))}
+                      className="signal-button px-2 py-1 text-xs"
+                    >
+                      <Save size={11} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingName(false)}
+                      className="signal-button px-2 py-1 text-xs"
+                      data-variant="ghost"
+                    >
+                      <X size={11} />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="w-full text-left"
+                    onClick={() => { setNameInput(selectedProfile.displayName); setEditingName(true) }}
+                  >
+                    <p className="truncate text-sm font-semibold text-white">{selectedProfile.displayName}</p>
+                    <p className="mt-1 text-[0.62rem] text-stone-500">clica para mudar o nome</p>
+                  </button>
+                )}
+                <p className="mt-2 truncate text-xs text-stone-400">{selectedProfile.email}</p>
+                <p className="mt-1 text-[0.68rem] uppercase tracking-[0.22em] text-stone-500">Jogador</p>
+              </div>
             )}
 
             {/* GM: nova ficha */}

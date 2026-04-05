@@ -44,12 +44,19 @@ function buildInitialFieldData() {
   return Object.fromEntries(pdfSheetTemplateFields.map((field) => [field.name, '']))
 }
 
+const EXTRA_FIELD_KEYS = ['FOTO', 'FOTO2']
+
 function mapSheet(row: SheetRow): WebSheetRecord {
   const nextFieldData: Record<string, string> = {}
 
   for (const field of pdfSheetTemplateFields) {
     const value = row.field_data?.[field.name]
     nextFieldData[field.name] = typeof value === 'string' ? value : ''
+  }
+
+  for (const key of EXTRA_FIELD_KEYS) {
+    const value = row.field_data?.[key]
+    nextFieldData[key] = typeof value === 'string' ? value : ''
   }
 
   return {
@@ -84,6 +91,10 @@ function mapNpcSheet(row: NpcCardRow): WebSheetRecord {
   for (const field of pdfSheetTemplateFields) {
     const value = row.field_data?.[field.name]
     nextFieldData[field.name] = typeof value === 'string' ? value : ''
+  }
+  for (const key of EXTRA_FIELD_KEYS) {
+    const value = row.field_data?.[key]
+    nextFieldData[key] = typeof value === 'string' ? value : ''
   }
   return {
     id: row.id,
