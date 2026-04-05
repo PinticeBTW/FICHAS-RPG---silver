@@ -13,16 +13,16 @@ import {
   fetchOrCreateSheet,
   isNpcProfile,
   listSheetProfiles,
+  loadGmGroups,
+  saveGmGroups,
   saveNpcSheet,
   saveSheetFields,
   subscribeToSheet,
+  type ProfileGroup,
 } from '../lib/webSheetService'
 import type { Profile, WebSheetRecord } from '../types/domain'
 
 const AUTOSAVE_DELAY_MS = 60_000
-const GROUPS_KEY = 'rpg-profile-groups'
-
-type ProfileGroup = { id: string; name: string; profileIds: string[] }
 
 function serializeFieldData(fieldData: Record<string, string>) {
   return JSON.stringify(
@@ -155,14 +155,7 @@ export function SheetWorkspacePage() {
   const [syncLabel, setSyncLabel] = useState('Auto-save ativo')
   const [error, setError] = useState<string | null>(null)
   const autosaveTimerRef = useRef<number | null>(null)
-  const [groups, setGroups] = useState<ProfileGroup[]>(() => {
-    try {
-      const raw = localStorage.getItem(GROUPS_KEY)
-      return raw ? (JSON.parse(raw) as ProfileGroup[]) : []
-    } catch {
-      return []
-    }
-  })
+  const [groups, setGroups] = useState<ProfileGroup[]>([])
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   const [newGroupName, setNewGroupName] = useState('')
   const [addingGroup, setAddingGroup] = useState(false)
@@ -380,9 +373,17 @@ export function SheetWorkspacePage() {
     }
   }, [canEdit, handleSave, isDirty, selectedProfile, sheet])
 
+  // Carregar grupos do Supabase quando o GM entra
   useEffect(() => {
-    localStorage.setItem(GROUPS_KEY, JSON.stringify(groups))
-  }, [groups])
+    if (!profile || profile.role !== 'gm') return
+    void loadGmGroups(profile.id).then(setGroups).catch(() => {})
+  }, [profile])
+
+  // Guardar grupos no Supabase sempre que mudam
+  useEffect(() => {
+    if (!profile || profile.role !== 'gm') return
+    void saveGmGroups(profile.id, groups).catch(() => {})
+  }, [groups, profile])
 
   useEffect(() => {
     if (!openMoveDropdown) return
