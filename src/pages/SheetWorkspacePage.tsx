@@ -156,6 +156,7 @@ export function SheetWorkspacePage() {
   const [error, setError] = useState<string | null>(null)
   const autosaveTimerRef = useRef<number | null>(null)
   const [groups, setGroups] = useState<ProfileGroup[]>([])
+  const groupsLoadedRef = useRef(false)
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   const [newGroupName, setNewGroupName] = useState('')
   const [addingGroup, setAddingGroup] = useState(false)
@@ -376,12 +377,16 @@ export function SheetWorkspacePage() {
   // Carregar grupos do Supabase quando o GM entra
   useEffect(() => {
     if (!profile || profile.role !== 'gm') return
-    void loadGmGroups(profile.id).then(setGroups).catch(() => {})
+    groupsLoadedRef.current = false
+    void loadGmGroups(profile.id).then((loaded) => {
+      setGroups(loaded)
+      groupsLoadedRef.current = true
+    }).catch(() => { groupsLoadedRef.current = true })
   }, [profile])
 
-  // Guardar grupos no Supabase sempre que mudam
+  // Guardar grupos no Supabase apenas após o carregamento inicial
   useEffect(() => {
-    if (!profile || profile.role !== 'gm') return
+    if (!profile || profile.role !== 'gm' || !groupsLoadedRef.current) return
     void saveGmGroups(profile.id, groups).catch(() => {})
   }, [groups, profile])
 
