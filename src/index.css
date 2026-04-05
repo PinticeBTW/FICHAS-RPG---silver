@@ -1,0 +1,12 @@
+@import './styles/theme.css';
+
+@font-face {
+  font-family: 'CyberwayRiders';
+  src: url('/fonts/CyberwayRiders.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+#root {
+  min-height: 100vh;
+}
