@@ -274,3 +274,27 @@ export function subscribeToSheet(
     void client.removeChannel(channel)
   }
 }
+
+export type ProfileGroup = { id: string; name: string; profileIds: string[] }
+
+export async function loadGmGroups(profileId: string): Promise<ProfileGroup[]> {
+  const client = ensureSupabase()
+  const { data, error } = await client
+    .from('gm_settings')
+    .select('groups')
+    .eq('profile_id', profileId)
+    .maybeSingle()
+
+  if (error) throw error
+  if (!data) return []
+  return (data.groups as ProfileGroup[]) ?? []
+}
+
+export async function saveGmGroups(profileId: string, groups: ProfileGroup[]): Promise<void> {
+  const client = ensureSupabase()
+  const { error } = await client
+    .from('gm_settings')
+    .upsert({ profile_id: profileId, groups, updated_at: new Date().toISOString() }, { onConflict: 'profile_id' })
+
+  if (error) throw error
+}
