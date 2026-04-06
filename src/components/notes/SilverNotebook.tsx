@@ -1,6 +1,8 @@
 import {
   BellRing,
   Check,
+  ChevronLeft,
+  ChevronRight,
   Eraser,
   Hand,
   ImagePlus,
@@ -11,6 +13,7 @@ import {
   PinOff,
   Play,
   Plus,
+  Save,
   Search,
   StickyNote,
   Trash2,
@@ -24,6 +27,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type WheelEvent as ReactWheelEvent,
 } from 'react'
+import { PdfSheetPreview } from '../character/PdfSheetEditor'
 
 type SilverReminder = {
   id: string
@@ -44,8 +48,29 @@ type SilverNotePage = {
 }
 
 type SilverStickyColor = 'amber' | 'cyan' | 'rose' | 'lime'
-type SilverBoardItemKind = 'sticky' | 'text' | 'image'
+type SilverBoardItemKind = 'sticky' | 'text' | 'image' | 'sheet'
 type SilverBoardTool = 'pan' | 'draw' | 'erase'
+
+export type SilverBoardProfileSummary = {
+  profileId: string
+  displayName: string
+  subtitle: string
+  hpCurrent: string
+  hpMax: string
+  psCurrent: string
+  psMax: string
+  peCurrent: string
+  peMax: string
+  defense: string
+  block: string
+  karma: string
+  updatedAt: string
+}
+
+export type SilverBoardInsertRequest = {
+  profileId: string
+  nonce: string
+}
 
 type SilverStrokePoint = {
   x: number
@@ -64,6 +89,37 @@ type SilverHistorySnapshot = {
   activePageId: string
 }
 
+type SilverDragState = {
+  stickyId: string
+  offsetX: number
+  offsetY: number
+  originPositions: Record<string, SilverStrokePoint>
+  historyCaptured: boolean
+  historySnapshot: SilverHistorySnapshot
+}
+
+type SilverDrawingDragState = {
+  startX: number
+  startY: number
+  originPoints: Record<string, SilverStrokePoint[]>
+  historyCaptured: boolean
+  historySnapshot: SilverHistorySnapshot
+}
+
+type SilverSelectionBox = {
+  startX: number
+  startY: number
+  currentX: number
+  currentY: number
+}
+
+type SilverMarqueeState = {
+  startX: number
+  startY: number
+  baseSelectionIds: string[]
+  baseDrawingSelectionIds: string[]
+}
+
 type SilverSticky = {
   id: string
   kind: SilverBoardItemKind
@@ -77,16 +133,25 @@ type SilverSticky = {
   imageHeight?: number
   width?: number
   height?: number
+  linkedProfileId?: string
+  sheetPage?: number
 }
 
 type SilverNotebookProps = {
   value: string
   pagesValue: string
   remindersValue: string
+  workspaceStorageKey?: string
   onChange: (value: string) => void
   onPagesChange: (value: string) => void
   onRemindersChange: (value: string) => void
   canEdit: boolean
+  onQuickSave?: () => void
+  canQuickSave?: boolean
+  quickSaveBusy?: boolean
+  boardProfiles?: SilverBoardProfileSummary[]
+  boardProfileFieldData?: Record<string, Record<string, string>>
+  pendingBoardProfileCard?: SilverBoardInsertRequest | null
 }
 const REMINDER_SOUND_URL = '/sounds/silver-alert.mp3'
 const STICKY_WIDTH_PX = 220
@@ -98,6 +163,7 @@ const MAX_ZOOM = 2.4
 const DEFAULT_ZOOM = 1
 const DRAW_COLOR = '#f3e600'
 const DRAW_WIDTH = 3
+const SILVER_NOTEBOOK_UI_KEY = 'silver-notebook-ui'
 const STICKY_COLOR_ORDER: SilverStickyColor[] = ['amber', 'cyan', 'rose', 'lime']
 const STICKY_COLOR_CLASSES: Record<SilverStickyColor, string> = {
   amber: 'border-[#f3e600]/40 bg-[#f3e600]/12',
@@ -110,6 +176,9 @@ function getBoardItemWidth(item: SilverSticky) {
   if (item.kind === 'image') {
     return Math.max(180, (item.imageWidth ?? 320) + 16)
   }
+  if (item.kind === 'sheet') {
+    return item.width ?? 300
+  }
   if (item.width) return item.width
   if (item.kind === 'text') return 300
   return STICKY_WIDTH_PX
@@ -119,9 +188,84 @@ function getBoardItemMinHeight(item: SilverSticky) {
   if (item.kind === 'image') {
     return Math.max(180, (item.imageHeight ?? 180) + 70)
   }
+  if (item.kind === 'sheet') {
+    return item.height ?? 318
+  }
   if (item.height) return item.height
   if (item.kind === 'text') return 210
   return STICKY_HEIGHT_PX
+}
+
+function dedupeItemIds(ids: string[]) {
+  const seen = new Set<string>()
+  const uniqueIds: string[] = []
+
+  ids.forEach((id) => {
+    if (!id || seen.has(id)) {
+      return
+    }
+
+    seen.add(id)
+    uniqueIds.push(id)
+  })
+
+  return uniqueIds
+}
+
+function areItemIdsEqual(left: string[], right: string[]) {
+  if (left.length !== right.length) {
+    return false
+  }
+
+  return left.every((id, index) => id === right[index])
+}
+
+function getSelectionBounds(selectionBox: SilverSelectionBox) {
+  const left = Math.min(selectionBox.startX, selectionBox.currentX)
+  const top = Math.min(selectionBox.startY, selectionBox.currentY)
+  const right = Math.max(selectionBox.startX, selectionBox.currentX)
+  const bottom = Math.max(selectionBox.startY, selectionBox.currentY)
+
+  return {
+    left,
+    top,
+    right,
+    bottom,
+    width: right - left,
+    height: bottom - top,
+  }
+}
+
+function doesStickyIntersectSelection(sticky: SilverSticky, selectionBox: SilverSelectionBox) {
+  const bounds = getSelectionBounds(selectionBox)
+  const itemLeft = sticky.x
+  const itemTop = sticky.y
+  const itemRight = sticky.x + getBoardItemWidth(sticky)
+  const itemBottom = sticky.y + getBoardItemMinHeight(sticky)
+
+  return (
+    itemRight >= bounds.left &&
+    itemLeft <= bounds.right &&
+    itemBottom >= bounds.top &&
+    itemTop <= bounds.bottom
+  )
+}
+
+function doesStrokeIntersectSelection(stroke: SilverStroke, selectionBox: SilverSelectionBox) {
+  const bounds = getSelectionBounds(selectionBox)
+  const strokeXs = stroke.points.map((point) => point.x)
+  const strokeYs = stroke.points.map((point) => point.y)
+  const strokeLeft = Math.min(...strokeXs) - stroke.width / 2
+  const strokeTop = Math.min(...strokeYs) - stroke.width / 2
+  const strokeRight = Math.max(...strokeXs) + stroke.width / 2
+  const strokeBottom = Math.max(...strokeYs) + stroke.width / 2
+
+  return (
+    strokeRight >= bounds.left &&
+    strokeLeft <= bounds.right &&
+    strokeBottom >= bounds.top &&
+    strokeTop <= bounds.bottom
+  )
 }
 
 function buildDefaultPage(content = '', pageNumber = 1): SilverNotePage {
@@ -151,6 +295,8 @@ function buildDefaultSticky(
     title:
       kind === 'image'
         ? `Imagem ${index + 1}`
+        : kind === 'sheet'
+          ? `Ficha ${index + 1}`
         : kind === 'text'
           ? `Caixa ${index + 1}`
           : `Sticky ${index + 1}`,
@@ -168,6 +314,28 @@ function parseStoredTitle(value: unknown, fallback: string) {
   return typeof value === 'string' ? value : fallback
 }
 
+function parseMetricValue(value: string) {
+  const normalized = value.trim().replace(',', '.')
+
+  if (!normalized) {
+    return null
+  }
+
+  const parsed = Number(normalized)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function getMetricPercent(current: string, max: string) {
+  const currentValue = parseMetricValue(current)
+  const maxValue = parseMetricValue(max)
+
+  if (currentValue === null || maxValue === null || maxValue <= 0) {
+    return 0
+  }
+
+  return Math.min(100, Math.max(0, Math.round((currentValue / maxValue) * 100)))
+}
+
 function parseStickies(value: unknown): SilverSticky[] {
   if (!Array.isArray(value)) {
     return []
@@ -182,14 +350,26 @@ function parseStickies(value: unknown): SilverSticky[] {
       const rawY = typeof sticky.y === 'number' ? sticky.y : 6
       const looksLegacyPercent =
         rawX >= 0 && rawX <= 100 && rawY >= 0 && rawY <= 100
+      const parsedKind: SilverBoardItemKind =
+        sticky.kind === 'text' ||
+        sticky.kind === 'image' ||
+        sticky.kind === 'sheet' ||
+        sticky.kind === 'sticky'
+          ? sticky.kind
+          : 'sticky'
+      const fallbackTitle =
+        parsedKind === 'image'
+          ? `Imagem ${index + 1}`
+          : parsedKind === 'sheet'
+            ? `Ficha ${index + 1}`
+            : parsedKind === 'text'
+              ? `Caixa ${index + 1}`
+              : `Sticky ${index + 1}`
 
       return {
         id: typeof sticky.id === 'string' ? sticky.id : crypto.randomUUID(),
-        kind:
-          sticky.kind === 'text' || sticky.kind === 'image' || sticky.kind === 'sticky'
-            ? sticky.kind
-            : 'sticky',
-        title: parseStoredTitle(sticky.title, `Sticky ${index + 1}`),
+        kind: parsedKind,
+        title: parseStoredTitle(sticky.title, fallbackTitle),
         content: typeof sticky.content === 'string' ? sticky.content : '',
         x: looksLegacyPercent ? (rawX / 100) * LEGACY_BOARD_WIDTH : rawX,
         y: looksLegacyPercent ? (rawY / 100) * LEGACY_BOARD_HEIGHT : rawY,
@@ -201,6 +381,9 @@ function parseStickies(value: unknown): SilverSticky[] {
         imageHeight: typeof sticky.imageHeight === 'number' ? sticky.imageHeight : undefined,
         width: typeof sticky.width === 'number' ? sticky.width : undefined,
         height: typeof sticky.height === 'number' ? sticky.height : undefined,
+        linkedProfileId:
+          typeof sticky.linkedProfileId === 'string' ? sticky.linkedProfileId : undefined,
+        sheetPage: typeof sticky.sheetPage === 'number' ? sticky.sheetPage : undefined,
       }
     })
 }
@@ -383,6 +566,15 @@ function normaliseStoredHtml(html: string) {
   return cleaned
 }
 
+function readStoredPanelPreference(workspaceStorageKey: string | undefined, panel: 'notes' | 'reminders') {
+  if (typeof window === 'undefined') {
+    return true
+  }
+
+  const storageKey = `${SILVER_NOTEBOOK_UI_KEY}:${workspaceStorageKey ?? 'global'}:${panel}`
+  return window.localStorage.getItem(storageKey) !== '0'
+}
+
 function parseReminders(value: string): SilverReminder[] {
   if (!value.trim()) {
     return []
@@ -478,13 +670,24 @@ export function SilverNotebook({
   value,
   pagesValue,
   remindersValue,
+  workspaceStorageKey,
   onChange,
   onPagesChange,
   onRemindersChange,
   canEdit,
+  onQuickSave,
+  canQuickSave = false,
+  quickSaveBusy = false,
+  boardProfiles = [],
+  boardProfileFieldData = {},
+  pendingBoardProfileCard = null,
 }: SilverNotebookProps) {
   const notePages = useMemo(() => parseNotePages(pagesValue, value), [pagesValue, value])
   const reminders = useMemo(() => parseReminders(remindersValue), [remindersValue])
+  const boardProfilesById = useMemo(
+    () => new Map(boardProfiles.map((entry) => [entry.profileId, entry])),
+    [boardProfiles],
+  )
   const [activePageId, setActivePageId] = useState<string>('')
   const [searchQuery, setSearchQuery] = useState('')
   const [newTitle, setNewTitle] = useState('')
@@ -493,9 +696,14 @@ export function SilverNotebook({
   const [soundMessage, setSoundMessage] = useState('')
   const [nowTimestamp, setNowTimestamp] = useState(() => Date.now())
   const [draggingStickyId, setDraggingStickyId] = useState<string | null>(null)
+  const [draggingDrawingId, setDraggingDrawingId] = useState<string | null>(null)
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([])
+  const [selectedDrawingId, setSelectedDrawingId] = useState<string | null>(null)
+  const [selectedDrawingIds, setSelectedDrawingIds] = useState<string[]>([])
   const [boardTool, setBoardTool] = useState<SilverBoardTool>('pan')
   const [draftStroke, setDraftStroke] = useState<SilverStroke | null>(null)
+  const [selectionBox, setSelectionBox] = useState<SilverSelectionBox | null>(null)
   const [undoStack, setUndoStack] = useState<SilverHistorySnapshot[]>([])
   const [redoStack, setRedoStack] = useState<SilverHistorySnapshot[]>([])
   const [camera, setCamera] = useState({
@@ -507,9 +715,8 @@ export function SilverNotebook({
   const editorRef = useRef<HTMLDivElement | null>(null)
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const boardImageInputRef = useRef<HTMLInputElement | null>(null)
-  const dragStateRef = useRef<{ stickyId: string; offsetX: number; offsetY: number } | null>(
-    null,
-  )
+  const dragStateRef = useRef<SilverDragState | null>(null)
+  const drawingDragStateRef = useRef<SilverDrawingDragState | null>(null)
   const resizeStateRef = useRef<{
     stickyId: string
     startWidth: number
@@ -517,6 +724,8 @@ export function SilverNotebook({
     aspectRatio: number
     startX: number
     startY: number
+    historyCaptured: boolean
+    historySnapshot: SilverHistorySnapshot
   } | null>(null)
   const panStateRef = useRef<{
     startX: number
@@ -530,11 +739,22 @@ export function SilverNotebook({
     startH: number
     startX: number
     startY: number
+    historyCaptured: boolean
+    historySnapshot: SilverHistorySnapshot
   } | null>(null)
+  const marqueeStateRef = useRef<SilverMarqueeState | null>(null)
   const spaceHeldRef = useRef(false)
+  const bodyUserSelectRef = useRef<string | null>(null)
+  const bodyWebkitUserSelectRef = useRef<string | null>(null)
   const deleteSelectedStickyRef = useRef<(() => void) | null>(null)
-  const [showNotesPanel, setShowNotesPanel] = useState(true)
-  const [showRemindersPanel, setShowRemindersPanel] = useState(true)
+  const handledBoardInsertRequestRef = useRef<string | null>(null)
+  const [showNotesPanel, setShowNotesPanel] = useState(() =>
+    readStoredPanelPreference(workspaceStorageKey, 'notes'),
+  )
+  const [showRemindersPanel, setShowRemindersPanel] = useState(() =>
+    readStoredPanelPreference(workspaceStorageKey, 'reminders'),
+  )
+  const [previewSheetStickyId, setPreviewSheetStickyId] = useState<string | null>(null)
   const drawStateRef = useRef<{
     strokeId: string
     points: SilverStrokePoint[]
@@ -547,7 +767,21 @@ export function SilverNotebook({
     notePages.find((entry) => entry.id === resolvedActivePageId) ??
     notePages[0] ??
     buildDefaultPage(value)
-
+  const previewSheetSticky =
+    activePage.stickies.find(
+      (entry) => entry.id === previewSheetStickyId && entry.kind === 'sheet',
+    ) ?? null
+  const previewSheetFieldData =
+    previewSheetSticky?.linkedProfileId
+      ? boardProfileFieldData[previewSheetSticky.linkedProfileId]
+      : undefined
+  const previewSheetProfile =
+    previewSheetSticky?.linkedProfileId
+      ? boardProfilesById.get(previewSheetSticky.linkedProfileId)
+      : undefined
+  const previewSheetPage = Math.min(4, Math.max(1, previewSheetSticky?.sheetPage ?? 1))
+  const selectedItemIdsSet = useMemo(() => new Set(selectedItemIds), [selectedItemIds])
+  const selectedDrawingIdsSet = useMemo(() => new Set(selectedDrawingIds), [selectedDrawingIds])
   const currentSnapshot = useMemo<SilverHistorySnapshot>(
     () => ({
       pagesValue,
@@ -556,20 +790,259 @@ export function SilverNotebook({
     [pagesValue, resolvedActivePageId],
   )
 
-  useEffect(() => {
-    if (!selectedItemId) {
+  const replaceSelection = useCallback((nextIds: string[], nextPrimaryId?: string | null) => {
+    const uniqueIds = dedupeItemIds(nextIds)
+    const resolvedPrimaryId =
+      nextPrimaryId && uniqueIds.includes(nextPrimaryId)
+        ? nextPrimaryId
+        : (uniqueIds[uniqueIds.length - 1] ?? null)
+
+    setSelectedItemIds((current) => (areItemIdsEqual(current, uniqueIds) ? current : uniqueIds))
+    setSelectedItemId((current) => (current === resolvedPrimaryId ? current : resolvedPrimaryId))
+  }, [])
+
+  const replaceDrawingSelection = useCallback((nextIds: string[], nextPrimaryId?: string | null) => {
+    const uniqueIds = dedupeItemIds(nextIds)
+    const resolvedPrimaryId =
+      nextPrimaryId && uniqueIds.includes(nextPrimaryId)
+        ? nextPrimaryId
+        : (uniqueIds[uniqueIds.length - 1] ?? null)
+
+    setSelectedDrawingIds((current) => (areItemIdsEqual(current, uniqueIds) ? current : uniqueIds))
+    setSelectedDrawingId((current) => (current === resolvedPrimaryId ? current : resolvedPrimaryId))
+  }, [])
+
+  const clearSelection = useCallback(() => {
+    replaceSelection([], null)
+    replaceDrawingSelection([], null)
+  }, [replaceDrawingSelection, replaceSelection])
+
+  const selectSingleItem = useCallback((stickyId: string) => {
+    replaceSelection([stickyId], stickyId)
+    replaceDrawingSelection([], null)
+  }, [replaceDrawingSelection, replaceSelection])
+
+  const selectSingleDrawing = useCallback((strokeId: string) => {
+    replaceDrawingSelection([strokeId], strokeId)
+    replaceSelection([], null)
+  }, [replaceDrawingSelection, replaceSelection])
+
+  const toggleItemSelection = useCallback((stickyId: string) => {
+    if (selectedItemIds.includes(stickyId)) {
+      const nextIds = selectedItemIds.filter((id) => id !== stickyId)
+      const nextPrimaryId =
+        selectedItemId === stickyId ? (nextIds[nextIds.length - 1] ?? null) : selectedItemId
+
+      replaceSelection(nextIds, nextPrimaryId)
       return
     }
 
-    if (!activePage.stickies.some((sticky) => sticky.id === selectedItemId)) {
-      setSelectedItemId(null)
+    replaceSelection([...selectedItemIds, stickyId], stickyId)
+  }, [replaceSelection, selectedItemId, selectedItemIds])
+
+  const toggleDrawingSelection = useCallback((strokeId: string) => {
+    if (selectedDrawingIds.includes(strokeId)) {
+      const nextIds = selectedDrawingIds.filter((id) => id !== strokeId)
+      const nextPrimaryId =
+        selectedDrawingId === strokeId ? (nextIds[nextIds.length - 1] ?? null) : selectedDrawingId
+
+      replaceDrawingSelection(nextIds, nextPrimaryId)
+      return
     }
-  }, [activePage.stickies, selectedItemId])
+
+    replaceDrawingSelection([...selectedDrawingIds, strokeId], strokeId)
+  }, [replaceDrawingSelection, selectedDrawingId, selectedDrawingIds])
+
+  const lockDocumentSelection = useCallback(() => {
+    if (typeof document === 'undefined') {
+      return
+    }
+
+    if (bodyUserSelectRef.current === null) {
+      bodyUserSelectRef.current = document.body.style.userSelect
+      bodyWebkitUserSelectRef.current = document.body.style.webkitUserSelect
+    }
+
+    document.body.style.userSelect = 'none'
+    document.body.style.webkitUserSelect = 'none'
+  }, [])
+
+  const unlockDocumentSelection = useCallback(() => {
+    if (typeof document === 'undefined') {
+      return
+    }
+
+    document.body.style.userSelect = bodyUserSelectRef.current ?? ''
+    document.body.style.webkitUserSelect = bodyWebkitUserSelectRef.current ?? ''
+    bodyUserSelectRef.current = null
+    bodyWebkitUserSelectRef.current = null
+  }, [])
+
+  const handleStickyMouseDown = useCallback((
+    event: ReactMouseEvent<HTMLElement>,
+    stickyId: string,
+  ) => {
+    if (event.button !== 0) {
+      return
+    }
+
+    if (event.shiftKey) {
+      event.preventDefault()
+      toggleItemSelection(stickyId)
+      return
+    }
+
+    if (selectedItemIdsSet.has(stickyId)) {
+      if (selectedDrawingIds.length) {
+        replaceDrawingSelection([], null)
+      }
+      if (selectedItemId !== stickyId) {
+        setSelectedItemId(stickyId)
+      }
+      return
+    }
+
+    selectSingleItem(stickyId)
+  }, [
+    replaceDrawingSelection,
+    selectSingleItem,
+    selectedDrawingIds.length,
+    selectedItemId,
+    selectedItemIdsSet,
+    toggleItemSelection,
+  ])
+
+  const handleDrawingMouseDown = useCallback((
+    event: ReactMouseEvent<SVGPolylineElement>,
+    stroke: SilverStroke,
+  ) => {
+    if (event.button !== 0 || boardTool !== 'pan') {
+      return
+    }
+
+    if (event.shiftKey) {
+      event.preventDefault()
+      event.stopPropagation()
+      toggleDrawingSelection(stroke.id)
+      return
+    }
+
+    if (selectedDrawingIdsSet.has(stroke.id)) {
+      if (selectedItemIds.length) {
+        replaceSelection([], null)
+      }
+      if (selectedDrawingId !== stroke.id) {
+        setSelectedDrawingId(stroke.id)
+      }
+    } else {
+      selectSingleDrawing(stroke.id)
+    }
+
+    event.preventDefault()
+    event.stopPropagation()
+
+    if (!canEdit || !viewportRef.current) {
+      return
+    }
+
+    const viewportRect = viewportRef.current.getBoundingClientRect()
+    const startX = camera.x + (event.clientX - viewportRect.left) / camera.zoom
+    const startY = camera.y + (event.clientY - viewportRect.top) / camera.zoom
+    const drawingIdsToMove = selectedDrawingIdsSet.has(stroke.id) ? selectedDrawingIds : [stroke.id]
+    const originPoints = Object.fromEntries(
+      activePage.drawings
+        .filter((entry) => drawingIdsToMove.includes(entry.id))
+        .map((entry) => [entry.id, entry.points.map((point) => ({ ...point }))]),
+    )
+
+    drawingDragStateRef.current = {
+      startX,
+      startY,
+      originPoints,
+      historyCaptured: false,
+      historySnapshot: currentSnapshot,
+    }
+    lockDocumentSelection()
+    setDraggingDrawingId(stroke.id)
+  }, [
+    activePage.drawings,
+    boardTool,
+    camera.x,
+    camera.y,
+    camera.zoom,
+    canEdit,
+    currentSnapshot,
+    lockDocumentSelection,
+    replaceSelection,
+    selectSingleDrawing,
+    selectedDrawingId,
+    selectedDrawingIds,
+    selectedDrawingIdsSet,
+    selectedItemIds.length,
+    toggleDrawingSelection,
+  ])
+
+  useEffect(() => {
+    const validIds = selectedItemIds.filter((stickyId) =>
+      activePage.stickies.some((sticky) => sticky.id === stickyId),
+    )
+    const nextPrimaryId =
+      selectedItemId && validIds.includes(selectedItemId)
+        ? selectedItemId
+        : (validIds[validIds.length - 1] ?? null)
+
+    if (!areItemIdsEqual(validIds, selectedItemIds) || nextPrimaryId !== selectedItemId) {
+      replaceSelection(validIds, nextPrimaryId)
+    }
+  }, [activePage.stickies, replaceSelection, selectedItemId, selectedItemIds])
+
+  useEffect(() => {
+    const validIds = selectedDrawingIds.filter((strokeId) =>
+      activePage.drawings.some((stroke) => stroke.id === strokeId),
+    )
+    const nextPrimaryId =
+      selectedDrawingId && validIds.includes(selectedDrawingId)
+        ? selectedDrawingId
+        : (validIds[validIds.length - 1] ?? null)
+
+    if (!areItemIdsEqual(validIds, selectedDrawingIds) || nextPrimaryId !== selectedDrawingId) {
+      replaceDrawingSelection(validIds, nextPrimaryId)
+    }
+  }, [activePage.drawings, replaceDrawingSelection, selectedDrawingId, selectedDrawingIds])
+
+  useEffect(() => {
+    if (!previewSheetStickyId) {
+      return
+    }
+
+    if (!activePage.stickies.some((sticky) => sticky.id === previewSheetStickyId && sticky.kind === 'sheet')) {
+      setPreviewSheetStickyId(null)
+    }
+  }, [activePage.stickies, previewSheetStickyId])
 
   useEffect(() => {
     setDraftStroke(null)
     drawStateRef.current = null
   }, [activePage.id])
+
+  useEffect(() => () => {
+    unlockDocumentSelection()
+  }, [unlockDocumentSelection])
+
+  useEffect(() => {
+    setShowNotesPanel(readStoredPanelPreference(workspaceStorageKey, 'notes'))
+    setShowRemindersPanel(readStoredPanelPreference(workspaceStorageKey, 'reminders'))
+  }, [workspaceStorageKey])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const storagePrefix = `${SILVER_NOTEBOOK_UI_KEY}:${workspaceStorageKey ?? 'global'}`
+    window.localStorage.setItem(`${storagePrefix}:notes`, showNotesPanel ? '1' : '0')
+    window.localStorage.setItem(`${storagePrefix}:reminders`, showRemindersPanel ? '1' : '0')
+  }, [showNotesPanel, showRemindersPanel, workspaceStorageKey])
 
   const pageOrder = useMemo(
     () => new Map(notePages.map((page, index) => [page.id, index])),
@@ -758,6 +1231,22 @@ export function SilverNotebook({
     setActivePageId(resolvedNextActivePageId)
   }, [currentSnapshot, onChange, onPagesChange, resolvedActivePageId])
 
+  const pushHistorySnapshot = useCallback((snapshot: SilverHistorySnapshot) => {
+    setUndoStack((current) => {
+      const lastEntry = current[current.length - 1]
+
+      if (
+        lastEntry?.pagesValue === snapshot.pagesValue &&
+        lastEntry.activePageId === snapshot.activePageId
+      ) {
+        return current
+      }
+
+      return [...current.slice(-59), snapshot]
+    })
+    setRedoStack([])
+  }, [])
+
   const undoPages = useCallback(() => {
     if (!undoStack.length) {
       return
@@ -787,6 +1276,13 @@ export function SilverNotebook({
       entry.id === activePage.id ? updater(entry) : entry,
     )
     updatePages(nextPages, activePage.id)
+  }, [activePage.id, notePages, updatePages])
+
+  const updateActivePageWithoutHistory = useCallback((updater: (page: SilverNotePage) => SilverNotePage) => {
+    const nextPages = notePages.map((entry) =>
+      entry.id === activePage.id ? updater(entry) : entry,
+    )
+    updatePages(nextPages, activePage.id, { skipHistory: true })
   }, [activePage.id, notePages, updatePages])
 
   const createPage = () => {
@@ -970,6 +1466,39 @@ export function SilverNotebook({
     }))
   }
 
+  useEffect(() => {
+    if (!pendingBoardProfileCard) {
+      return
+    }
+
+    if (handledBoardInsertRequestRef.current === pendingBoardProfileCard.nonce) {
+      return
+    }
+
+    handledBoardInsertRequestRef.current = pendingBoardProfileCard.nonce
+
+    const linkedProfile = boardProfilesById.get(pendingBoardProfileCard.profileId)
+
+    updateActivePage((page) => ({
+      ...page,
+      stickies: [
+        ...page.stickies,
+        {
+          ...buildSpawnSticky('sheet'),
+          title: linkedProfile?.displayName ?? 'Ficha ligada',
+          linkedProfileId: pendingBoardProfileCard.profileId,
+          sheetPage: 1,
+          color: 'cyan',
+        },
+      ],
+    }))
+  }, [
+    boardProfilesById,
+    buildSpawnSticky,
+    pendingBoardProfileCard,
+    updateActivePage,
+  ])
+
 
   const updateSticky = useCallback((
     stickyId: string,
@@ -983,6 +1512,36 @@ export function SilverNotebook({
     }))
   }, [updateActivePage])
 
+  const updateStickyWithoutHistory = useCallback((
+    stickyId: string,
+    updater: (sticky: SilverSticky) => SilverSticky,
+  ) => {
+    updateActivePageWithoutHistory((page) => ({
+      ...page,
+      stickies: page.stickies.map((sticky) =>
+        sticky.id === stickyId ? updater(sticky) : sticky,
+      ),
+    }))
+  }, [updateActivePageWithoutHistory])
+
+  const deleteSelectedEntities = useCallback((stickyIds: string[], drawingIds: string[]) => {
+    const stickiesToDelete = dedupeItemIds(stickyIds)
+    const drawingsToDelete = dedupeItemIds(drawingIds)
+
+    if (!stickiesToDelete.length && !drawingsToDelete.length) {
+      return
+    }
+
+    const stickyIdsToDeleteSet = new Set(stickiesToDelete)
+    const drawingIdsToDeleteSet = new Set(drawingsToDelete)
+
+    updateActivePage((page) => ({
+      ...page,
+      stickies: page.stickies.filter((sticky) => !stickyIdsToDeleteSet.has(sticky.id)),
+      drawings: page.drawings.filter((drawing) => !drawingIdsToDeleteSet.has(drawing.id)),
+    }))
+  }, [updateActivePage])
+
   const deleteSticky = (stickyId: string) => {
     updateActivePage((page) => ({
       ...page,
@@ -991,7 +1550,9 @@ export function SilverNotebook({
   }
 
   // Always keep ref fresh so the keydown handler can call it without stale closure
-  deleteSelectedStickyRef.current = selectedItemId ? () => deleteSticky(selectedItemId) : null
+  deleteSelectedStickyRef.current = selectedItemIds.length || selectedDrawingIds.length
+    ? () => deleteSelectedEntities(selectedItemIds, selectedDrawingIds)
+    : null
 
   // Resize de stickies (não-imagem)
   useEffect(() => {
@@ -999,20 +1560,34 @@ export function SilverNotebook({
       if (!stickyResizeRef.current) return
       const dw = (e.clientX - stickyResizeRef.current.startX) / camera.zoom
       const dh = (e.clientY - stickyResizeRef.current.startY) / camera.zoom
-      updateSticky(stickyResizeRef.current.stickyId, (s) => ({
+      const nextWidth = Math.max(120, Math.round(stickyResizeRef.current.startW + dw))
+      const nextHeight = Math.max(80, Math.round(stickyResizeRef.current.startH + dh))
+
+      if (
+        !stickyResizeRef.current.historyCaptured &&
+        (nextWidth !== stickyResizeRef.current.startW || nextHeight !== stickyResizeRef.current.startH)
+      ) {
+        pushHistorySnapshot(stickyResizeRef.current.historySnapshot)
+        stickyResizeRef.current.historyCaptured = true
+      }
+
+      updateStickyWithoutHistory(stickyResizeRef.current.stickyId, (s) => ({
         ...s,
-        width: Math.max(120, Math.round(stickyResizeRef.current!.startW + dw)),
-        height: Math.max(80, Math.round(stickyResizeRef.current!.startH + dh)),
+        width: nextWidth,
+        height: nextHeight,
       }))
     }
-    const handleUp = () => { stickyResizeRef.current = null }
+    const handleUp = () => {
+      stickyResizeRef.current = null
+      unlockDocumentSelection()
+    }
     window.addEventListener('mousemove', handleMove)
     window.addEventListener('mouseup', handleUp)
     return () => {
       window.removeEventListener('mousemove', handleMove)
       window.removeEventListener('mouseup', handleUp)
     }
-  }, [camera.zoom, updateSticky])
+  }, [camera.zoom, pushHistorySnapshot, unlockDocumentSelection, updateStickyWithoutHistory])
 
   const cycleStickyColor = (stickyId: string) => {
     updateSticky(stickyId, (sticky) => {
@@ -1066,19 +1641,36 @@ export function SilverNotebook({
     const viewportRect = viewportRef.current.getBoundingClientRect()
     const pointerWorldX = camera.x + (event.clientX - viewportRect.left) / camera.zoom
     const pointerWorldY = camera.y + (event.clientY - viewportRect.top) / camera.zoom
+    const selectionIdsToMove = selectedItemIdsSet.has(sticky.id) ? selectedItemIds : [sticky.id]
+    const originPositions = Object.fromEntries(
+      activePage.stickies
+        .filter((entry) => selectionIdsToMove.includes(entry.id))
+        .map((entry) => [entry.id, { x: entry.x, y: entry.y }]),
+    )
+
+    if (!selectedItemIdsSet.has(sticky.id)) {
+      selectSingleItem(sticky.id)
+    } else if (selectedItemId !== sticky.id) {
+      setSelectedItemId(sticky.id)
+    }
 
     dragStateRef.current = {
       stickyId: sticky.id,
       offsetX: pointerWorldX - sticky.x,
       offsetY: pointerWorldY - sticky.y,
+      originPositions,
+      historyCaptured: false,
+      historySnapshot: currentSnapshot,
     }
 
+    lockDocumentSelection()
     setDraggingStickyId(sticky.id)
+    event.stopPropagation()
     event.preventDefault()
   }
 
   const handleBoardPanStart = (event: ReactMouseEvent<HTMLDivElement>) => {
-    if (!viewportRef.current) {
+    if (event.button !== 0 || !viewportRef.current) {
       return
     }
 
@@ -1088,11 +1680,10 @@ export function SilverNotebook({
       return
     }
 
-    setSelectedItemId(null)
-
     // Espaço segurado = pan temporário independente do tool
     if (spaceHeldRef.current) {
       if (viewportRef.current) viewportRef.current.style.cursor = 'grabbing'
+      lockDocumentSelection()
       panStateRef.current = {
         startX: event.clientX,
         startY: event.clientY,
@@ -1107,6 +1698,7 @@ export function SilverNotebook({
       }
       const onUp = () => {
         panStateRef.current = null
+        unlockDocumentSelection()
         if (viewportRef.current) viewportRef.current.style.cursor = spaceHeldRef.current ? 'grab' : ''
         window.removeEventListener('mousemove', onMove)
         window.removeEventListener('mouseup', onUp)
@@ -1116,6 +1708,72 @@ export function SilverNotebook({
       event.preventDefault()
       return
     }
+
+    if (boardTool === 'pan' && event.shiftKey) {
+      const viewportRect = viewportRef.current.getBoundingClientRect()
+      const startPoint = {
+        x: camera.x + (event.clientX - viewportRect.left) / camera.zoom,
+        y: camera.y + (event.clientY - viewportRect.top) / camera.zoom,
+      }
+      const baseSelectionIds = [...selectedItemIds]
+      const baseDrawingSelectionIds = [...selectedDrawingIds]
+
+      marqueeStateRef.current = {
+        startX: startPoint.x,
+        startY: startPoint.y,
+        baseSelectionIds,
+        baseDrawingSelectionIds,
+      }
+      lockDocumentSelection()
+      setSelectionBox({
+        startX: startPoint.x,
+        startY: startPoint.y,
+        currentX: startPoint.x,
+        currentY: startPoint.y,
+      })
+
+      const handleMove = (moveEvent: MouseEvent) => {
+        if (!marqueeStateRef.current || !viewportRef.current) {
+          return
+        }
+
+        const selectionViewportRect = viewportRef.current.getBoundingClientRect()
+        const nextSelectionBox = {
+          startX: marqueeStateRef.current.startX,
+          startY: marqueeStateRef.current.startY,
+          currentX: camera.x + (moveEvent.clientX - selectionViewportRect.left) / camera.zoom,
+          currentY: camera.y + (moveEvent.clientY - selectionViewportRect.top) / camera.zoom,
+        }
+        const boxedIds = activePage.stickies
+          .filter((sticky) => doesStickyIntersectSelection(sticky, nextSelectionBox))
+          .map((sticky) => sticky.id)
+        const boxedDrawingIds = activePage.drawings
+          .filter((stroke) => doesStrokeIntersectSelection(stroke, nextSelectionBox))
+          .map((stroke) => stroke.id)
+
+        setSelectionBox(nextSelectionBox)
+        replaceSelection([...marqueeStateRef.current.baseSelectionIds, ...boxedIds])
+        replaceDrawingSelection([
+          ...marqueeStateRef.current.baseDrawingSelectionIds,
+          ...boxedDrawingIds,
+        ])
+      }
+
+      const handleUp = () => {
+        marqueeStateRef.current = null
+        setSelectionBox(null)
+        unlockDocumentSelection()
+        window.removeEventListener('mousemove', handleMove)
+        window.removeEventListener('mouseup', handleUp)
+      }
+
+      window.addEventListener('mousemove', handleMove)
+      window.addEventListener('mouseup', handleUp)
+      event.preventDefault()
+      return
+    }
+
+    clearSelection()
 
     if (boardTool === 'erase' && canEdit) {
       const viewportRect = viewportRef.current.getBoundingClientRect()
@@ -1152,6 +1810,7 @@ export function SilverNotebook({
         strokeId,
         points: [startPoint],
       }
+      lockDocumentSelection()
       setDraftStroke({
         id: strokeId,
         color: DRAW_COLOR,
@@ -1224,6 +1883,7 @@ export function SilverNotebook({
           }))
         }
 
+        unlockDocumentSelection()
         setDraftStroke(null)
         window.removeEventListener('mousemove', handleMove)
         window.removeEventListener('mouseup', handleUp)
@@ -1235,6 +1895,7 @@ export function SilverNotebook({
       return
     }
 
+    lockDocumentSelection()
     panStateRef.current = {
       startX: event.clientX,
       startY: event.clientY,
@@ -1259,12 +1920,14 @@ export function SilverNotebook({
 
     const handleUp = () => {
       panStateRef.current = null
+      unlockDocumentSelection()
       window.removeEventListener('mousemove', handleMove)
       window.removeEventListener('mouseup', handleUp)
     }
 
     window.addEventListener('mousemove', handleMove)
     window.addEventListener('mouseup', handleUp)
+    event.preventDefault()
   }
 
   const startImageResize = (
@@ -1277,7 +1940,8 @@ export function SilverNotebook({
 
     event.preventDefault()
     event.stopPropagation()
-    setSelectedItemId(sticky.id)
+    selectSingleItem(sticky.id)
+    lockDocumentSelection()
 
     const startWidth = sticky.imageWidth ?? 320
     const startHeight = sticky.imageHeight ?? 180
@@ -1289,20 +1953,25 @@ export function SilverNotebook({
       aspectRatio: startWidth / Math.max(startHeight, 1),
       startX: event.clientX,
       startY: event.clientY,
+      historyCaptured: false,
+      historySnapshot: currentSnapshot,
     }
   }
 
   const startStickyResize = (event: ReactMouseEvent<HTMLButtonElement>, sticky: SilverSticky) => {
-    if (!canEdit) return
+    if (!canEdit || sticky.kind === 'sheet') return
     event.preventDefault()
     event.stopPropagation()
-    setSelectedItemId(sticky.id)
+    selectSingleItem(sticky.id)
+    lockDocumentSelection()
     stickyResizeRef.current = {
       stickyId: sticky.id,
       startW: getBoardItemWidth(sticky),
       startH: getBoardItemMinHeight(sticky),
       startX: event.clientX,
       startY: event.clientY,
+      historyCaptured: false,
+      historySnapshot: currentSnapshot,
     }
   }
 
@@ -1357,18 +2026,43 @@ export function SilverNotebook({
       const viewportRect = viewportRef.current.getBoundingClientRect()
       const worldX = camera.x + (event.clientX - viewportRect.left) / camera.zoom
       const worldY = camera.y + (event.clientY - viewportRect.top) / camera.zoom
-      const nextX = Number((worldX - dragStateRef.current.offsetX).toFixed(2))
-      const nextY = Number((worldY - dragStateRef.current.offsetY).toFixed(2))
+      const nextAnchorX = Number((worldX - dragStateRef.current.offsetX).toFixed(2))
+      const nextAnchorY = Number((worldY - dragStateRef.current.offsetY).toFixed(2))
+      const anchorOrigin = dragStateRef.current.originPositions[dragStateRef.current.stickyId]
 
-      updateSticky(draggingStickyId, (sticky) => ({
-        ...sticky,
-        x: nextX,
-        y: nextY,
+      if (!anchorOrigin) {
+        return
+      }
+
+      const deltaX = nextAnchorX - anchorOrigin.x
+      const deltaY = nextAnchorY - anchorOrigin.y
+
+      if (!dragStateRef.current.historyCaptured && (deltaX !== 0 || deltaY !== 0)) {
+        pushHistorySnapshot(dragStateRef.current.historySnapshot)
+        dragStateRef.current.historyCaptured = true
+      }
+
+      updateActivePageWithoutHistory((page) => ({
+        ...page,
+        stickies: page.stickies.map((sticky) => {
+          const origin = dragStateRef.current?.originPositions[sticky.id]
+
+          if (!origin) {
+            return sticky
+          }
+
+          return {
+            ...sticky,
+            x: Number((origin.x + deltaX).toFixed(2)),
+            y: Number((origin.y + deltaY).toFixed(2)),
+          }
+        }),
       }))
     }
 
     const handleUp = () => {
       dragStateRef.current = null
+      unlockDocumentSelection()
       setDraggingStickyId(null)
     }
 
@@ -1379,7 +2073,79 @@ export function SilverNotebook({
       window.removeEventListener('mousemove', handleMove)
       window.removeEventListener('mouseup', handleUp)
     }
-  }, [camera.x, camera.y, camera.zoom, draggingStickyId, updateSticky])
+  }, [
+    camera.x,
+    camera.y,
+    camera.zoom,
+    draggingStickyId,
+    pushHistorySnapshot,
+    unlockDocumentSelection,
+    updateActivePageWithoutHistory,
+  ])
+
+  useEffect(() => {
+    if (!draggingDrawingId) {
+      return
+    }
+
+    const handleMove = (event: MouseEvent) => {
+      if (!drawingDragStateRef.current || !viewportRef.current) {
+        return
+      }
+
+      const viewportRect = viewportRef.current.getBoundingClientRect()
+      const worldX = camera.x + (event.clientX - viewportRect.left) / camera.zoom
+      const worldY = camera.y + (event.clientY - viewportRect.top) / camera.zoom
+      const deltaX = worldX - drawingDragStateRef.current.startX
+      const deltaY = worldY - drawingDragStateRef.current.startY
+
+      if (!drawingDragStateRef.current.historyCaptured && (deltaX !== 0 || deltaY !== 0)) {
+        pushHistorySnapshot(drawingDragStateRef.current.historySnapshot)
+        drawingDragStateRef.current.historyCaptured = true
+      }
+
+      updateActivePageWithoutHistory((page) => ({
+        ...page,
+        drawings: page.drawings.map((stroke) => {
+          const originPoints = drawingDragStateRef.current?.originPoints[stroke.id]
+
+          if (!originPoints) {
+            return stroke
+          }
+
+          return {
+            ...stroke,
+            points: originPoints.map((point) => ({
+              x: Number((point.x + deltaX).toFixed(2)),
+              y: Number((point.y + deltaY).toFixed(2)),
+            })),
+          }
+        }),
+      }))
+    }
+
+    const handleUp = () => {
+      drawingDragStateRef.current = null
+      unlockDocumentSelection()
+      setDraggingDrawingId(null)
+    }
+
+    window.addEventListener('mousemove', handleMove)
+    window.addEventListener('mouseup', handleUp)
+
+    return () => {
+      window.removeEventListener('mousemove', handleMove)
+      window.removeEventListener('mouseup', handleUp)
+    }
+  }, [
+    camera.x,
+    camera.y,
+    camera.zoom,
+    draggingDrawingId,
+    pushHistorySnapshot,
+    unlockDocumentSelection,
+    updateActivePageWithoutHistory,
+  ])
 
   useEffect(() => {
     const handleMove = (event: MouseEvent) => {
@@ -1399,7 +2165,16 @@ export function SilverNotebook({
         Math.round(nextWidth / resizeStateRef.current.aspectRatio),
       )
 
-      updateSticky(resizeStateRef.current.stickyId, (sticky) => ({
+      if (
+        !resizeStateRef.current.historyCaptured &&
+        (nextWidth !== resizeStateRef.current.startWidth ||
+          nextHeight !== resizeStateRef.current.startHeight)
+      ) {
+        pushHistorySnapshot(resizeStateRef.current.historySnapshot)
+        resizeStateRef.current.historyCaptured = true
+      }
+
+      updateStickyWithoutHistory(resizeStateRef.current.stickyId, (sticky) => ({
         ...sticky,
         imageWidth: nextWidth,
         imageHeight: nextHeight,
@@ -1408,6 +2183,7 @@ export function SilverNotebook({
 
     const handleUp = () => {
       resizeStateRef.current = null
+      unlockDocumentSelection()
     }
 
     window.addEventListener('mousemove', handleMove)
@@ -1417,11 +2193,12 @@ export function SilverNotebook({
       window.removeEventListener('mousemove', handleMove)
       window.removeEventListener('mouseup', handleUp)
     }
-  }, [camera.zoom, updateSticky])
+  }, [camera.zoom, pushHistorySnapshot, unlockDocumentSelection, updateStickyWithoutHistory])
 
   const visibleDrawings = draftStroke
     ? [...activePage.drawings, draftStroke]
     : activePage.drawings
+  const selectionBoxBounds = selectionBox ? getSelectionBounds(selectionBox) : null
 
   return (
     <section className="hud-panel rounded-[28px] p-3 md:p-4">
@@ -1448,148 +2225,324 @@ export function SilverNotebook({
             }}
           />
 
-          <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible">
+          <svg className="absolute inset-0 h-full w-full overflow-visible">
             {visibleDrawings.map((stroke) => (
-              <polyline
-                key={stroke.id}
-                fill="none"
-                stroke={stroke.color}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={stroke.width * camera.zoom}
-                points={stroke.points
-                  .map(
-                    (point) =>
-                      `${(point.x - camera.x) * camera.zoom},${(point.y - camera.y) * camera.zoom}`,
-                  )
-                  .join(' ')}
-              />
+              <g key={stroke.id}>
+                {selectedDrawingIdsSet.has(stroke.id) ? (
+                  <polyline
+                    fill="none"
+                    stroke="#f3e600"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={(stroke.width + 6) * camera.zoom}
+                    opacity={0.28}
+                    pointerEvents="none"
+                    points={stroke.points
+                      .map(
+                        (point) =>
+                          `${(point.x - camera.x) * camera.zoom},${(point.y - camera.y) * camera.zoom}`,
+                      )
+                      .join(' ')}
+                  />
+                ) : null}
+                <polyline
+                  data-board-drawing="true"
+                  fill="none"
+                  stroke={stroke.color}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={stroke.width * camera.zoom}
+                  onMouseDown={
+                    draftStroke?.id === stroke.id
+                      ? undefined
+                      : (event) => handleDrawingMouseDown(event, stroke)
+                  }
+                  style={{
+                    pointerEvents:
+                      boardTool === 'pan' && draftStroke?.id !== stroke.id ? 'stroke' : 'none',
+                    cursor:
+                      boardTool === 'pan' && draftStroke?.id !== stroke.id
+                        ? draggingDrawingId === stroke.id
+                          ? 'grabbing'
+                          : 'grab'
+                        : 'default',
+                  }}
+                  points={stroke.points
+                    .map(
+                      (point) =>
+                        `${(point.x - camera.x) * camera.zoom},${(point.y - camera.y) * camera.zoom}`,
+                    )
+                    .join(' ')}
+                />
+              </g>
             ))}
           </svg>
 
             {activePage.stickies.length || visibleDrawings.length ? (
-              activePage.stickies.map((sticky) => (
-                <article
-                  key={sticky.id}
-                  data-board-item="true"
-                  onMouseDown={() => setSelectedItemId(sticky.id)}
-                  className={`absolute border p-2 shadow-[0_10px_24px_rgba(0,0,0,0.28)] ${
-                    sticky.kind === 'text'
-                      ? 'border-white/20 bg-black/60'
-                      : sticky.kind === 'image'
-                        ? 'border-white/20 bg-black/70'
-                        : STICKY_COLOR_CLASSES[sticky.color]
-                  } ${
-                    selectedItemId === sticky.id
-                      ? 'ring-1 ring-[#f3e600]/65'
-                      : ''
-                  } ${draggingStickyId === sticky.id ? 'cursor-grabbing' : ''}`}
-                  style={{
-                    transform: `translate(${(sticky.x - camera.x) * camera.zoom}px, ${(sticky.y - camera.y) * camera.zoom}px) scale(${camera.zoom})`,
-                    transformOrigin: 'top left',
-                    width: `${getBoardItemWidth(sticky)}px`,
-                    minHeight: `${getBoardItemMinHeight(sticky)}px`,
-                  }}
-                >
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onMouseDown={(event) => startStickyDrag(event, sticky)}
-                    disabled={!canEdit}
-                    className="signal-button cursor-grab px-2 py-1 text-[0.65rem]"
-                    data-variant="ghost"
-                    title="Arrastar"
+              activePage.stickies.map((sticky) => {
+                const linkedProfile = sticky.linkedProfileId
+                  ? boardProfilesById.get(sticky.linkedProfileId)
+                  : undefined
+                const linkedProfileFieldData = sticky.linkedProfileId
+                  ? boardProfileFieldData[sticky.linkedProfileId]
+                  : undefined
+                const hasHpMetric = linkedProfile
+                  ? parseMetricValue(linkedProfile.hpCurrent) !== null &&
+                    parseMetricValue(linkedProfile.hpMax) !== null
+                  : false
+                const hpPercent = linkedProfile
+                  ? getMetricPercent(linkedProfile.hpCurrent, linkedProfile.hpMax)
+                  : 0
+
+                return (
+                  <article
+                    key={sticky.id}
+                    data-board-item="true"
+                    onMouseDown={(event) => handleStickyMouseDown(event, sticky.id)}
+                    className={`absolute border p-2 shadow-[0_10px_24px_rgba(0,0,0,0.28)] ${
+                      sticky.kind === 'text'
+                        ? 'border-white/20 bg-black/60'
+                        : sticky.kind === 'image'
+                          ? 'border-white/20 bg-black/70'
+                          : sticky.kind === 'sheet'
+                            ? 'border-white/20 bg-black/78'
+                            : STICKY_COLOR_CLASSES[sticky.color]
+                    } ${
+                      selectedItemIdsSet.has(sticky.id)
+                        ? 'ring-1 ring-[#f3e600]/65'
+                        : ''
+                    } ${draggingStickyId === sticky.id ? 'cursor-grabbing' : ''}`}
+                    style={{
+                      transform: `translate(${(sticky.x - camera.x) * camera.zoom}px, ${(sticky.y - camera.y) * camera.zoom}px) scale(${camera.zoom})`,
+                      transformOrigin: 'top left',
+                      width: `${getBoardItemWidth(sticky)}px`,
+                      minHeight: `${getBoardItemMinHeight(sticky)}px`,
+                    }}
                   >
-                    mover
-                  </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onMouseDown={(event) => startStickyDrag(event, sticky)}
+                        disabled={!canEdit}
+                        className="signal-button cursor-grab px-2 py-1 text-[0.65rem]"
+                        data-variant="ghost"
+                        title="Arrastar"
+                      >
+                        mover
+                      </button>
 
-                  {sticky.kind !== 'image' ? (
-                    <button
-                      type="button"
-                      onClick={() => cycleStickyColor(sticky.id)}
-                      disabled={!canEdit}
-                      className="signal-button px-2 py-1 text-[0.65rem]"
-                      data-variant="ghost"
-                      title="Mudar cor"
-                    >
-                      cor
-                    </button>
-                  ) : null}
+                      {sticky.kind !== 'image' && sticky.kind !== 'sheet' ? (
+                        <button
+                          type="button"
+                          onClick={() => cycleStickyColor(sticky.id)}
+                          disabled={!canEdit}
+                          className="signal-button px-2 py-1 text-[0.65rem]"
+                          data-variant="ghost"
+                          title="Mudar cor"
+                        >
+                          cor
+                        </button>
+                      ) : null}
 
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); deleteSticky(sticky.id) }}
-                    disabled={!canEdit}
-                    className="signal-button ml-auto px-2 py-1 text-[0.65rem]"
-                    data-tone="danger"
-                    title="Apagar"
-                  >
-                    <Trash2 size={11} />
-                  </button>
-                </div>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); deleteSticky(sticky.id) }}
+                        disabled={!canEdit}
+                        className="signal-button ml-auto px-2 py-1 text-[0.65rem]"
+                        data-tone="danger"
+                        title="Apagar"
+                      >
+                        <Trash2 size={11} />
+                      </button>
+                    </div>
 
-                <input
-                  type="text"
-                  value={sticky.title}
-                  readOnly={!canEdit}
-                  onChange={(event) =>
-                    updateSticky(sticky.id, (entry) => ({
-                      ...entry,
-                      title: event.target.value,
-                    }))
-                  }
-                  placeholder="Titulo"
-                  className="mt-2 w-full border border-white/15 bg-black/15 px-2 py-1 text-xs font-semibold text-white outline-none focus:border-white/35"
-                />
+                    {sticky.kind === 'sheet' ? (
+                      <div className="mt-2 space-y-3">
+                        <div className="border border-white/12 bg-black/20 px-3 py-2.5">
+                          <p className="truncate text-sm font-semibold text-white">
+                            {sticky.title || linkedProfile?.displayName || 'Ficha ligada'}
+                          </p>
+                          <p className="mt-1 text-[0.62rem] uppercase tracking-[0.18em] text-stone-500">
+                            {linkedProfile?.subtitle ?? 'Sem perfil ligado'}
+                          </p>
+                        </div>
 
-                  {sticky.kind === 'image' ? (
-                    <div className="relative mt-2">
-                      {sticky.imageData ? (
-                        <>
-                          <img
-                            src={sticky.imageData}
-                            alt={sticky.title}
-                            className="block h-auto w-full"
-                          />
-                          {selectedItemId === sticky.id ? (
+                        {linkedProfile ? (
+                          <>
+                            <div className="border border-white/10 bg-black/24 px-3 py-2.5">
+                              <div className="flex items-end justify-between gap-3">
+                                <div>
+                                  <p className="text-[0.62rem] uppercase tracking-[0.18em] text-stone-500">
+                                    HP
+                                  </p>
+                                  <p className="mt-1 text-lg font-semibold text-white">
+                                    {linkedProfile.hpCurrent || '--'}
+                                    <span className="ml-1 text-sm text-stone-500">
+                                      / {linkedProfile.hpMax || '--'}
+                                    </span>
+                                  </p>
+                                </div>
+
+                                <p className="text-[0.65rem] uppercase tracking-[0.14em] text-stone-500">
+                                  {hasHpMetric ? `${hpPercent}%` : 'sem total'}
+                                </p>
+                              </div>
+
+                              <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/8">
+                                <div
+                                  className={`h-full rounded-full ${
+                                    hpPercent <= 35 ? 'bg-rose-400' : 'bg-[#f3e600]'
+                                  }`}
+                                  style={{ width: `${hpPercent}%` }}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                              <div className="border border-white/10 bg-black/20 px-3 py-2">
+                                <p className="text-[0.62rem] uppercase tracking-[0.16em] text-stone-500">
+                                  PS
+                                </p>
+                                <p className="mt-1 font-semibold text-white">
+                                  {linkedProfile.psCurrent || '--'} / {linkedProfile.psMax || '--'}
+                                </p>
+                              </div>
+                              <div className="border border-white/10 bg-black/20 px-3 py-2">
+                                <p className="text-[0.62rem] uppercase tracking-[0.16em] text-stone-500">
+                                  PE
+                                </p>
+                                <p className="mt-1 font-semibold text-white">
+                                  {linkedProfile.peCurrent || '--'} / {linkedProfile.peMax || '--'}
+                                </p>
+                              </div>
+                              <div className="border border-white/10 bg-black/20 px-3 py-2">
+                                <p className="text-[0.62rem] uppercase tracking-[0.16em] text-stone-500">
+                                  Defesa
+                                </p>
+                                <p className="mt-1 font-semibold text-white">
+                                  {linkedProfile.defense || '--'}
+                                </p>
+                              </div>
+                              <div className="border border-white/10 bg-black/20 px-3 py-2">
+                                <p className="text-[0.62rem] uppercase tracking-[0.16em] text-stone-500">
+                                  Bloqueio
+                                </p>
+                                <p className="mt-1 font-semibold text-white">
+                                  {linkedProfile.block || '--'}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                              <div className="border border-white/10 bg-black/20 px-3 py-2">
+                                <p className="text-[0.62rem] uppercase tracking-[0.16em] text-stone-500">
+                                  Karma
+                                </p>
+                                <p className="mt-1 font-semibold text-white">
+                                  {linkedProfile.karma || '--'}
+                                </p>
+                              </div>
+                              <div className="border border-white/10 bg-black/20 px-3 py-2">
+                                <p className="text-[0.62rem] uppercase tracking-[0.16em] text-stone-500">
+                                  Sync
+                                </p>
+                                <p className="mt-1 font-semibold text-white">
+                                  {linkedProfile.updatedAt ? 'Ao vivo' : 'Snapshot'}
+                                </p>
+                              </div>
+                            </div>
+
                             <button
                               type="button"
-                              onMouseDown={(event) => startImageResize(event, sticky)}
-                              className="absolute bottom-0 right-0 h-4 w-4 translate-x-1/2 translate-y-1/2 border border-[#f3e600] bg-black shadow-[0_0_0_1px_rgba(0,0,0,0.35)]"
-                              title="Redimensionar imagem"
-                            />
-                          ) : null}
-                        </>
-                      ) : (
-                        <div className="flex h-[160px] items-center justify-center border border-white/15 bg-black/15 text-xs text-stone-500">
-                          Sem imagem
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <textarea
-                      value={sticky.content}
-                      readOnly={!canEdit}
-                      onChange={(event) =>
-                        updateSticky(sticky.id, (entry) => ({
-                          ...entry,
-                          content: event.target.value,
-                        }))
-                      }
-                      placeholder={sticky.kind === 'text' ? 'Texto livre...' : 'Escreve aqui...'}
-                      className="mt-2 min-h-[110px] w-full resize-none border border-white/15 bg-black/15 px-2 py-2 text-xs leading-5 text-stone-100 outline-none focus:border-white/35"
-                    />
-                  )}
-                  {selectedItemId === sticky.id && sticky.kind !== 'image' && canEdit ? (
-                    <button
-                      type="button"
-                      onMouseDown={(e) => startStickyResize(e, sticky)}
-                      className="absolute bottom-0 right-0 h-4 w-4 translate-x-1/2 translate-y-1/2 border border-[#f3e600] bg-black shadow-[0_0_0_1px_rgba(0,0,0,0.35)]"
-                      title="Redimensionar"
-                    />
-                  ) : null}
-                </article>
-              ))
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                setPreviewSheetStickyId(sticky.id)
+                              }}
+                              className="signal-button inline-flex w-full items-center justify-center gap-2 px-3 py-2 text-xs"
+                              data-variant="ghost"
+                              disabled={!linkedProfileFieldData || !Object.keys(linkedProfileFieldData).length}
+                            >
+                              <Search size={12} />
+                              Ver ficha
+                            </button>
+                          </>
+                        ) : (
+                          <div className="border border-dashed border-white/10 bg-black/18 px-3 py-4 text-xs leading-6 text-stone-500">
+                            Esta ficha ainda nao tem dados sincronizados no quadro.
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <>
+                        <input
+                          type="text"
+                          value={sticky.title}
+                          readOnly={!canEdit}
+                          onChange={(event) =>
+                            updateSticky(sticky.id, (entry) => ({
+                              ...entry,
+                              title: event.target.value,
+                            }))
+                          }
+                          placeholder="Titulo"
+                          className="mt-2 w-full border border-white/15 bg-black/15 px-2 py-1 text-xs font-semibold text-white outline-none focus:border-white/35"
+                        />
+
+                        {sticky.kind === 'image' ? (
+                          <div className="relative mt-2">
+                            {sticky.imageData ? (
+                              <>
+                                <img
+                                  src={sticky.imageData}
+                                  alt={sticky.title}
+                                  className="block h-auto w-full"
+                                />
+                                {selectedItemIds.length === 1 && selectedItemId === sticky.id ? (
+                                  <button
+                                    type="button"
+                                    onMouseDown={(event) => startImageResize(event, sticky)}
+                                    className="absolute bottom-0 right-0 h-4 w-4 translate-x-1/2 translate-y-1/2 border border-[#f3e600] bg-black shadow-[0_0_0_1px_rgba(0,0,0,0.35)]"
+                                    title="Redimensionar imagem"
+                                  />
+                                ) : null}
+                              </>
+                            ) : (
+                              <div className="flex h-[160px] items-center justify-center border border-white/15 bg-black/15 text-xs text-stone-500">
+                                Sem imagem
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <textarea
+                            value={sticky.content}
+                            readOnly={!canEdit}
+                            onChange={(event) =>
+                              updateSticky(sticky.id, (entry) => ({
+                                ...entry,
+                                content: event.target.value,
+                              }))
+                            }
+                            placeholder={sticky.kind === 'text' ? 'Texto livre...' : 'Escreve aqui...'}
+                            className="mt-2 min-h-[110px] w-full resize-none border border-white/15 bg-black/15 px-2 py-2 text-xs leading-5 text-stone-100 outline-none focus:border-white/35"
+                          />
+                        )}
+                      </>
+                    )}
+                    {selectedItemIds.length === 1 &&
+                    selectedItemId === sticky.id &&
+                    sticky.kind !== 'image' &&
+                    sticky.kind !== 'sheet' &&
+                    canEdit ? (
+                      <button
+                        type="button"
+                        onMouseDown={(e) => startStickyResize(e, sticky)}
+                        className="absolute bottom-0 right-0 h-4 w-4 translate-x-1/2 translate-y-1/2 border border-[#f3e600] bg-black shadow-[0_0_0_1px_rgba(0,0,0,0.35)]"
+                        title="Redimensionar"
+                      />
+                    ) : null}
+                  </article>
+                )
+              })
             ) : (
             <div className="absolute left-1/2 top-1/2 w-[420px] -translate-x-1/2 -translate-y-1/2 border border-white/10 bg-black/55 px-6 py-5 text-center shadow-[0_18px_38px_rgba(0,0,0,0.35)]">
               <p className="panel-title">Quadro vazio</p>
@@ -1598,6 +2551,18 @@ export function SilverNotebook({
               </p>
             </div>
           )}
+
+          {selectionBoxBounds ? (
+            <div
+              className="pointer-events-none absolute border border-dashed border-[#f3e600]/75 bg-[#f3e600]/10"
+              style={{
+                left: `${(selectionBoxBounds.left - camera.x) * camera.zoom}px`,
+                top: `${(selectionBoxBounds.top - camera.y) * camera.zoom}px`,
+                width: `${selectionBoxBounds.width * camera.zoom}px`,
+                height: `${selectionBoxBounds.height * camera.zoom}px`,
+              }}
+            />
+          ) : null}
         </div>
 
         <div className="pointer-events-none absolute inset-0">
@@ -1960,6 +2925,17 @@ export function SilverNotebook({
               Imagem
             </button>
 
+            <button
+              type="button"
+              onClick={() => onQuickSave?.()}
+              disabled={!canEdit || !canQuickSave || quickSaveBusy}
+              className="signal-button inline-flex items-center gap-2 px-4 py-2 text-xs"
+              data-variant="ghost"
+            >
+              <Save size={13} />
+              {quickSaveBusy ? 'A guardar...' : 'Guardar'}
+            </button>
+
             <div className="mx-1 h-5 w-px bg-white/10" />
 
             <button
@@ -1984,6 +2960,95 @@ export function SilverNotebook({
             </button>
 
           </div>
+
+          {previewSheetSticky && previewSheetFieldData && Object.keys(previewSheetFieldData).length ? (
+            <div className="pointer-events-auto absolute inset-0 z-30 flex items-center justify-center bg-black/72 p-4">
+              <div
+                className="flex max-h-[calc(100%-32px)] w-[min(78vw,860px)] flex-col border border-white/10 bg-[#0b0b0b] shadow-[0_18px_48px_rgba(0,0,0,0.52)]"
+                onMouseDown={(event) => event.stopPropagation()}
+                onWheel={(event) => event.stopPropagation()}
+              >
+                <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-white">
+                      {previewSheetSticky.title || previewSheetProfile?.displayName || 'Ficha ligada'}
+                    </p>
+                    <p className="mt-1 text-[0.68rem] uppercase tracking-[0.18em] text-stone-500">
+                      {previewSheetProfile?.subtitle ?? 'Perfil'}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateSticky(previewSheetSticky.id, (entry) => ({
+                          ...entry,
+                          sheetPage: Math.max(1, (entry.sheetPage ?? 1) - 1),
+                        }))
+                      }
+                      className="signal-button px-2 py-1 text-[0.65rem]"
+                      data-variant="ghost"
+                      disabled={previewSheetPage <= 1}
+                      title="Pagina anterior"
+                    >
+                      <ChevronLeft size={12} />
+                    </button>
+
+                    {[1, 2, 3, 4].map((page) => (
+                      <button
+                        key={page}
+                        type="button"
+                        onClick={() =>
+                          updateSticky(previewSheetSticky.id, (entry) => ({
+                            ...entry,
+                            sheetPage: page,
+                          }))
+                        }
+                        className="signal-button px-2.5 py-1 text-[0.65rem]"
+                        data-variant={previewSheetPage === page ? undefined : 'ghost'}
+                      >
+                        {page}
+                      </button>
+                    ))}
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateSticky(previewSheetSticky.id, (entry) => ({
+                          ...entry,
+                          sheetPage: Math.min(4, (entry.sheetPage ?? 1) + 1),
+                        }))
+                      }
+                      className="signal-button px-2 py-1 text-[0.65rem]"
+                      data-variant="ghost"
+                      disabled={previewSheetPage >= 4}
+                      title="Pagina seguinte"
+                    >
+                      <ChevronRight size={12} />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setPreviewSheetStickyId(null)}
+                      className="signal-button px-3 py-1.5 text-[0.65rem]"
+                      data-variant="ghost"
+                    >
+                      Fechar
+                    </button>
+                  </div>
+                </div>
+
+                <div className="min-h-0 flex-1 overflow-auto bg-[#070707] p-4">
+                  <PdfSheetPreview
+                    fieldData={previewSheetFieldData}
+                    pageNumber={previewSheetPage}
+                    className="mx-auto w-full max-w-[760px] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none"
+                  />
+                </div>
+              </div>
+            </div>
+          ) : null}
 
           <input
             ref={boardImageInputRef}

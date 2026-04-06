@@ -192,6 +192,30 @@ export async function fetchNpcSheet(npcId: string): Promise<WebSheetRecord> {
   return mapNpcSheet(data as NpcCardRow)
 }
 
+export async function fetchSheetSnapshot(profile: Profile): Promise<WebSheetRecord | null> {
+  const client = ensureSupabase()
+
+  if (isNpcProfile(profile)) {
+    const { data, error } = await client
+      .from('npc_cards')
+      .select('id, display_name, field_data, updated_at')
+      .eq('id', profile.id)
+      .maybeSingle()
+
+    if (error) throw error
+    return data ? mapNpcSheet(data as NpcCardRow) : null
+  }
+
+  const { data, error } = await client
+    .from('character_sheet_forms')
+    .select('id, profile_id, template_key, field_data, updated_at')
+    .eq('profile_id', profile.id)
+    .maybeSingle()
+
+  if (error) throw error
+  return data ? mapSheet(data as SheetRow) : null
+}
+
 export async function deleteNpcCard(npcId: string): Promise<void> {
   const client = ensureSupabase()
   const { error } = await client.from('npc_cards').delete().eq('id', npcId)
@@ -292,8 +316,12 @@ export function subscribeToSheet(
   onChange: (sheet: WebSheetRecord) => void,
 ) {
   const client = ensureSupabase()
+  const channelId =
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2)
   const channel = client
-    .channel(`character-sheet-form:${profileId}:${Date.now()}`)
+    .channel(`character-sheet-form:${profileId}:${Date.now()}:${channelId}`)
     .on(
       'postgres_changes',
       {
