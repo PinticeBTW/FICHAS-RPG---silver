@@ -534,6 +534,7 @@ export function SilverNotebook({
     startY: number
   } | null>(null)
   const spaceHeldRef = useRef(false)
+  const deleteSelectedStickyRef = useRef<(() => void) | null>(null)
   const [showNotesPanel, setShowNotesPanel] = useState(true)
   const [showRemindersPanel, setShowRemindersPanel] = useState(true)
   const drawStateRef = useRef<{
@@ -869,16 +870,25 @@ export function SilverNotebook({
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (!(event.ctrlKey || event.metaKey) || event.altKey) {
-        return
-      }
-
       const target = event.target as HTMLElement | null
       const isTextContext =
         target?.tagName === 'INPUT' ||
         target?.tagName === 'TEXTAREA' ||
         target?.isContentEditable ||
         Boolean(target?.closest('[contenteditable="true"]'))
+
+      // Delete/Backspace → delete the selected sticky (when not in a text field)
+      if ((event.key === 'Delete' || event.key === 'Backspace') && !isTextContext) {
+        if (deleteSelectedStickyRef.current) {
+          event.preventDefault()
+          deleteSelectedStickyRef.current()
+        }
+        return
+      }
+
+      if (!(event.ctrlKey || event.metaKey) || event.altKey) {
+        return
+      }
 
       if (isTextContext || event.key.toLowerCase() !== 'z') {
         return
@@ -981,6 +991,9 @@ export function SilverNotebook({
       stickies: page.stickies.filter((sticky) => sticky.id !== stickyId),
     }))
   }
+
+  // Always keep ref fresh so the keydown handler can call it without stale closure
+  deleteSelectedStickyRef.current = selectedItemId ? () => deleteSticky(selectedItemId) : null
 
   // Resize de stickies (não-imagem)
   useEffect(() => {
