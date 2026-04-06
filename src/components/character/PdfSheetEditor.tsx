@@ -224,33 +224,29 @@ function buildFieldStyle(field: PdfSheetTemplateField) {
 }
 
 // Zonas de imagem na página 1 (coordenadas em % da página)
+// FOTO = retrato principal (esquerda da página)
 const portraitZone: {
-  key: string
   style: React.CSSProperties
   cropW: number
   cropH: number
   imagePosition?: string
-  imageInset?: React.CSSProperties
 } = {
-  key: 'FOTO',
-  style: { left: '65.3%', top: '43.7%', width: '31.8%', height: '15.2%' },
-  cropW: 320,
-  cropH: 180,
+  style: { left: '3.2%', top: '11%', width: '60%', height: '33%' },
+  cropW: 350,
+  cropH: 265,
   imagePosition: 'center center',
 }
 
+// FOTO2 = foto pequena na zona do karma (direita da página)
 const infoPhotoZone: {
-  key: string
   style: React.CSSProperties
   cropW: number
   cropH: number
   imagePosition?: string
-  imageInset?: React.CSSProperties
 } = {
-  key: 'FOTO2',
-  style: { left: '3.6%', top: '11.1%', width: '46.2%', height: '31.25%' },
-  cropW: 360,
-  cropH: 300,
+  style: { left: '70%', top: '40%', width: '24%', height: '21.5%' },
+  cropW: 222,
+  cropH: 150,
   imagePosition: 'center center',
 }
 
@@ -435,7 +431,6 @@ function TemplatePdfPage({
               cropW={infoPhotoZone.cropW}
               cropH={infoPhotoZone.cropH}
               imagePosition={infoPhotoZone.imagePosition}
-              imageInset={infoPhotoZone.imageInset}
             />
           </div>
 
@@ -447,7 +442,6 @@ function TemplatePdfPage({
               cropW={portraitZone.cropW}
               cropH={portraitZone.cropH}
               imagePosition={portraitZone.imagePosition}
-              imageInset={portraitZone.imageInset}
             />
           </div>
         </>
