@@ -44,7 +44,13 @@ function buildInitialFieldData() {
   return Object.fromEntries(pdfSheetTemplateFields.map((field) => [field.name, '']))
 }
 
-const EXTRA_FIELD_KEYS = ['FOTO', 'FOTO2']
+const EXTRA_FIELD_KEYS = [
+  'FOTO',
+  'FOTO2',
+  'GM_NOTES',
+  'GM_NOTE_PAGES',
+  'GM_REMINDERS',
+]
 
 function mapSheet(row: SheetRow): WebSheetRecord {
   const nextFieldData: Record<string, string> = {}
@@ -136,6 +142,42 @@ export async function createNpcCard(displayName: string): Promise<Profile> {
 
   if (error) throw error
   return mapNpcProfile(data as NpcCardRow)
+}
+
+export async function updateProfileDisplayName(profileId: string, displayName: string): Promise<void> {
+  const client = ensureSupabase()
+  const trimmed = displayName.trim()
+
+  if (!trimmed) {
+    return
+  }
+
+  const { error } = await client
+    .from('profiles')
+    .update({ display_name: trimmed })
+    .eq('id', profileId)
+
+  if (error) {
+    throw error
+  }
+}
+
+export async function updateNpcCardDisplayName(npcId: string, displayName: string): Promise<void> {
+  const client = ensureSupabase()
+  const trimmed = displayName.trim()
+
+  if (!trimmed) {
+    return
+  }
+
+  const { error } = await client
+    .from('npc_cards')
+    .update({ display_name: trimmed, updated_at: new Date().toISOString() })
+    .eq('id', npcId)
+
+  if (error) {
+    throw error
+  }
 }
 
 export async function fetchNpcSheet(npcId: string): Promise<WebSheetRecord> {

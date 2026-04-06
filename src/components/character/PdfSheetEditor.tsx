@@ -224,26 +224,52 @@ function buildFieldStyle(field: PdfSheetTemplateField) {
 }
 
 // Zonas de imagem na página 1 (coordenadas em % da página)
-const imageZones: { key: string; style: React.CSSProperties }[] = [
-  {
-    key: 'FOTO',
-    style: { left: '3.2%', top: '11%', width: '60%', height: '36%' },
-  },
-  {
-    key: 'FOTO2',
-    style: { left: '65.1%', top: '46.9%', width: '31.8%', height: '14.7%' },
-  },
-]
+const portraitZone: {
+  key: string
+  style: React.CSSProperties
+  cropW: number
+  cropH: number
+  imagePosition?: string
+  imageInset?: React.CSSProperties
+} = {
+  key: 'FOTO',
+  style: { left: '65.3%', top: '43.7%', width: '31.8%', height: '15.2%' },
+  cropW: 320,
+  cropH: 180,
+  imagePosition: 'center center',
+}
+
+const infoPhotoZone: {
+  key: string
+  style: React.CSSProperties
+  cropW: number
+  cropH: number
+  imagePosition?: string
+  imageInset?: React.CSSProperties
+} = {
+  key: 'FOTO2',
+  style: { left: '3.6%', top: '11.1%', width: '46.2%', height: '31.25%' },
+  cropW: 360,
+  cropH: 300,
+  imagePosition: 'center center',
+}
 
 function ImageUploadZone({
   value,
   canEdit,
   onChange,
+  cropW,
+  cropH,
+  imagePosition,
+  imageInset,
 }: {
   value: string
   canEdit: boolean
   onChange: (dataUrl: string) => void
-  style?: React.CSSProperties
+  cropW: number
+  cropH: number
+  imagePosition?: string
+  imageInset?: React.CSSProperties
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -251,14 +277,19 @@ function ImageUploadZone({
     const img = new Image()
     const url = URL.createObjectURL(file)
     img.onload = () => {
-      const MAX = 600
-      const scale = Math.min(1, MAX / Math.max(img.width, img.height))
-      const w = Math.round(img.width * scale)
-      const h = Math.round(img.height * scale)
+      const W = cropW
+      const H = cropH
       const canvas = document.createElement('canvas')
-      canvas.width = w
-      canvas.height = h
-      canvas.getContext('2d')!.drawImage(img, 0, 0, w, h)
+      canvas.width = W
+      canvas.height = H
+      const ctx = canvas.getContext('2d')!
+      // crop ao centro mantendo proporção
+      const scale = Math.max(W / img.width, H / img.height)
+      const sw = W / scale
+      const sh = H / scale
+      const sx = (img.width - sw) / 2
+      const sy = (img.height - sh) / 2
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, W, H)
       URL.revokeObjectURL(url)
       onChange(canvas.toDataURL('image/jpeg', 0.85))
     }
@@ -271,7 +302,15 @@ function ImageUploadZone({
         <>
           <img
             src={value}
-            className="absolute h-full w-full object-cover"
+            className="absolute object-cover"
+            style={{
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              ...(imagePosition ? { objectPosition: imagePosition } : {}),
+              ...(imageInset ?? {}),
+            }}
           />
           {canEdit && (
             <button
@@ -288,7 +327,7 @@ function ImageUploadZone({
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="absolute flex h-full w-full items-center justify-center gap-2 text-stone-500 transition hover:text-stone-300 hover:bg-white/5"
+          className="absolute inset-0 flex items-center justify-center gap-2 text-stone-500 transition hover:text-stone-300 hover:bg-white/5"
         >
           <ImagePlus size={20} />
           <span className="text-xs">Adicionar foto</span>
@@ -386,15 +425,33 @@ function TemplatePdfPage({
         <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
       )}
 
-      {pageNumber === 1 && imageZones.map((zone) => (
-        <div key={zone.key} className="group/img absolute overflow-hidden" style={zone.style}>
+      {pageNumber === 1 ? (
+        <>
+          <div className="group/img absolute overflow-hidden" style={infoPhotoZone.style}>
           <ImageUploadZone
-            value={fieldData[zone.key] ?? ''}
+            value={fieldData.FOTO2 ?? ''}
             canEdit={canEdit}
-            onChange={(dataUrl) => onFieldChange(zone.key, dataUrl)}
-          />
-        </div>
-      ))}
+              onChange={(dataUrl) => onFieldChange('FOTO2', dataUrl)}
+              cropW={infoPhotoZone.cropW}
+              cropH={infoPhotoZone.cropH}
+              imagePosition={infoPhotoZone.imagePosition}
+              imageInset={infoPhotoZone.imageInset}
+            />
+          </div>
+
+          <div className="group/img absolute overflow-hidden" style={portraitZone.style}>
+          <ImageUploadZone
+            value={fieldData.FOTO ?? ''}
+            canEdit={canEdit}
+              onChange={(dataUrl) => onFieldChange('FOTO', dataUrl)}
+              cropW={portraitZone.cropW}
+              cropH={portraitZone.cropH}
+              imagePosition={portraitZone.imagePosition}
+              imageInset={portraitZone.imageInset}
+            />
+          </div>
+        </>
+      ) : null}
 
       {pageFields.map((field) => {
         const style = buildFieldStyle(field)

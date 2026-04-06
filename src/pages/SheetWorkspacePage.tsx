@@ -1,9 +1,10 @@
-import { ChevronDown, ChevronRight, Folder, FolderOpen, GripVertical, LogOut, Plus, RefreshCcw, Save, X } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, Folder, FolderOpen, GripVertical, LogOut, Pencil, Plus, RefreshCcw, Save, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { PdfSheetEditor } from '../components/character/PdfSheetEditor'
 import { EmptyState } from '../components/common/EmptyState'
 import { LoadingScreen } from '../components/common/LoadingScreen'
+import { SilverNotebook } from '../components/notes/SilverNotebook'
 import { useAuth } from '../hooks/useAuth'
 import { formatTimestamp } from '../lib/utils'
 import {
@@ -15,6 +16,8 @@ import {
   listSheetProfiles,
   loadGmGroups,
   saveGmGroups,
+  updateNpcCardDisplayName,
+  updateProfileDisplayName,
   saveNpcSheet,
   saveSheetFields,
   subscribeToSheet,
@@ -22,7 +25,8 @@ import {
 } from '../lib/webSheetService'
 import type { Profile, WebSheetRecord } from '../types/domain'
 
-const AUTOSAVE_DELAY_MS = 60_000
+const AUTOSAVE_DELAY_MS = 1200
+const SILVER_AUTOSAVE_DELAY_MS = 60000
 
 function serializeFieldData(fieldData: Record<string, string>) {
   return JSON.stringify(
@@ -42,6 +46,13 @@ function ProfileCard({
   onToggleDropdown,
   onToggleGroup,
   onRemoveFromAll,
+  renaming,
+  renameValue,
+  renameSaving,
+  onStartRename,
+  onRenameChange,
+  onSaveRename,
+  onCancelRename,
   onDeleteNpc,
 }: {
   entry: Profile
@@ -53,6 +64,13 @@ function ProfileCard({
   onToggleDropdown: () => void
   onToggleGroup: (groupId: string) => void
   onRemoveFromAll: () => void
+  renaming: boolean
+  renameValue: string
+  renameSaving: boolean
+  onStartRename: () => void
+  onRenameChange: (value: string) => void
+  onSaveRename: () => void
+  onCancelRename: () => void
   onDeleteNpc?: () => void
 }) {
   const isNpc = entry.email.startsWith('npc:')
@@ -79,7 +97,16 @@ function ProfileCard({
 
       {/* Folder toggle button */}
       {isGm && groups.length > 0 && (
-        <div className="absolute right-1.5 top-1.5">
+        <div className="absolute right-1.5 top-1.5 flex items-center gap-1">
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onStartRename() }}
+            className="p-1 text-stone-600 transition hover:text-stone-300"
+            title="Mudar nome"
+          >
+            <Pencil size={11} />
+          </button>
+
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onToggleDropdown() }}
@@ -127,6 +154,19 @@ function ProfileCard({
         </div>
       )}
 
+      {isGm && !groups.length ? (
+        <div className="absolute right-1.5 top-1.5">
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onStartRename() }}
+            className="p-1 text-stone-600 transition hover:text-stone-300"
+            title="Mudar nome"
+          >
+            <Pencil size={11} />
+          </button>
+        </div>
+      ) : null}
+
       {/* Delete NPC button */}
       {isGm && isNpc && onDeleteNpc && (
         <button
@@ -138,6 +178,44 @@ function ProfileCard({
           <X size={11} />
         </button>
       )}
+
+      {renaming ? (
+        <div className="border-x border-b border-white/10 bg-black/35 px-3 py-2">
+          <div className="flex items-center gap-1">
+            <input
+              autoFocus
+              type="text"
+              value={renameValue}
+              onChange={(event) => onRenameChange(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  onSaveRename()
+                }
+                if (event.key === 'Escape') {
+                  onCancelRename()
+                }
+              }}
+              className="min-w-0 flex-1 border border-white/20 bg-black/40 px-2 py-1 text-xs text-white outline-none focus:border-[#f3e600]/50"
+            />
+            <button
+              type="button"
+              onClick={onSaveRename}
+              disabled={renameSaving}
+              className="signal-button px-2 py-1 text-xs"
+            >
+              <Save size={11} />
+            </button>
+            <button
+              type="button"
+              onClick={onCancelRename}
+              className="signal-button px-2 py-1 text-xs"
+              data-variant="ghost"
+            >
+              <X size={11} />
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -155,6 +233,8 @@ export function SheetWorkspacePage() {
   const [syncLabel, setSyncLabel] = useState('Auto-save ativo')
   const [error, setError] = useState<string | null>(null)
   const autosaveTimerRef = useRef<number | null>(null)
+  const sheetSignatureRef = useRef('')
+  const draftSignatureRef = useRef('')
   const [groups, setGroups] = useState<ProfileGroup[]>([])
   const groupsLoadedRef = useRef(false)
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
@@ -168,12 +248,18 @@ export function SheetWorkspacePage() {
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     return parseInt(localStorage.getItem('sidebar-width') ?? '280', 10)
   })
+  const [sidebarHidden, setSidebarHidden] = useState(() => {
+    return localStorage.getItem('sidebar-hidden') === '1'
+  })
   const isResizingRef = useRef(false)
   const [newFichaName, setNewFichaName] = useState('')
   const [addingFicha, setAddingFicha] = useState(false)
   const [creatingFicha, setCreatingFicha] = useState(false)
   const [editingName, setEditingName] = useState(false)
   const [nameInput, setNameInput] = useState('')
+  const [renamingProfileId, setRenamingProfileId] = useState<string | null>(null)
+  const [renamingValue, setRenamingValue] = useState('')
+  const [renamingSaving, setRenamingSaving] = useState(false)
 
   const accessibleProfiles = useMemo(() => {
     if (!profile) {
@@ -188,7 +274,16 @@ export function SheetWorkspacePage() {
   const selectedProfile =
     accessibleProfiles.find((entry) => entry.id === profileId) ?? accessibleProfiles[0] ?? null
 
+  const isSilverWorkspace = Boolean(
+    profile &&
+    selectedProfile &&
+    profile.role === 'gm' &&
+    selectedProfile.id === profile.id &&
+    selectedProfile.role === 'gm',
+  )
+
   const canEdit = Boolean(profile && selectedProfile && (profile.role === 'gm' || selectedProfile.id === profile.id))
+  const autosaveDelayMs = isSilverWorkspace ? SILVER_AUTOSAVE_DELAY_MS : AUTOSAVE_DELAY_MS
   const sheetSignature = useMemo(
     () => serializeFieldData(sheet?.fieldData ?? {}),
     [sheet],
@@ -198,6 +293,14 @@ export function SheetWorkspacePage() {
     [draftFields],
   )
   const isDirty = sheet !== null && sheetSignature !== draftSignature
+
+  useEffect(() => {
+    sheetSignatureRef.current = sheetSignature
+  }, [sheetSignature])
+
+  useEffect(() => {
+    draftSignatureRef.current = draftSignature
+  }, [draftSignature])
 
   const refreshProfiles = useCallback(async () => {
     setLoadingProfiles(true)
@@ -285,11 +388,14 @@ export function SheetWorkspacePage() {
     }
 
     const unsubscribe = subscribeToSheet(selectedProfile.id, (nextSheet) => {
+      const nextSignature = serializeFieldData(nextSheet.fieldData)
+      const hasLocalChanges = draftSignatureRef.current !== sheetSignatureRef.current
+
       setSheet((current) => {
         if (
           current &&
           current.updatedAt === nextSheet.updatedAt &&
-          serializeFieldData(current.fieldData) === serializeFieldData(nextSheet.fieldData)
+          serializeFieldData(current.fieldData) === nextSignature
         ) {
           return current
         }
@@ -298,15 +404,24 @@ export function SheetWorkspacePage() {
       })
 
       setDraftFields((current) => {
-        if (serializeFieldData(current) === serializeFieldData(nextSheet.fieldData)) {
+        const currentSignature = serializeFieldData(current)
+
+        if (currentSignature === nextSignature) {
+          return current
+        }
+
+        if (hasLocalChanges) {
           return current
         }
 
         return nextSheet.fieldData
       })
 
-      setSyncLabel('Atualizado em tempo real')
-      setSaving(false)
+      setSyncLabel(hasLocalChanges ? 'Alteracoes locais por guardar...' : 'Atualizado em tempo real')
+
+      if (!hasLocalChanges) {
+        setSaving(false)
+      }
     })
 
     return () => {
@@ -356,7 +471,11 @@ export function SheetWorkspacePage() {
       return
     }
 
-    setSyncLabel('Alteracoes por guardar...')
+    setSyncLabel(
+      isSilverWorkspace
+        ? 'Alteracoes por guardar. Clica em Guardar ou espera 1 min sem mexer.'
+        : 'Alteracoes por guardar...',
+    )
 
     if (autosaveTimerRef.current) {
       window.clearTimeout(autosaveTimerRef.current)
@@ -364,7 +483,7 @@ export function SheetWorkspacePage() {
 
     autosaveTimerRef.current = window.setTimeout(() => {
       void handleSave()
-    }, AUTOSAVE_DELAY_MS)
+    }, autosaveDelayMs)
 
     return () => {
       if (autosaveTimerRef.current) {
@@ -372,7 +491,7 @@ export function SheetWorkspacePage() {
         autosaveTimerRef.current = null
       }
     }
-  }, [canEdit, handleSave, isDirty, selectedProfile, sheet])
+  }, [autosaveDelayMs, canEdit, handleSave, isDirty, isSilverWorkspace, selectedProfile, sheet])
 
   // Carregar grupos do Supabase quando o GM entra
   useEffect(() => {
@@ -482,6 +601,30 @@ export function SheetWorkspacePage() {
     localStorage.setItem('sidebar-width', String(sidebarWidth))
   }, [sidebarWidth])
 
+  useEffect(() => {
+    localStorage.setItem('sidebar-hidden', sidebarHidden ? '1' : '0')
+  }, [sidebarHidden])
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarHidden((current) => !current)
+  }, [])
+
+  useEffect(() => {
+    const handleKeydown = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== 's' || !event.altKey || event.ctrlKey || event.metaKey) {
+        return
+      }
+
+      event.preventDefault()
+      setSidebarHidden((current) => !current)
+    }
+
+    window.addEventListener('keydown', handleKeydown)
+    return () => {
+      window.removeEventListener('keydown', handleKeydown)
+    }
+  }, [])
+
   const handleResizeStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
     isResizingRef.current = true
@@ -525,6 +668,54 @@ export function SheetWorkspacePage() {
     navigate('/', { replace: true })
   }, [navigate, signOut])
 
+  const handleStartRename = useCallback((target: Profile) => {
+    setOpenMoveDropdown(null)
+    setRenamingProfileId(target.id)
+    setRenamingValue(target.displayName)
+  }, [])
+
+  const handleCancelRename = useCallback(() => {
+    setRenamingProfileId(null)
+    setRenamingValue('')
+    setRenamingSaving(false)
+  }, [])
+
+  const handleSaveRename = useCallback(async (target: Profile) => {
+    const trimmed = renamingValue.trim()
+    if (!trimmed) {
+      return
+    }
+
+    setRenamingSaving(true)
+    setError(null)
+
+    try {
+      if (isNpcProfile(target)) {
+        await updateNpcCardDisplayName(target.id, trimmed)
+      } else if (profile && target.id === profile.id) {
+        await updateDisplayName(trimmed)
+      } else {
+        await updateProfileDisplayName(target.id, trimmed)
+      }
+
+      setProfiles((current) =>
+        current.map((entry) =>
+          entry.id === target.id ? { ...entry, displayName: trimmed } : entry,
+        ),
+      )
+      setRenamingProfileId(null)
+      setRenamingValue('')
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : 'Nao foi possivel mudar o nome desta pessoa.',
+      )
+    } finally {
+      setRenamingSaving(false)
+    }
+  }, [profile, renamingValue, updateDisplayName])
+
   if (!profile) {
     return <Navigate to="/" replace />
   }
@@ -550,7 +741,11 @@ export function SheetWorkspacePage() {
         </div>
       ) : null}
 
-      <div className="grid gap-3" style={{ gridTemplateColumns: `${sidebarWidth}px 1fr` }}>
+      <div
+        className="grid gap-3"
+        style={{ gridTemplateColumns: sidebarHidden ? '1fr' : `${sidebarWidth}px 1fr` }}
+      >
+        {!sidebarHidden ? (
         <aside className="hud-panel relative rounded-[28px] p-4">
           {/* Drag handle */}
           <div
@@ -844,6 +1039,13 @@ export function SheetWorkspacePage() {
                             onToggleDropdown={() => setOpenMoveDropdown((prev) => prev === entry.id ? null : entry.id)}
                             onToggleGroup={(gid) => toggleProfileInGroup(entry.id, gid)}
                             onRemoveFromAll={() => removeFromAllGroups(entry.id)}
+                            renaming={renamingProfileId === entry.id}
+                            renameValue={renamingProfileId === entry.id ? renamingValue : entry.displayName}
+                            renameSaving={renamingSaving && renamingProfileId === entry.id}
+                            onStartRename={() => handleStartRename(entry)}
+                            onRenameChange={setRenamingValue}
+                            onSaveRename={() => void handleSaveRename(entry)}
+                            onCancelRename={handleCancelRename}
                             onDeleteNpc={entry.email.startsWith('npc:') ? () => setConfirmDeleteNpcId(entry.id) : undefined}
                           />
                         ))
@@ -869,29 +1071,77 @@ export function SheetWorkspacePage() {
                   onNavigate={() => navigate(`/app/sheets/${entry.id}`)}
                   onToggleDropdown={() => setOpenMoveDropdown((prev) => prev === entry.id ? null : entry.id)}
                   onToggleGroup={(gid) => toggleProfileInGroup(entry.id, gid)}
-                onRemoveFromAll={() => removeFromAllGroups(entry.id)}
-                onDeleteNpc={entry.email.startsWith('npc:') ? () => setConfirmDeleteNpcId(entry.id) : undefined}
+                  onRemoveFromAll={() => removeFromAllGroups(entry.id)}
+                  renaming={renamingProfileId === entry.id}
+                  renameValue={renamingProfileId === entry.id ? renamingValue : entry.displayName}
+                  renameSaving={renamingSaving && renamingProfileId === entry.id}
+                  onStartRename={() => handleStartRename(entry)}
+                  onRenameChange={setRenamingValue}
+                  onSaveRename={() => void handleSaveRename(entry)}
+                  onCancelRename={handleCancelRename}
+                  onDeleteNpc={entry.email.startsWith('npc:') ? () => setConfirmDeleteNpcId(entry.id) : undefined}
                 />
               ))
             })()}
           </div>
 
         </aside>
+        ) : null}
 
-        <section className="space-y-4">
+        <section className="relative min-w-0 space-y-4">
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            className="signal-button absolute left-2 top-2 z-20 inline-flex items-center gap-2 px-3 py-2 text-xs"
+            data-variant="ghost"
+            title={sidebarHidden ? 'Mostrar sidebar (Alt+S)' : 'Esconder sidebar (Alt+S)'}
+          >
+            {sidebarHidden ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+            <span className="hidden md:inline">
+              {sidebarHidden ? 'Mostrar sidebar' : 'Esconder sidebar'}
+            </span>
+          </button>
+
           {loadingSheet || !selectedProfile ? (
             <LoadingScreen label="A abrir a ficha..." />
           ) : sheet ? (
-            <PdfSheetEditor
-              fieldData={draftFields}
-              onFieldChange={(fieldName, value) => {
-                setDraftFields((current) => ({
-                  ...current,
-                  [fieldName]: value,
-                }))
-              }}
-              canEdit={canEdit}
-            />
+            isSilverWorkspace ? (
+              <SilverNotebook
+                value={draftFields.GM_NOTES ?? ''}
+                pagesValue={draftFields.GM_NOTE_PAGES ?? ''}
+                remindersValue={draftFields.GM_REMINDERS ?? ''}
+                onChange={(value) => {
+                  setDraftFields((current) => ({
+                    ...current,
+                    GM_NOTES: value,
+                  }))
+                }}
+                onPagesChange={(value) => {
+                  setDraftFields((current) => ({
+                    ...current,
+                    GM_NOTE_PAGES: value,
+                  }))
+                }}
+                onRemindersChange={(value) => {
+                  setDraftFields((current) => ({
+                    ...current,
+                    GM_REMINDERS: value,
+                  }))
+                }}
+                canEdit={canEdit}
+              />
+            ) : (
+              <PdfSheetEditor
+                fieldData={draftFields}
+                onFieldChange={(fieldName, value) => {
+                  setDraftFields((current) => ({
+                    ...current,
+                    [fieldName]: value,
+                  }))
+                }}
+                canEdit={canEdit}
+              />
+            )
           ) : (
             <EmptyState
               title="Ficha indisponivel"
