@@ -164,6 +164,10 @@ function buildDefaultSticky(
   }
 }
 
+function parseStoredTitle(value: unknown, fallback: string) {
+  return typeof value === 'string' ? value : fallback
+}
+
 function parseStickies(value: unknown): SilverSticky[] {
   if (!Array.isArray(value)) {
     return []
@@ -185,10 +189,7 @@ function parseStickies(value: unknown): SilverSticky[] {
           sticky.kind === 'text' || sticky.kind === 'image' || sticky.kind === 'sticky'
             ? sticky.kind
             : 'sticky',
-        title:
-          typeof sticky.title === 'string' && sticky.title.trim()
-            ? sticky.title
-            : `Sticky ${index + 1}`,
+        title: parseStoredTitle(sticky.title, `Sticky ${index + 1}`),
         content: typeof sticky.content === 'string' ? sticky.content : '',
         x: looksLegacyPercent ? (rawX / 100) * LEGACY_BOARD_WIDTH : rawX,
         y: looksLegacyPercent ? (rawY / 100) * LEGACY_BOARD_HEIGHT : rawY,
@@ -329,10 +330,7 @@ function parseNotePages(pagesValue: string, legacyValue: string): SilverNotePage
 
         return {
           id: typeof page.id === 'string' ? page.id : crypto.randomUUID(),
-          title:
-            typeof page.title === 'string' && page.title.trim()
-              ? page.title
-              : `Pagina ${index + 1}`,
+          title: parseStoredTitle(page.title, `Pagina ${index + 1}`),
           content: typeof page.content === 'string' ? page.content : '',
           pinned: Boolean(page.pinned),
           stickies: parseStickies(page.stickies),
