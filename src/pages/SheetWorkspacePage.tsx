@@ -746,7 +746,7 @@ export function SheetWorkspacePage() {
         style={{ gridTemplateColumns: sidebarHidden ? '1fr' : `${sidebarWidth}px 1fr` }}
       >
         {!sidebarHidden ? (
-        <aside className="hud-panel relative rounded-[28px] p-4">
+        <aside className="hud-panel relative rounded-[28px] p-4 self-start sticky top-2" style={{ maxHeight: 'calc(100vh - 16px)', overflowY: 'auto' }}>
           {/* Drag handle */}
           <div
             onMouseDown={handleResizeStart}
