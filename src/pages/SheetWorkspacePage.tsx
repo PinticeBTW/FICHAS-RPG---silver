@@ -389,7 +389,6 @@ export function SheetWorkspacePage() {
 
     const unsubscribe = subscribeToSheet(selectedProfile.id, (nextSheet) => {
       const nextSignature = serializeFieldData(nextSheet.fieldData)
-      const hasLocalChanges = draftSignatureRef.current !== sheetSignatureRef.current
 
       setSheet((current) => {
         if (
@@ -410,6 +409,9 @@ export function SheetWorkspacePage() {
           return current
         }
 
+        // Compute hasLocalChanges from current state, not a potentially stale ref
+        const hasLocalChanges = currentSignature !== sheetSignatureRef.current
+
         if (hasLocalChanges) {
           return current
         }
@@ -417,9 +419,13 @@ export function SheetWorkspacePage() {
         return nextSheet.fieldData
       })
 
-      setSyncLabel(hasLocalChanges ? 'Alteracoes locais por guardar...' : 'Atualizado em tempo real')
+      setSyncLabel(
+        draftSignatureRef.current !== sheetSignatureRef.current
+          ? 'Alteracoes locais por guardar...'
+          : 'Atualizado em tempo real',
+      )
 
-      if (!hasLocalChanges) {
+      if (draftSignatureRef.current === sheetSignatureRef.current) {
         setSaving(false)
       }
     })
@@ -448,11 +454,15 @@ export function SheetWorkspacePage() {
         ? await saveNpcSheet(selectedProfile.id, draftFields)
         : await saveSheetFields(selectedProfile.id, draftFields)
       setSheet(savedSheet)
-      setDraftFields((current) =>
-        serializeFieldData(current) === serializeFieldData(savedSheet.fieldData)
-          ? current
-          : savedSheet.fieldData,
-      )
+      setDraftFields((current) => {
+        const savedSig = serializeFieldData(savedSheet.fieldData)
+        const draftSigAtSave = serializeFieldData(draftFields)
+        const currentSig = serializeFieldData(current)
+        // If user made changes during the save, preserve them
+        if (currentSig !== draftSigAtSave) return current
+        // No new changes - normalize to saved version (in case server mutated anything)
+        return currentSig === savedSig ? current : savedSheet.fieldData
+      })
       setSyncLabel('Guardado automaticamente')
     } catch (caughtError) {
       const message =
