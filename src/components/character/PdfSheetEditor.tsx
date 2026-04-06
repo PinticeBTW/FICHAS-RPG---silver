@@ -581,3 +581,30 @@ export function PdfSheetEditor({
     </div>
   )
 }
+
+export function PdfSheetPreview({
+  fieldData,
+  pageNumber = 1,
+  className,
+}: {
+  fieldData: Record<string, string>
+  pageNumber?: number
+  className?: string
+}) {
+  const color = karmaToColor(fieldData['KARMA'] ?? '')
+  const gender = sexoToGender(fieldData['SEXO'] ?? '')
+  const templateUrl = TEMPLATE_URLS[`${color}-${gender}`] ?? TEMPLATE_URLS['grey-m']
+  const safePageNumber = Math.min(4, Math.max(1, Math.round(pageNumber)))
+
+  return (
+    <div className={className}>
+      <TemplatePdfPage
+        pageNumber={safePageNumber}
+        templateUrl={templateUrl}
+        fieldData={fieldData}
+        onFieldChange={() => {}}
+        canEdit={false}
+      />
+    </div>
+  )
+}

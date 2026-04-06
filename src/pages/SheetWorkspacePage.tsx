@@ -1,15 +1,20 @@
-import { ChevronDown, ChevronLeft, ChevronRight, Folder, FolderOpen, GripVertical, LogOut, Pencil, Plus, RefreshCcw, Save, X } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, Folder, FolderOpen, GripVertical, LogOut, Pencil, Plus, RefreshCcw, Save, Search, StickyNote, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { PdfSheetEditor } from '../components/character/PdfSheetEditor'
 import { EmptyState } from '../components/common/EmptyState'
 import { LoadingScreen } from '../components/common/LoadingScreen'
-import { SilverNotebook } from '../components/notes/SilverNotebook'
+import {
+  SilverNotebook,
+  type SilverBoardInsertRequest,
+  type SilverBoardProfileSummary,
+} from '../components/notes/SilverNotebook'
 import { useAuth } from '../hooks/useAuth'
 import { formatTimestamp } from '../lib/utils'
 import {
   createNpcCard,
   deleteNpcCard,
+  fetchSheetSnapshot,
   fetchNpcSheet,
   fetchOrCreateSheet,
   isNpcProfile,
@@ -36,6 +41,50 @@ function serializeFieldData(fieldData: Record<string, string>) {
   )
 }
 
+function readSheetField(fieldData: Record<string, string> | undefined, ...keys: string[]) {
+  if (!fieldData) {
+    return ''
+  }
+
+  for (const key of keys) {
+    const value = fieldData[key]
+
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim()
+    }
+  }
+
+  return ''
+}
+
+function buildBoardProfileSummary(
+  profile: Profile,
+  sheet: WebSheetRecord | null | undefined,
+): SilverBoardProfileSummary {
+  const fieldData = sheet?.fieldData
+  const subtitle = isNpcProfile(profile)
+    ? 'NPC'
+    : profile.role === 'gm'
+      ? 'GM'
+      : 'Jogador'
+
+  return {
+    profileId: profile.id,
+    displayName: readSheetField(fieldData, 'NOME') || profile.displayName,
+    subtitle,
+    hpCurrent: readSheetField(fieldData, 'PV-ATUAL'),
+    hpMax: readSheetField(fieldData, 'PV'),
+    psCurrent: readSheetField(fieldData, 'PS-ATUAL'),
+    psMax: readSheetField(fieldData, 'PS'),
+    peCurrent: readSheetField(fieldData, 'PE-ATUAL'),
+    peMax: readSheetField(fieldData, 'PE'),
+    defense: readSheetField(fieldData, 'DEFESA'),
+    block: readSheetField(fieldData, 'BLOQUEIO'),
+    karma: readSheetField(fieldData, 'KARMA'),
+    updatedAt: sheet?.updatedAt ?? '',
+  }
+}
+
 function ProfileCard({
   entry,
   selected,
@@ -54,6 +103,7 @@ function ProfileCard({
   onSaveRename,
   onCancelRename,
   onDeleteNpc,
+  onPinToBoard,
 }: {
   entry: Profile
   selected: boolean
@@ -72,6 +122,7 @@ function ProfileCard({
   onSaveRename: () => void
   onCancelRename: () => void
   onDeleteNpc?: () => void
+  onPinToBoard?: () => void
 }) {
   const isNpc = entry.email.startsWith('npc:')
   const assignedGroupIds = new Set(groups.filter((g) => g.profileIds.includes(entry.id)).map((g) => g.id))
@@ -98,6 +149,17 @@ function ProfileCard({
       {/* Folder toggle button */}
       {isGm && groups.length > 0 && (
         <div className="absolute right-1.5 top-1.5 flex items-center gap-1">
+          {onPinToBoard ? (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onPinToBoard() }}
+              className="p-1 text-stone-600 transition hover:text-[#f3e600]"
+              title="Meter no quadro"
+            >
+              <StickyNote size={11} />
+            </button>
+          ) : null}
+
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onStartRename() }}
@@ -156,14 +218,27 @@ function ProfileCard({
 
       {isGm && !groups.length ? (
         <div className="absolute right-1.5 top-1.5">
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onStartRename() }}
-            className="p-1 text-stone-600 transition hover:text-stone-300"
-            title="Mudar nome"
-          >
-            <Pencil size={11} />
-          </button>
+          <div className="flex items-center gap-1">
+            {onPinToBoard ? (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onPinToBoard() }}
+                className="p-1 text-stone-600 transition hover:text-[#f3e600]"
+                title="Meter no quadro"
+              >
+                <StickyNote size={11} />
+              </button>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onStartRename() }}
+              className="p-1 text-stone-600 transition hover:text-stone-300"
+              title="Mudar nome"
+            >
+              <Pencil size={11} />
+            </button>
+          </div>
         </div>
       ) : null}
 
@@ -260,6 +335,10 @@ export function SheetWorkspacePage() {
   const [renamingProfileId, setRenamingProfileId] = useState<string | null>(null)
   const [renamingValue, setRenamingValue] = useState('')
   const [renamingSaving, setRenamingSaving] = useState(false)
+  const [boardSheetSnapshots, setBoardSheetSnapshots] = useState<Record<string, WebSheetRecord | null>>({})
+  const [pendingBoardProfileCard, setPendingBoardProfileCard] =
+    useState<SilverBoardInsertRequest | null>(null)
+  const [profileSearchQuery, setProfileSearchQuery] = useState('')
 
   const accessibleProfiles = useMemo(() => {
     if (!profile) {
@@ -284,6 +363,35 @@ export function SheetWorkspacePage() {
 
   const canEdit = Boolean(profile && selectedProfile && (profile.role === 'gm' || selectedProfile.id === profile.id))
   const autosaveDelayMs = isSilverWorkspace ? SILVER_AUTOSAVE_DELAY_MS : AUTOSAVE_DELAY_MS
+  const normalizedProfileSearchQuery = profileSearchQuery.trim().toLowerCase()
+  const filteredAccessibleProfiles = useMemo(() => {
+    if (!normalizedProfileSearchQuery) {
+      return accessibleProfiles
+    }
+
+    return accessibleProfiles.filter((entry) =>
+      [
+        entry.displayName,
+        entry.email,
+        entry.handle,
+      ]
+        .join(' ')
+        .toLowerCase()
+        .includes(normalizedProfileSearchQuery),
+    )
+  }, [accessibleProfiles, normalizedProfileSearchQuery])
+  const boardProfiles = useMemo(
+    () =>
+      accessibleProfiles.map((entry) => buildBoardProfileSummary(entry, boardSheetSnapshots[entry.id])),
+    [accessibleProfiles, boardSheetSnapshots],
+  )
+  const boardProfileFieldData = useMemo(
+    () =>
+      Object.fromEntries(
+        accessibleProfiles.map((entry) => [entry.id, boardSheetSnapshots[entry.id]?.fieldData ?? {}]),
+      ) as Record<string, Record<string, string>>,
+    [accessibleProfiles, boardSheetSnapshots],
+  )
   const sheetSignature = useMemo(
     () => serializeFieldData(sheet?.fieldData ?? {}),
     [sheet],
@@ -434,6 +542,79 @@ export function SheetWorkspacePage() {
       unsubscribe()
     }
   }, [selectedProfile])
+
+  useEffect(() => {
+    if (!isSilverWorkspace || !accessibleProfiles.length) {
+      setBoardSheetSnapshots({})
+      return
+    }
+
+    let cancelled = false
+
+    void Promise.all(
+      accessibleProfiles.map(async (entry) => {
+        try {
+          const snapshot = await fetchSheetSnapshot(entry)
+          return [entry.id, snapshot] as const
+        } catch {
+          return [entry.id, null] as const
+        }
+      }),
+    ).then((entries) => {
+      if (cancelled) {
+        return
+      }
+
+      const fetchedSnapshots = Object.fromEntries(entries)
+
+      setBoardSheetSnapshots((current) =>
+        Object.fromEntries(
+          accessibleProfiles.map((entry) => {
+            const currentSnapshot = current[entry.id]
+            const fetchedSnapshot = fetchedSnapshots[entry.id] ?? null
+
+            if (!currentSnapshot) {
+              return [entry.id, fetchedSnapshot]
+            }
+
+            if (!fetchedSnapshot) {
+              return [entry.id, currentSnapshot]
+            }
+
+            return [
+              entry.id,
+              fetchedSnapshot.updatedAt >= currentSnapshot.updatedAt
+                ? fetchedSnapshot
+                : currentSnapshot,
+            ]
+          }),
+        ),
+      )
+    })
+
+    const unsubscribeCallbacks = accessibleProfiles
+      .filter((entry) => !isNpcProfile(entry))
+      .map((entry) =>
+        subscribeToSheet(entry.id, (nextSheet) => {
+          setBoardSheetSnapshots((current) => ({
+            ...current,
+            [entry.id]: nextSheet,
+          }))
+        }),
+      )
+
+    return () => {
+      cancelled = true
+      unsubscribeCallbacks.forEach((unsubscribe) => unsubscribe())
+    }
+  }, [accessibleProfiles, isSilverWorkspace])
+
+  const queueBoardProfileCard = useCallback((profileId: string) => {
+    setPendingBoardProfileCard({
+      profileId,
+      nonce: crypto.randomUUID(),
+    })
+  }, [])
 
   const handleSave = useCallback(async () => {
     if (!selectedProfile) {
@@ -789,7 +970,9 @@ export function SheetWorkspacePage() {
             <div>
               <p className="panel-title">Operativos</p>
               <p className="mt-2 text-lg font-semibold text-white">
-                {accessibleProfiles.length} ficha(s)
+                {filteredAccessibleProfiles.length === accessibleProfiles.length
+                  ? `${accessibleProfiles.length} ficha(s)`
+                  : `${filteredAccessibleProfiles.length}/${accessibleProfiles.length} ficha(s)`}
               </p>
             </div>
 
@@ -818,6 +1001,22 @@ export function SheetWorkspacePage() {
               ) : null}
             </div>
           </div>
+
+          {isGm ? (
+            <div className="relative mt-3">
+              <Search
+                size={14}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-stone-500"
+              />
+              <input
+                type="text"
+                value={profileSearchQuery}
+                onChange={(event) => setProfileSearchQuery(event.target.value)}
+                placeholder="Pesquisar fichas, emails ou handles"
+                className="w-full border border-white/10 bg-black/30 py-2 pl-9 pr-3 text-xs text-white outline-none focus:border-[#f3e600]/45"
+              />
+            </div>
+          ) : null}
 
           <div className="mt-4 space-y-1">
             {/* Player: só o seu card */}
@@ -965,7 +1164,7 @@ export function SheetWorkspacePage() {
 
             {/* GM: secção fixa do próprio GM */}
             {isGm && profile && (() => {
-              const gmEntry = accessibleProfiles.find((p) => p.id === profile.id)
+              const gmEntry = filteredAccessibleProfiles.find((p) => p.id === profile.id)
               if (!gmEntry) return null
               return (
                 <div className="mb-3">
@@ -987,6 +1186,7 @@ export function SheetWorkspacePage() {
                     onRenameChange={setRenamingValue}
                     onSaveRename={() => void handleSaveRename(gmEntry)}
                     onCancelRename={handleCancelRename}
+                    onPinToBoard={isSilverWorkspace ? () => queueBoardProfileCard(gmEntry.id) : undefined}
                   />
                 </div>
               )
@@ -995,7 +1195,7 @@ export function SheetWorkspacePage() {
             {/* GM: pastas e lista */}
             {isGm && groups.map((group) => {
               const isExpanded = expandedGroups.has(group.id)
-              const membersInGroup = accessibleProfiles.filter((p) => group.profileIds.includes(p.id))
+              const membersInGroup = filteredAccessibleProfiles.filter((p) => group.profileIds.includes(p.id))
               const isConfirming = confirmDeleteGroupId === group.id
               const isDragOver = dragOverGroupId === group.id
 
@@ -1086,6 +1286,7 @@ export function SheetWorkspacePage() {
                             onSaveRename={() => void handleSaveRename(entry)}
                             onCancelRename={handleCancelRename}
                             onDeleteNpc={entry.email.startsWith('npc:') ? () => setConfirmDeleteNpcId(entry.id) : undefined}
+                            onPinToBoard={isSilverWorkspace ? () => queueBoardProfileCard(entry.id) : undefined}
                           />
                         ))
                       )}
@@ -1098,7 +1299,7 @@ export function SheetWorkspacePage() {
             {/* GM: profiles sem pasta (excluindo o próprio GM) */}
             {isGm && (() => {
               const assignedIds = new Set(groups.flatMap((g) => g.profileIds))
-              const ungrouped = accessibleProfiles.filter((p) => !assignedIds.has(p.id) && p.id !== profile?.id)
+              const ungrouped = filteredAccessibleProfiles.filter((p) => !assignedIds.has(p.id) && p.id !== profile?.id)
               return ungrouped.map((entry) => (
                 <ProfileCard
                   key={entry.id}
@@ -1119,9 +1320,16 @@ export function SheetWorkspacePage() {
                   onSaveRename={() => void handleSaveRename(entry)}
                   onCancelRename={handleCancelRename}
                   onDeleteNpc={entry.email.startsWith('npc:') ? () => setConfirmDeleteNpcId(entry.id) : undefined}
+                  onPinToBoard={isSilverWorkspace ? () => queueBoardProfileCard(entry.id) : undefined}
                 />
               ))
             })()}
+
+            {isGm && filteredAccessibleProfiles.length === 0 ? (
+              <div className="border border-dashed border-white/10 bg-black/20 px-4 py-4 text-xs leading-6 text-stone-500">
+                Nenhuma ficha bate com essa pesquisa.
+              </div>
+            ) : null}
           </div>
 
         </aside>
@@ -1149,6 +1357,13 @@ export function SheetWorkspacePage() {
                 value={draftFields.GM_NOTES ?? ''}
                 pagesValue={draftFields.GM_NOTE_PAGES ?? ''}
                 remindersValue={draftFields.GM_REMINDERS ?? ''}
+                workspaceStorageKey={selectedProfile.id}
+                onQuickSave={() => void handleSave()}
+                canQuickSave={isDirty}
+                quickSaveBusy={saving}
+                boardProfiles={boardProfiles}
+                boardProfileFieldData={boardProfileFieldData}
+                pendingBoardProfileCard={pendingBoardProfileCard}
                 onChange={(value) => {
                   setDraftFields((current) => ({
                     ...current,
