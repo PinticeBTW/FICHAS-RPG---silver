@@ -25,7 +25,7 @@ import {
 } from '../lib/webSheetService'
 import type { Profile, WebSheetRecord } from '../types/domain'
 
-const AUTOSAVE_DELAY_MS = 1200
+const AUTOSAVE_DELAY_MS = 60000
 const SILVER_AUTOSAVE_DELAY_MS = 60000
 
 function serializeFieldData(fieldData: Record<string, string>) {
