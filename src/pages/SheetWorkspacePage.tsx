@@ -744,7 +744,7 @@ export function SheetWorkspacePage() {
   }
 
   return (
-    <main className="mx-auto max-w-[1700px]">
+    <main className={isSilverWorkspace ? 'w-full min-w-0' : 'mx-auto max-w-[1700px]'}>
       {error ? (
         <div className="mt-2 border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
           {error}
