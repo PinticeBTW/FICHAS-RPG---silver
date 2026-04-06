@@ -953,6 +953,35 @@ export function SheetWorkspacePage() {
               </div>
             )}
 
+            {/* GM: secção fixa do próprio GM */}
+            {isGm && profile && (() => {
+              const gmEntry = accessibleProfiles.find((p) => p.id === profile.id)
+              if (!gmEntry) return null
+              return (
+                <div className="mb-3">
+                  <p className="mb-1 text-[0.62rem] uppercase tracking-[0.22em] text-stone-600">Mestre de Jogo</p>
+                  <ProfileCard
+                    entry={gmEntry}
+                    selected={gmEntry.id === selectedProfile?.id}
+                    isGm={isGm}
+                    groups={groups}
+                    openMoveDropdown={openMoveDropdown}
+                    onNavigate={() => navigate(`/app/sheets/${gmEntry.id}`)}
+                    onToggleDropdown={() => setOpenMoveDropdown((prev) => prev === gmEntry.id ? null : gmEntry.id)}
+                    onToggleGroup={(gid) => toggleProfileInGroup(gmEntry.id, gid)}
+                    onRemoveFromAll={() => removeFromAllGroups(gmEntry.id)}
+                    renaming={renamingProfileId === gmEntry.id}
+                    renameValue={renamingProfileId === gmEntry.id ? renamingValue : gmEntry.displayName}
+                    renameSaving={renamingSaving && renamingProfileId === gmEntry.id}
+                    onStartRename={() => handleStartRename(gmEntry)}
+                    onRenameChange={setRenamingValue}
+                    onSaveRename={() => void handleSaveRename(gmEntry)}
+                    onCancelRename={handleCancelRename}
+                  />
+                </div>
+              )
+            })()}
+
             {/* GM: pastas e lista */}
             {isGm && groups.map((group) => {
               const isExpanded = expandedGroups.has(group.id)
@@ -1056,10 +1085,10 @@ export function SheetWorkspacePage() {
               )
             })}
 
-            {/* GM: profiles sem pasta */}
+            {/* GM: profiles sem pasta (excluindo o próprio GM) */}
             {isGm && (() => {
               const assignedIds = new Set(groups.flatMap((g) => g.profileIds))
-              const ungrouped = accessibleProfiles.filter((p) => !assignedIds.has(p.id))
+              const ungrouped = accessibleProfiles.filter((p) => !assignedIds.has(p.id) && p.id !== profile?.id)
               return ungrouped.map((entry) => (
                 <ProfileCard
                   key={entry.id}
