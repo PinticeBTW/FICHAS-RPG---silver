@@ -14,7 +14,6 @@ import {
   Search,
   StickyNote,
   Trash2,
-  Type,
 } from 'lucide-react'
 import {
   useCallback,
@@ -76,6 +75,8 @@ type SilverSticky = {
   imageData?: string
   imageWidth?: number
   imageHeight?: number
+  width?: number
+  height?: number
 }
 
 type SilverNotebookProps = {
@@ -109,11 +110,8 @@ function getBoardItemWidth(item: SilverSticky) {
   if (item.kind === 'image') {
     return Math.max(180, (item.imageWidth ?? 320) + 16)
   }
-
-  if (item.kind === 'text') {
-    return 300
-  }
-
+  if (item.width) return item.width
+  if (item.kind === 'text') return 300
   return STICKY_WIDTH_PX
 }
 
@@ -121,11 +119,8 @@ function getBoardItemMinHeight(item: SilverSticky) {
   if (item.kind === 'image') {
     return Math.max(180, (item.imageHeight ?? 180) + 70)
   }
-
-  if (item.kind === 'text') {
-    return 210
-  }
-
+  if (item.height) return item.height
+  if (item.kind === 'text') return 210
   return STICKY_HEIGHT_PX
 }
 
@@ -203,6 +198,8 @@ function parseStickies(value: unknown): SilverSticky[] {
         imageData: typeof sticky.imageData === 'string' ? sticky.imageData : undefined,
         imageWidth: typeof sticky.imageWidth === 'number' ? sticky.imageWidth : undefined,
         imageHeight: typeof sticky.imageHeight === 'number' ? sticky.imageHeight : undefined,
+        width: typeof sticky.width === 'number' ? sticky.width : undefined,
+        height: typeof sticky.height === 'number' ? sticky.height : undefined,
       }
     })
 }
@@ -529,6 +526,16 @@ export function SilverNotebook({
     cameraX: number
     cameraY: number
   } | null>(null)
+  const stickyResizeRef = useRef<{
+    stickyId: string
+    startW: number
+    startH: number
+    startX: number
+    startY: number
+  } | null>(null)
+  const spaceHeldRef = useRef(false)
+  const [showNotesPanel, setShowNotesPanel] = useState(true)
+  const [showRemindersPanel, setShowRemindersPanel] = useState(true)
   const drawStateRef = useRef<{
     strokeId: string
     points: SilverStrokePoint[]
@@ -894,6 +901,31 @@ export function SilverNotebook({
     }
   }, [canEdit, redoPages, undoPages])
 
+  // Espaço = pan temporário (como Photoshop)
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !e.repeat) {
+        const tag = (e.target as HTMLElement).tagName
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement).isContentEditable) return
+        spaceHeldRef.current = true
+        if (viewportRef.current) viewportRef.current.style.cursor = 'grab'
+        e.preventDefault()
+      }
+    }
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        spaceHeldRef.current = false
+        if (viewportRef.current) viewportRef.current.style.cursor = ''
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup', onKeyUp)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
+    }
+  }, [])
+
   const buildSpawnSticky = useCallback(
     (
       kind: SilverBoardItemKind = 'sticky',
@@ -930,12 +962,6 @@ export function SilverNotebook({
     }))
   }
 
-  const createTextCard = () => {
-    updateActivePage((page) => ({
-      ...page,
-      stickies: [...page.stickies, buildSpawnSticky('text')],
-    }))
-  }
 
   const updateSticky = useCallback((
     stickyId: string,
@@ -955,6 +981,27 @@ export function SilverNotebook({
       stickies: page.stickies.filter((sticky) => sticky.id !== stickyId),
     }))
   }
+
+  // Resize de stickies (não-imagem)
+  useEffect(() => {
+    const handleMove = (e: MouseEvent) => {
+      if (!stickyResizeRef.current) return
+      const dw = (e.clientX - stickyResizeRef.current.startX) / camera.zoom
+      const dh = (e.clientY - stickyResizeRef.current.startY) / camera.zoom
+      updateSticky(stickyResizeRef.current.stickyId, (s) => ({
+        ...s,
+        width: Math.max(120, Math.round(stickyResizeRef.current!.startW + dw)),
+        height: Math.max(80, Math.round(stickyResizeRef.current!.startH + dh)),
+      }))
+    }
+    const handleUp = () => { stickyResizeRef.current = null }
+    window.addEventListener('mousemove', handleMove)
+    window.addEventListener('mouseup', handleUp)
+    return () => {
+      window.removeEventListener('mousemove', handleMove)
+      window.removeEventListener('mouseup', handleUp)
+    }
+  }, [camera.zoom, updateSticky])
 
   const cycleStickyColor = (stickyId: string) => {
     updateSticky(stickyId, (sticky) => {
@@ -1031,6 +1078,33 @@ export function SilverNotebook({
     }
 
     setSelectedItemId(null)
+
+    // Espaço segurado = pan temporário independente do tool
+    if (spaceHeldRef.current) {
+      if (viewportRef.current) viewportRef.current.style.cursor = 'grabbing'
+      panStateRef.current = {
+        startX: event.clientX,
+        startY: event.clientY,
+        cameraX: camera.x,
+        cameraY: camera.y,
+      }
+      const onMove = (e: MouseEvent) => {
+        if (!panStateRef.current) return
+        const dx = (e.clientX - panStateRef.current.startX) / camera.zoom
+        const dy = (e.clientY - panStateRef.current.startY) / camera.zoom
+        setCamera((c) => ({ ...c, x: panStateRef.current!.cameraX - dx, y: panStateRef.current!.cameraY - dy }))
+      }
+      const onUp = () => {
+        panStateRef.current = null
+        if (viewportRef.current) viewportRef.current.style.cursor = spaceHeldRef.current ? 'grab' : ''
+        window.removeEventListener('mousemove', onMove)
+        window.removeEventListener('mouseup', onUp)
+      }
+      window.addEventListener('mousemove', onMove)
+      window.addEventListener('mouseup', onUp)
+      event.preventDefault()
+      return
+    }
 
     if (boardTool === 'erase' && canEdit) {
       const viewportRect = viewportRef.current.getBoundingClientRect()
@@ -1207,6 +1281,20 @@ export function SilverNotebook({
     }
   }
 
+  const startStickyResize = (event: ReactMouseEvent<HTMLButtonElement>, sticky: SilverSticky) => {
+    if (!canEdit) return
+    event.preventDefault()
+    event.stopPropagation()
+    setSelectedItemId(sticky.id)
+    stickyResizeRef.current = {
+      stickyId: sticky.id,
+      startW: getBoardItemWidth(sticky),
+      startH: getBoardItemMinHeight(sticky),
+      startX: event.clientX,
+      startY: event.clientY,
+    }
+  }
+
   const handleViewportWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
     if (!viewportRef.current) {
       return
@@ -1214,14 +1302,11 @@ export function SilverNotebook({
 
     event.preventDefault()
 
-    if (boardTool !== 'pan' && !(event.ctrlKey || event.metaKey)) {
-      const horizontalDelta = event.deltaX || (event.shiftKey ? event.deltaY : 0)
-      const verticalDelta = event.shiftKey ? 0 : event.deltaY
-
+    // Shift+scroll = pan horizontal, else zoom
+    if (event.shiftKey) {
       setCamera((current) => ({
         ...current,
-        x: current.x + horizontalDelta / current.zoom,
-        y: current.y + verticalDelta / current.zoom,
+        x: current.x + event.deltaY / current.zoom,
       }))
       return
     }
@@ -1329,7 +1414,7 @@ export function SilverNotebook({
 
   return (
     <section className="hud-panel rounded-[28px] p-3 md:p-4">
-      <div className="relative min-h-[82vh] overflow-hidden rounded-[28px] border border-white/10 bg-[#050505]">
+      <div className="relative min-h-[calc(100vh-56px)] overflow-hidden rounded-[28px] border border-white/10 bg-[#050505]">
         <div
           ref={viewportRef}
           onMouseDown={handleBoardPanStart}
@@ -1422,7 +1507,7 @@ export function SilverNotebook({
 
                   <button
                     type="button"
-                    onClick={() => deleteSticky(sticky.id)}
+                    onClick={(e) => { e.stopPropagation(); deleteSticky(sticky.id) }}
                     disabled={!canEdit}
                     className="signal-button ml-auto px-2 py-1 text-[0.65rem]"
                     data-tone="danger"
@@ -1484,6 +1569,14 @@ export function SilverNotebook({
                       className="mt-2 min-h-[110px] w-full resize-none border border-white/15 bg-black/15 px-2 py-2 text-xs leading-5 text-stone-100 outline-none focus:border-white/35"
                     />
                   )}
+                  {selectedItemId === sticky.id && sticky.kind !== 'image' && canEdit ? (
+                    <button
+                      type="button"
+                      onMouseDown={(e) => startStickyResize(e, sticky)}
+                      className="absolute bottom-0 right-0 h-4 w-4 translate-x-1/2 translate-y-1/2 border border-[#f3e600] bg-black shadow-[0_0_0_1px_rgba(0,0,0,0.35)]"
+                      title="Redimensionar"
+                    />
+                  ) : null}
                 </article>
               ))
             ) : (
@@ -1497,6 +1590,7 @@ export function SilverNotebook({
         </div>
 
         <div className="pointer-events-none absolute inset-0">
+          {showNotesPanel ? (
           <div className="pointer-events-auto absolute left-4 top-4 flex max-h-[calc(100%-120px)] w-[330px] flex-col rounded-[22px] border border-white/10 bg-[#0b0b0b]/95 p-3 shadow-[0_14px_32px_rgba(0,0,0,0.4)] backdrop-blur">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -1652,7 +1746,9 @@ export function SilverNotebook({
               </div>
             </div>
           </div>
+          ) : null}
 
+          {showRemindersPanel ? (
           <div className="pointer-events-auto absolute right-4 top-4 flex max-h-[calc(100%-120px)] w-[320px] flex-col gap-3">
             <div className="rounded-[22px] border border-white/10 bg-[#0b0b0b]/95 p-3 shadow-[0_14px_32px_rgba(0,0,0,0.4)] backdrop-blur">
               <div className="flex items-center gap-2">
@@ -1792,6 +1888,7 @@ export function SilverNotebook({
               </div>
             </div>
           </div>
+          ) : null}
 
           <div className="pointer-events-auto absolute bottom-5 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/10 bg-[#0b0b0b]/95 px-3 py-3 shadow-[0_14px_32px_rgba(0,0,0,0.4)] backdrop-blur">
             <div className="border-r border-white/10 pr-3 text-right">
@@ -1843,17 +1940,6 @@ export function SilverNotebook({
 
             <button
               type="button"
-              onClick={createTextCard}
-              disabled={!canEdit}
-              className="signal-button inline-flex items-center gap-2 px-4 py-2 text-xs"
-              data-variant="ghost"
-            >
-              <Type size={13} />
-              Texto
-            </button>
-
-            <button
-              type="button"
               onClick={() => boardImageInputRef.current?.click()}
               disabled={!canEdit}
               className="signal-button inline-flex items-center gap-2 px-4 py-2 text-xs"
@@ -1863,26 +1949,27 @@ export function SilverNotebook({
               Imagem
             </button>
 
+            <div className="mx-1 h-5 w-px bg-white/10" />
+
             <button
               type="button"
-              onClick={createPage}
-              disabled={!canEdit}
-              className="signal-button inline-flex items-center gap-2 px-4 py-2 text-xs"
-              data-variant="ghost"
+              onClick={() => setShowNotesPanel((v) => !v)}
+              className="signal-button inline-flex items-center gap-2 px-3 py-2 text-xs"
+              data-variant={showNotesPanel ? undefined : 'ghost'}
+              title="Mostrar/esconder Quadro"
             >
-              <Plus size={13} />
-              Pagina
+              Quadro
             </button>
 
             <button
               type="button"
-              onClick={() => togglePinPage(activePage.id)}
-              disabled={!canEdit}
-              className="signal-button inline-flex items-center gap-2 px-4 py-2 text-xs"
-              data-variant="ghost"
+              onClick={() => setShowRemindersPanel((v) => !v)}
+              className="signal-button inline-flex items-center gap-2 px-3 py-2 text-xs"
+              data-variant={showRemindersPanel ? undefined : 'ghost'}
+              title="Mostrar/esconder Lembretes"
             >
-              {activePage.pinned ? <PinOff size={13} /> : <Pin size={13} />}
-              {activePage.pinned ? 'Desafixar' : 'Fixar'}
+              <BellRing size={13} />
+              Lembretes
             </button>
 
           </div>
