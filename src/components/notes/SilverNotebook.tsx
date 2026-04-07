@@ -1701,10 +1701,20 @@ export function SilverNotebook({
         cameraY: camera.y,
       }
       const onMove = (e: MouseEvent) => {
-        if (!panStateRef.current) return
-        const dx = (e.clientX - panStateRef.current.startX) / camera.zoom
-        const dy = (e.clientY - panStateRef.current.startY) / camera.zoom
-        setCamera((c) => ({ ...c, x: panStateRef.current!.cameraX - dx, y: panStateRef.current!.cameraY - dy }))
+        const panState = panStateRef.current
+
+        if (!panState) {
+          return
+        }
+
+        const dx = (e.clientX - panState.startX) / camera.zoom
+        const dy = (e.clientY - panState.startY) / camera.zoom
+
+        setCamera((current) => ({
+          ...current,
+          x: panState.cameraX - dx,
+          y: panState.cameraY - dy,
+        }))
       }
       const onUp = () => {
         panStateRef.current = null
