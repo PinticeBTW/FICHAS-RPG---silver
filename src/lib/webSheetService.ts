@@ -50,6 +50,9 @@ const EXTRA_FIELD_KEYS = [
   'GM_NOTES',
   'GM_NOTE_PAGES',
   'GM_REMINDERS',
+  'PLAYER_MESSAGES',
+  'PLAYER_NOTES',
+  'PLAYER_NOTE_PAGES',
 ]
 
 function mapSheet(row: SheetRow): WebSheetRecord {

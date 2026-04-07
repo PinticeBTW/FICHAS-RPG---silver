@@ -27,7 +27,9 @@ import {
   type MouseEvent as ReactMouseEvent,
   type WheelEvent as ReactWheelEvent,
 } from 'react'
+import type { SilverMessageRecipientOption } from '../../lib/playerInbox'
 import { PdfSheetPreview } from '../character/PdfSheetEditor'
+import { SilverMessageComposerPanel } from './PlayerMessagesPanel'
 
 type SilverReminder = {
   id: string
@@ -152,6 +154,10 @@ type SilverNotebookProps = {
   boardProfiles?: SilverBoardProfileSummary[]
   boardProfileFieldData?: Record<string, Record<string, string>>
   pendingBoardProfileCard?: SilverBoardInsertRequest | null
+  playerMessageRecipients?: SilverMessageRecipientOption[]
+  onSendPlayerMessage?: (recipientId: string, title: string, body: string) => Promise<void> | void
+  sendingPlayerMessage?: boolean
+  playerMessageError?: string | null
 }
 const REMINDER_SOUND_URL = '/sounds/silver-alert.mp3'
 const STICKY_WIDTH_PX = 220
@@ -681,6 +687,10 @@ export function SilverNotebook({
   boardProfiles = [],
   boardProfileFieldData = {},
   pendingBoardProfileCard = null,
+  playerMessageRecipients = [],
+  onSendPlayerMessage,
+  sendingPlayerMessage = false,
+  playerMessageError = null,
 }: SilverNotebookProps) {
   const notePages = useMemo(() => parseNotePages(pagesValue, value), [pagesValue, value])
   const reminders = useMemo(() => parseReminders(remindersValue), [remindersValue])
@@ -2726,6 +2736,16 @@ export function SilverNotebook({
 
           {showRemindersPanel ? (
           <div className="pointer-events-auto absolute right-4 top-4 flex max-h-[calc(100%-120px)] w-[320px] flex-col gap-3">
+            <SilverMessageComposerPanel
+              recipients={playerMessageRecipients}
+              onSend={async (recipientId, title, body) => {
+                await onSendPlayerMessage?.(recipientId, title, body)
+              }}
+              canEdit={canEdit}
+              sending={sendingPlayerMessage}
+              error={playerMessageError}
+            />
+
             <div className="rounded-[22px] border border-white/10 bg-[#0b0b0b]/95 p-3 shadow-[0_14px_32px_rgba(0,0,0,0.4)] backdrop-blur">
               <div className="flex items-center gap-2">
                 <BellRing size={16} className="text-[#f3e600]" />
