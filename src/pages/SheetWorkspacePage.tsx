@@ -4,6 +4,8 @@ import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { PdfSheetEditor } from '../components/character/PdfSheetEditor'
 import { EmptyState } from '../components/common/EmptyState'
 import { LoadingScreen } from '../components/common/LoadingScreen'
+import { PlayerInboxPanel } from '../components/notes/PlayerMessagesPanel'
+import { PlayerNotebookPanel } from '../components/notes/PlayerNotebookPanel'
 import {
   SilverNotebook,
   type SilverBoardInsertRequest,
@@ -28,6 +30,14 @@ import {
   subscribeToSheet,
   type ProfileGroup,
 } from '../lib/webSheetService'
+import {
+  PLAYER_MESSAGES_FIELD_KEY,
+  buildPlayerInboxMessage,
+  mergePlayerInboxMessageValues,
+  parsePlayerInboxMessages,
+  serializePlayerInboxMessages,
+  type SilverMessageRecipientOption,
+} from '../lib/playerInbox'
 import type { Profile, WebSheetRecord } from '../types/domain'
 
 const AUTOSAVE_DELAY_MS = 60000
@@ -339,6 +349,8 @@ export function SheetWorkspacePage() {
   const [pendingBoardProfileCard, setPendingBoardProfileCard] =
     useState<SilverBoardInsertRequest | null>(null)
   const [profileSearchQuery, setProfileSearchQuery] = useState('')
+  const [sendingPlayerMessage, setSendingPlayerMessage] = useState(false)
+  const [playerMessageError, setPlayerMessageError] = useState<string | null>(null)
 
   const accessibleProfiles = useMemo(() => {
     if (!profile) {
@@ -392,6 +404,23 @@ export function SheetWorkspacePage() {
       ) as Record<string, Record<string, string>>,
     [accessibleProfiles, boardSheetSnapshots],
   )
+  const playerMessageRecipients = useMemo<SilverMessageRecipientOption[]>(() => {
+    const players = accessibleProfiles.filter(
+      (entry) => entry.role !== 'gm' && !isNpcProfile(entry),
+    )
+
+    if (!players.length) {
+      return []
+    }
+
+    return [
+      { id: '__all_players__', label: 'Todos os players' },
+      ...players.map((entry) => ({
+        id: entry.id,
+        label: entry.displayName,
+      })),
+    ]
+  }, [accessibleProfiles])
   const sheetSignature = useMemo(
     () => serializeFieldData(sheet?.fieldData ?? {}),
     [sheet],
@@ -409,6 +438,10 @@ export function SheetWorkspacePage() {
   useEffect(() => {
     draftSignatureRef.current = draftSignature
   }, [draftSignature])
+
+  useEffect(() => {
+    setPlayerMessageError(null)
+  }, [selectedProfile?.id])
 
   const refreshProfiles = useCallback(async () => {
     setLoadingProfiles(true)
@@ -521,6 +554,18 @@ export function SheetWorkspacePage() {
         const hasLocalChanges = currentSignature !== sheetSignatureRef.current
 
         if (hasLocalChanges) {
+          const mergedPlayerMessages = mergePlayerInboxMessageValues(
+            current[PLAYER_MESSAGES_FIELD_KEY] ?? '',
+            nextSheet.fieldData[PLAYER_MESSAGES_FIELD_KEY] ?? '',
+          )
+
+          if (mergedPlayerMessages !== (current[PLAYER_MESSAGES_FIELD_KEY] ?? '')) {
+            return {
+              ...current,
+              [PLAYER_MESSAGES_FIELD_KEY]: mergedPlayerMessages,
+            }
+          }
+
           return current
         }
 
@@ -615,6 +660,78 @@ export function SheetWorkspacePage() {
       nonce: crypto.randomUUID(),
     })
   }, [])
+
+  const handleSendPlayerMessage = useCallback(
+    async (recipientId: string, title: string, body: string) => {
+      if (!profile || !isSilverWorkspace) {
+        return
+      }
+
+      const recipients =
+        recipientId === '__all_players__'
+          ? accessibleProfiles.filter((entry) => entry.role !== 'gm' && !isNpcProfile(entry))
+          : accessibleProfiles.filter(
+              (entry) =>
+                entry.id === recipientId && entry.role !== 'gm' && !isNpcProfile(entry),
+            )
+
+      if (!recipients.length) {
+        setPlayerMessageError('Nao encontrei nenhum player valido para receber essa mensagem.')
+        return
+      }
+
+      setSendingPlayerMessage(true)
+      setPlayerMessageError(null)
+
+      try {
+        const senderName = selectedProfile?.displayName || profile.displayName || 'Silver'
+
+        const savedSheets = await Promise.all(
+          recipients.map(async (recipient) => {
+            const currentSheet = await fetchOrCreateSheet(recipient)
+            const currentMessages = parsePlayerInboxMessages(
+              currentSheet.fieldData[PLAYER_MESSAGES_FIELD_KEY] ?? '',
+            )
+            const nextMessage = buildPlayerInboxMessage({
+              title,
+              body,
+              senderProfileId: profile.id,
+              senderName,
+            })
+            const nextFieldData = {
+              ...currentSheet.fieldData,
+              [PLAYER_MESSAGES_FIELD_KEY]: serializePlayerInboxMessages([
+                ...currentMessages,
+                nextMessage,
+              ]),
+            }
+
+            return saveSheetFields(recipient.id, nextFieldData)
+          }),
+        )
+
+        setBoardSheetSnapshots((current) => {
+          const nextSnapshots = { ...current }
+
+          savedSheets.forEach((savedSheet) => {
+            nextSnapshots[savedSheet.profileId] = savedSheet
+          })
+
+          return nextSnapshots
+        })
+      } catch (caughtError) {
+        const message =
+          caughtError instanceof Error
+            ? caughtError.message
+            : 'Nao foi possivel enviar a mensagem para os players.'
+        setPlayerMessageError(message)
+        throw caughtError
+      } finally {
+        setSendingPlayerMessage(false)
+      }
+    },
+    [accessibleProfiles, isSilverWorkspace, profile, selectedProfile],
+  )
 
   const handleSave = useCallback(async () => {
     if (!selectedProfile) {
@@ -1021,51 +1138,82 @@ export function SheetWorkspacePage() {
           <div className="mt-4 space-y-1">
             {/* Player: só o seu card */}
             {!isGm && selectedProfile && (
-              <div className="border border-[#f3e600] bg-[#f3e600]/10 px-4 py-3">
-                {editingName ? (
-                  <div className="flex items-center gap-1">
-                    <input
-                      autoFocus
-                      type="text"
-                      value={nameInput}
-                      onChange={(e) => setNameInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          void updateDisplayName(nameInput).then(() => setEditingName(false))
-                        }
-                        if (e.key === 'Escape') setEditingName(false)
-                      }}
-                      className="min-w-0 flex-1 border border-white/20 bg-black/40 px-2 py-1 text-xs text-white outline-none focus:border-[#f3e600]/50"
-                    />
+              <>
+                <div className="border border-[#f3e600] bg-[#f3e600]/10 px-4 py-3">
+                  {editingName ? (
+                    <div className="flex items-center gap-1">
+                      <input
+                        autoFocus
+                        type="text"
+                        value={nameInput}
+                        onChange={(e) => setNameInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            void updateDisplayName(nameInput).then(() => setEditingName(false))
+                          }
+                          if (e.key === 'Escape') setEditingName(false)
+                        }}
+                        className="min-w-0 flex-1 border border-white/20 bg-black/40 px-2 py-1 text-xs text-white outline-none focus:border-[#f3e600]/50"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => void updateDisplayName(nameInput).then(() => setEditingName(false))}
+                        className="signal-button px-2 py-1 text-xs"
+                      >
+                        <Save size={11} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingName(false)}
+                        className="signal-button px-2 py-1 text-xs"
+                        data-variant="ghost"
+                      >
+                        <X size={11} />
+                      </button>
+                    </div>
+                  ) : (
                     <button
                       type="button"
-                      onClick={() => void updateDisplayName(nameInput).then(() => setEditingName(false))}
-                      className="signal-button px-2 py-1 text-xs"
+                      className="w-full text-left"
+                      onClick={() => { setNameInput(selectedProfile.displayName); setEditingName(true) }}
                     >
-                      <Save size={11} />
+                      <p className="truncate text-sm font-semibold text-white">{selectedProfile.displayName}</p>
+                      <p className="mt-1 text-[0.62rem] text-stone-500">clica para mudar o nome</p>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setEditingName(false)}
-                      className="signal-button px-2 py-1 text-xs"
-                      data-variant="ghost"
-                    >
-                      <X size={11} />
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    className="w-full text-left"
-                    onClick={() => { setNameInput(selectedProfile.displayName); setEditingName(true) }}
-                  >
-                    <p className="truncate text-sm font-semibold text-white">{selectedProfile.displayName}</p>
-                    <p className="mt-1 text-[0.62rem] text-stone-500">clica para mudar o nome</p>
-                  </button>
-                )}
-                <p className="mt-2 truncate text-xs text-stone-400">{selectedProfile.email}</p>
-                <p className="mt-1 text-[0.68rem] uppercase tracking-[0.22em] text-stone-500">Jogador</p>
-              </div>
+                  )}
+                  <p className="mt-2 truncate text-xs text-stone-400">{selectedProfile.email}</p>
+                  <p className="mt-1 text-[0.68rem] uppercase tracking-[0.22em] text-stone-500">Jogador</p>
+                </div>
+
+                <PlayerNotebookPanel
+                  value={draftFields.PLAYER_NOTES ?? ''}
+                  pagesValue={draftFields.PLAYER_NOTE_PAGES ?? ''}
+                  onChange={(value) => {
+                    setDraftFields((current) => ({
+                      ...current,
+                      PLAYER_NOTES: value,
+                    }))
+                  }}
+                  onPagesChange={(value) => {
+                    setDraftFields((current) => ({
+                      ...current,
+                      PLAYER_NOTE_PAGES: value,
+                    }))
+                  }}
+                  canEdit={canEdit}
+                />
+
+                <PlayerInboxPanel
+                  value={draftFields[PLAYER_MESSAGES_FIELD_KEY] ?? ''}
+                  onChange={(value) => {
+                    setDraftFields((current) => ({
+                      ...current,
+                      [PLAYER_MESSAGES_FIELD_KEY]: value,
+                    }))
+                  }}
+                  canEdit={canEdit}
+                />
+              </>
             )}
 
             {/* GM: nova ficha */}
@@ -1361,6 +1509,10 @@ export function SheetWorkspacePage() {
                 onQuickSave={() => void handleSave()}
                 canQuickSave={isDirty}
                 quickSaveBusy={saving}
+                playerMessageRecipients={playerMessageRecipients}
+                onSendPlayerMessage={handleSendPlayerMessage}
+                sendingPlayerMessage={sendingPlayerMessage}
+                playerMessageError={playerMessageError}
                 boardProfiles={boardProfiles}
                 boardProfileFieldData={boardProfileFieldData}
                 pendingBoardProfileCard={pendingBoardProfileCard}
