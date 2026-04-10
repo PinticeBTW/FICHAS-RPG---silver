@@ -17,24 +17,24 @@ const STEPS = 16
 
 function MeterRow({ label, filled }: { label: string; filled: number }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
       <span
         className="font-display uppercase text-[#0da7ff]"
-        style={{ fontSize: '0.85rem', letterSpacing: '0.28em', textShadow: '0 0 10px rgba(13,167,255,0.7)', minWidth: '5.5rem' }}
+        style={{ fontSize: '0.78rem', letterSpacing: '0.26em', textShadow: '0 0 10px rgba(13,167,255,0.7)', minWidth: '5rem' }}
       >
         {label}
       </span>
-      <div style={{ display: 'flex', gap: '6px' }}>
+      <div style={{ display: 'flex', gap: '4px', flexWrap: 'nowrap' }}>
         {Array.from({ length: STEPS }, (_, i) => {
           const active = i < filled
           return (
-            <svg key={i} width="28" height="28" viewBox="0 0 28 28">
-              <circle cx="14" cy="14" r="11" fill="none"
+            <svg key={i} width="24" height="24" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="9" fill="none"
                 stroke={active ? '#0da7ff' : 'rgba(13,167,255,0.18)'}
-                strokeWidth="1.6" strokeDasharray="7 3.5"
-                style={{ filter: active ? 'drop-shadow(0 0 4px rgba(13,167,255,0.75))' : 'none' }}
+                strokeWidth="1.5" strokeDasharray="6 3"
+                style={{ filter: active ? 'drop-shadow(0 0 3px rgba(13,167,255,0.75))' : 'none' }}
               />
-              {active && <circle cx="14" cy="14" r="3.8" fill="rgba(13,167,255,0.9)" style={{ filter: 'drop-shadow(0 0 3px rgba(13,167,255,0.8))' }} />}
+              {active && <circle cx="12" cy="12" r="3.2" fill="rgba(13,167,255,0.9)" style={{ filter: 'drop-shadow(0 0 3px rgba(13,167,255,0.8))' }} />}
             </svg>
           )
         })}
@@ -64,7 +64,7 @@ export function CyberwareBoard({ fieldData, onFieldChange, canEdit }: CyberwareB
   }
 
   return (
-    <div className="pointer-events-none absolute inset-0 flex flex-col" style={{ padding: '5% 3% 4%' }}>
+    <div className="pointer-events-none absolute inset-0 flex flex-col" style={{ padding: '3.5% 3% 2%' }}>
 
       {/* Title */}
       <p
@@ -143,8 +143,8 @@ export function CyberwareBoard({ fieldData, onFieldChange, canEdit }: CyberwareB
 
       {/* CYBER / SHIELD meters */}
       <div
-        className="pointer-events-none mt-4 flex flex-col gap-2"
-        style={{ borderTop: '1px solid rgba(13,167,255,0.1)', paddingTop: '10px' }}
+        className="pointer-events-none mt-2 flex flex-col gap-1.5"
+        style={{ borderTop: '1px solid rgba(13,167,255,0.1)', paddingTop: '8px' }}
       >
         <MeterRow label="CYBER"  filled={cyberFilled} />
         <MeterRow label="SHIELD" filled={shieldFilled} />
