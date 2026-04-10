@@ -20,31 +20,21 @@ function MeterRow({ label, filled }: { label: string; filled: number }) {
     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
       <span
         className="font-display uppercase text-[#0da7ff]"
-        style={{
-          fontSize: '0.6rem',
-          letterSpacing: '0.22em',
-          textShadow: '0 0 6px rgba(13,167,255,0.55)',
-          minWidth: '3.8rem',
-        }}
+        style={{ fontSize: '0.62rem', letterSpacing: '0.24em', textShadow: '0 0 6px rgba(13,167,255,0.55)', minWidth: '4rem' }}
       >
         {label}
       </span>
-
-      <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: '5px' }}>
         {Array.from({ length: STEPS }, (_, i) => {
           const active = i < filled
           return (
-            <svg key={i} width="18" height="18" viewBox="0 0 18 18">
-              <circle
-                cx="9" cy="9" r="7"
-                fill="none"
-                stroke={active ? '#0da7ff' : 'rgba(13,167,255,0.16)'}
-                strokeWidth="1.2"
-                strokeDasharray="5 2.8"
-                strokeLinecap="butt"
-                style={{ filter: active ? 'drop-shadow(0 0 2px rgba(13,167,255,0.6))' : 'none' }}
+            <svg key={i} width="22" height="22" viewBox="0 0 22 22">
+              <circle cx="11" cy="11" r="8.5" fill="none"
+                stroke={active ? '#0da7ff' : 'rgba(13,167,255,0.15)'}
+                strokeWidth="1.4" strokeDasharray="6 3"
+                style={{ filter: active ? 'drop-shadow(0 0 3px rgba(13,167,255,0.7))' : 'none' }}
               />
-              {active && <circle cx="9" cy="9" r="2.2" fill="rgba(13,167,255,0.85)" />}
+              {active && <circle cx="11" cy="11" r="3" fill="rgba(13,167,255,0.9)" />}
             </svg>
           )
         })}
@@ -63,80 +53,103 @@ export function CyberwareBoard({ fieldData, onFieldChange, canEdit }: CyberwareB
     [fieldData],
   )
 
+  const leftZones  = zones.filter((z) => z.side === 'left')
+  const rightZones = zones.filter((z) => z.side === 'right')
   const totalSlots = zones.reduce((sum, z) => sum + z.slots.length, 0)
-  const cyberFilled = Math.min(STEPS, Math.round(totalSlots * (STEPS / 14)))
+  const cyberFilled  = Math.min(STEPS, Math.round(totalSlots * (STEPS / 14)))
   const shieldFilled = Math.min(STEPS, Math.round(totalSlots * (STEPS / 18)))
 
-  const persistZone = (fieldKey: string, nextSlots: (typeof zones)[number]['slots']) => {
-    const zone = zones.find((z) => z.fieldKey === fieldKey)
-    const limited = zone ? nextSlots.slice(0, zone.maxSlots) : nextSlots
-    onFieldChange(fieldKey, stringifyCyberwareSheetSlots(limited))
+  const persist = (fieldKey: string, nextSlots: (typeof zones)[number]['slots'], maxSlots: number) => {
+    onFieldChange(fieldKey, stringifyCyberwareSheetSlots(nextSlots.slice(0, maxSlots)))
   }
 
   return (
-    <div
-      className="pointer-events-none absolute"
-      style={{ left: '3.8%', top: '8.1%', width: '92.4%', height: '79.2%' }}
-    >
-      {/* Page title */}
+    <div className="pointer-events-none absolute inset-0 flex flex-col" style={{ padding: '5% 3% 4%' }}>
+
+      {/* Title */}
       <p
-        className="pointer-events-none absolute font-display uppercase text-[#0da7ff]"
-        style={{
-          left: '50%',
-          top: '1.5%',
-          transform: 'translateX(-50%)',
-          fontSize: '0.62rem',
-          letterSpacing: '0.28em',
-          whiteSpace: 'nowrap',
-          textShadow: '0 0 10px rgba(13,167,255,0.6)',
-        }}
+        className="pointer-events-none mb-3 text-center font-display uppercase text-[#0da7ff]"
+        style={{ fontSize: '0.68rem', letterSpacing: '0.32em', textShadow: '0 0 12px rgba(13,167,255,0.65)' }}
       >
         Cyberware Matrix
       </p>
 
-      {/* Zones */}
-      {zones.map((zone) => (
-        <CyberwareZone
-          key={zone.id}
-          zone={zone}
-          slots={zone.slots}
-          canEdit={canEdit}
-          onAddSlot={() => {
-            if (zone.slots.length >= zone.maxSlots) return
-            persistZone(zone.fieldKey, [...zone.slots, createCyberwareSheetSlot()])
-          }}
-          onRemoveSlot={(id) =>
-            persistZone(zone.fieldKey, zone.slots.filter((s) => s.id !== id))
-          }
-        />
-      ))}
+      {/* Main 3-column layout */}
+      <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
 
-      {/* CYBER / SHIELD bars */}
+        {/* LEFT column */}
+        <div
+          className="pointer-events-auto"
+          style={{
+            width: '30%',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-around',
+            alignItems: 'flex-end',
+            paddingRight: '12px',
+            borderRight: '1px solid rgba(13,167,255,0.12)',
+          }}
+        >
+          {leftZones.map((zone) => (
+            <CyberwareZone
+              key={zone.id}
+              zone={zone}
+              slots={zone.slots}
+              canEdit={canEdit}
+              onAddSlot={() => {
+                if (zone.slots.length >= zone.maxSlots) return
+                persist(zone.fieldKey, [...zone.slots, createCyberwareSheetSlot()], zone.maxSlots)
+              }}
+              onRemoveSlot={(id) =>
+                persist(zone.fieldKey, zone.slots.filter((s) => s.id !== id), zone.maxSlots)
+              }
+            />
+          ))}
+        </div>
+
+        {/* CENTER — body visible here, nothing overlapping */}
+        <div style={{ flex: 1 }} />
+
+        {/* RIGHT column */}
+        <div
+          className="pointer-events-auto"
+          style={{
+            width: '30%',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-around',
+            alignItems: 'flex-start',
+            paddingLeft: '12px',
+            borderLeft: '1px solid rgba(13,167,255,0.12)',
+          }}
+        >
+          {rightZones.map((zone) => (
+            <CyberwareZone
+              key={zone.id}
+              zone={zone}
+              slots={zone.slots}
+              canEdit={canEdit}
+              onAddSlot={() => {
+                if (zone.slots.length >= zone.maxSlots) return
+                persist(zone.fieldKey, [...zone.slots, createCyberwareSheetSlot()], zone.maxSlots)
+              }}
+              onRemoveSlot={(id) =>
+                persist(zone.fieldKey, zone.slots.filter((s) => s.id !== id), zone.maxSlots)
+              }
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* CYBER / SHIELD meters */}
       <div
-        className="pointer-events-none absolute"
-        style={{ left: '3%', bottom: '3%', display: 'flex', flexDirection: 'column', gap: '8px' }}
+        className="pointer-events-none mt-4 flex flex-col gap-2"
+        style={{ borderTop: '1px solid rgba(13,167,255,0.1)', paddingTop: '10px' }}
       >
-        <MeterRow label="CYBER" filled={cyberFilled} />
+        <MeterRow label="CYBER"  filled={cyberFilled} />
         <MeterRow label="SHIELD" filled={shieldFilled} />
       </div>
 
-      {/* Edit hint */}
-      {canEdit ? (
-        <p
-          className="pointer-events-none absolute font-display uppercase"
-          style={{
-            left: '50%',
-            bottom: '19%',
-            transform: 'translateX(-50%)',
-            fontSize: '0.38rem',
-            letterSpacing: '0.16em',
-            whiteSpace: 'nowrap',
-            color: 'rgba(13,167,255,0.2)',
-          }}
-        >
-          clica + para adicionar · hover para remover
-        </p>
-      ) : null}
     </div>
   )
 }
