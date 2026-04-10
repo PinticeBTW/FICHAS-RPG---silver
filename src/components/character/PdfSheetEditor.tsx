@@ -2,6 +2,7 @@ import { ChevronDown, ImagePlus, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy } from 'pdfjs-dist'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
+import { CyberwareBoard } from './CyberwareBoard'
 import { pdfSheetPageSizes, pdfSheetTemplateFields, type PdfSheetTemplateField } from '../../lib/pdfSheetTemplate'
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl
@@ -131,6 +132,42 @@ function isMultilineField(field: PdfSheetTemplateField) {
   return /^DESC\d+$/i.test(field.name) || /^HAB ?\d+$/i.test(field.name) || /^CUSTO\d+$/i.test(field.name)
 }
 
+function isCodexField(field: PdfSheetTemplateField) {
+  return field.page === 3 && isMultilineField(field)
+}
+
+function isCodexValueField(field: PdfSheetTemplateField) {
+  return field.page === 3 && /^CUSTO\d+$/i.test(field.name)
+}
+
+function isCodexTextField(field: PdfSheetTemplateField) {
+  return field.page === 3 && (/^HAB ?\d+$/i.test(field.name) || /^DESC\d+$/i.test(field.name))
+}
+
+function isPage2AttributeField(field: PdfSheetTemplateField) {
+  return field.page === 2 && ['AGILIDADE', 'VIGOR', 'PRESENÇA', 'FORÇA', 'INTELIGENCIA'].includes(field.name)
+}
+
+function isPage2AttributeTopField(field: PdfSheetTemplateField) {
+  return field.page === 2 && /-TOP$/i.test(field.name)
+}
+
+function isPage2ResourceField(field: PdfSheetTemplateField) {
+  return field.page === 2 && ['PV', 'PV-ATUAL', 'PS', 'PS-ATUAL', 'PE', 'PE-ATUAL', 'DEFESA', 'BLOQUEIO', 'DESL', 'EX', 'EX 1'].includes(field.name)
+}
+
+function isNumericField(field: PdfSheetTemplateField) {
+  return isPage2AttributeField(field) || isPage2AttributeTopField(field) || isPage2ResourceField(field) || isCodexValueField(field)
+}
+
+function isRightAlignedField(_field: PdfSheetTemplateField) {
+  return false
+}
+
+function isRamField(field: PdfSheetTemplateField) {
+  return field.page === 2 && field.name === 'DESL'
+}
+
 function normalizeFieldKey(value: string) {
   return value
     .normalize('NFD')
@@ -178,26 +215,42 @@ function resolveSkillSelectValue(fieldName: string, fieldData: Record<string, st
 }
 
 function getFieldClassName(field: PdfSheetTemplateField, canEdit: boolean) {
-  const isCentered = centeredFieldNames.has(field.name)
+  const isCentered = centeredFieldNames.has(field.name) || isCodexValueField(field) || isPage2AttributeTopField(field)
+  const isRightAligned = isRightAlignedField(field)
   const isLarge = largeFieldNames.has(field.name)
   const isKarma = karmaFieldNames.has(field.name)
   const isStat = statFieldNames.has(field.name)
   const isMultiline = isMultilineField(field)
   const isInfoField = infoFieldNames.has(field.name)
+  const isCodex = isCodexField(field)
+  const isCodexValue = isCodexValueField(field)
+  const isCodexText = isCodexTextField(field)
+  const isAttributeTop = isPage2AttributeTopField(field)
+  const isRam = isRamField(field)
 
   return [
     'absolute border-none bg-transparent text-[#f8f8f4] shadow-none outline-none',
     'appearance-none font-display tracking-[0.04em] caret-white',
-    isCentered ? 'text-center' : 'text-left',
+    isRightAligned ? 'text-right' : isCentered ? 'text-center' : 'text-left',
     canEdit ? '' : 'pointer-events-none',
     isLarge
       ? 'text-[clamp(1.6rem,3vw,3.6rem)] leading-[0.88]'
       : isKarma
         ? 'text-[clamp(1.1rem,2vw,2.6rem)] leading-[0.88]'
+        : isRam
+          ? 'text-[clamp(1.3rem,2.1vw,1.95rem)] leading-none'
         : isStat
           ? 'text-[clamp(1.1rem,1.9vw,2.2rem)] leading-none'
+            : isAttributeTop
+              ? 'text-[1.08rem] leading-none'
           : isInfoField
             ? 'font-body text-[clamp(1.1rem,1.35vw,1.55rem)] font-semibold italic leading-none tracking-normal'
+            : isCodexValue
+              ? 'text-[1rem] leading-none'
+              : isCodexText
+                ? 'font-body text-[0.95rem] leading-[1.12] tracking-normal'
+                : isCodex
+                  ? 'font-body text-[0.9rem] leading-[1.08] tracking-normal'
             : isMultiline
               ? 'text-[1.3rem] leading-[1.15]'
               : field.height > 24
@@ -209,6 +262,12 @@ function getFieldClassName(field: PdfSheetTemplateField, canEdit: boolean) {
 function buildFieldStyle(field: PdfSheetTemplateField) {
   const pageSize = pdfSheetPageSizes[field.page - 1]
   const top = pageSize.height - (field.y + field.height)
+  const isCodex = isCodexField(field)
+  const isCodexValue = isCodexValueField(field)
+  const isCodexText = isCodexTextField(field)
+  const isRightAligned = isRightAlignedField(field)
+  const isAttributeTop = isPage2AttributeTopField(field)
+  const isRam = isRamField(field)
 
   return {
     left: `${(field.x / pageSize.width) * 100}%`,
@@ -217,9 +276,21 @@ function buildFieldStyle(field: PdfSheetTemplateField) {
     height: `${(field.height / pageSize.height) * 100}%`,
     padding: largeFieldNames.has(field.name) || karmaFieldNames.has(field.name)
       ? '0.18rem 0.35rem'
-      : isMultilineField(field)
-        ? '0.32rem 0.42rem'
-        : '0.18rem 0.28rem',
+      : isRam
+        ? '0.34rem 0.18rem 0.08rem 0.18rem'
+        : isAttributeTop
+          ? '0.08rem'
+      : isRightAligned
+        ? '0.12rem 0.7rem 0.12rem 0.18rem'
+        : isCodexValue
+          ? '0.12rem 0.16rem'
+          : isCodexText
+            ? '0.18rem 0.24rem'
+            : isCodex
+              ? '0.12rem 0.2rem'
+              : isMultilineField(field)
+                ? '0.32rem 0.42rem'
+                : '0.18rem 0.28rem',
   } satisfies React.CSSProperties
 }
 
@@ -445,6 +516,14 @@ function TemplatePdfPage({
         </>
       ) : null}
 
+      {pageNumber === 4 ? (
+        <CyberwareBoard
+          fieldData={fieldData}
+          onFieldChange={onFieldChange}
+          canEdit={canEdit}
+        />
+      ) : null}
+
       {pageFields.map((field) => {
         const style = buildFieldStyle(field)
         const className = getFieldClassName(field, canEdit)
@@ -456,6 +535,7 @@ function TemplatePdfPage({
               key={`${field.page}-${field.name}-${field.widgetIndex}`}
               value={value}
               disabled={!canEdit}
+              spellCheck={false}
               onChange={(e) => onFieldChange('SEXO', e.target.value)}
               className={`${className} cursor-pointer`}
               style={style}
@@ -496,6 +576,7 @@ function TemplatePdfPage({
               <select
                 value={value}
                 disabled={!canEdit}
+                spellCheck={false}
                 onChange={(event) => {
                   const nextValue = event.target.value
                   const option = skillSelectOptions.find((entry) => entry.label === nextValue)
@@ -525,12 +606,13 @@ function TemplatePdfPage({
 
         const value = fieldData[field.name] ?? ''
 
-        if (isMultilineField(field)) {
+        if (isMultilineField(field) && !isCodexValueField(field)) {
           return (
             <textarea
               key={`${field.page}-${field.name}-${field.widgetIndex}`}
               value={value}
               readOnly={!canEdit}
+              spellCheck={false}
               onChange={(event) => onFieldChange(field.name, event.target.value)}
               className={`${className} resize-none`}
               style={style}
@@ -543,6 +625,8 @@ function TemplatePdfPage({
             key={`${field.page}-${field.name}-${field.widgetIndex}`}
             value={value}
             readOnly={!canEdit}
+            spellCheck={false}
+            inputMode={isNumericField(field) ? 'numeric' : 'text'}
             onChange={(event) => onFieldChange(field.name, event.target.value)}
             className={className}
             style={field.name === 'CIDADE' ? { ...style, fontFamily: 'CyberwayRiders, sans-serif' } : style}

@@ -1,8 +1,5 @@
 import type { CSSProperties } from 'react'
-import {
-  type CyberwareSheetSlot,
-  type CyberwareSheetZoneDefinition,
-} from '../../lib/cyberwareSheetLayout'
+import type { CyberwareSheetSlot, CyberwareSheetZoneDefinition } from '../../lib/cyberwareSheetLayout'
 import { CyberwareAddSlot, CyberwareSlot } from './CyberwareSlot'
 
 interface CyberwareZoneProps {
@@ -13,62 +10,51 @@ interface CyberwareZoneProps {
   onRemoveSlot: (slotId: string) => void
 }
 
-function buildZoneStyle(zone: CyberwareSheetZoneDefinition): CSSProperties {
-  return {
+export function CyberwareZone({ zone, slots, canEdit, onAddSlot, onRemoveSlot }: CyberwareZoneProps) {
+  const [first, second] = slots.slice(0, zone.maxSlots)
+  const canAdd = canEdit && slots.length < zone.maxSlots
+
+  const style: CSSProperties = {
+    position: 'absolute',
     left: `${zone.left}%`,
     top: `${zone.top}%`,
     width: `${zone.width}%`,
+    textAlign: 'center',
   }
-}
-
-export function CyberwareZone({
-  zone,
-  slots,
-  canEdit,
-  onAddSlot,
-  onRemoveSlot,
-}: CyberwareZoneProps) {
-  const limitedSlots = slots.slice(0, zone.maxSlots)
-  const [first, second] = limitedSlots
-  const canAdd = canEdit && limitedSlots.length < zone.maxSlots
 
   return (
-    <section className="pointer-events-auto absolute" style={buildZoneStyle(zone)}>
-      {/* Label */}
+    <section className="pointer-events-auto" style={style}>
+      {/* Label — matches the sheet header style */}
       <p
-        className="text-center font-display uppercase text-[#0dd4ff]"
+        className="font-display uppercase text-[#0da7ff]"
         style={{
-          fontSize: '0.6rem',
-          letterSpacing: '0.18em',
-          textShadow: '0 0 8px rgba(0,210,255,0.45)',
+          fontSize: '0.55rem',
+          letterSpacing: '0.2em',
+          textShadow: '0 0 7px rgba(13,167,255,0.5)',
+          marginBottom: '6px',
           whiteSpace: 'nowrap',
         }}
       >
         {zone.label}
       </p>
 
-      {/* Slots row */}
-      <div className="mt-1.5 flex items-center justify-center gap-1">
-        {/* Slot 1: always shown — filled if has data, else empty placeholder */}
+      {/* Slot row */}
+      <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', alignItems: 'center' }}>
+        {/* Slot 1 */}
         <CyberwareSlot
           filled={Boolean(first)}
           canEdit={canEdit}
           onRemove={first ? () => onRemoveSlot(first.id) : undefined}
         />
 
-        {/* Slot 2: shown when filled OR as add-button placeholder */}
+        {/* Slot 2 or add-button */}
         {second ? (
-          <CyberwareSlot
-            filled
-            canEdit={canEdit}
-            onRemove={() => onRemoveSlot(second.id)}
-          />
+          <CyberwareSlot filled canEdit={canEdit} onRemove={() => onRemoveSlot(second.id)} />
         ) : canAdd && first ? (
-          /* Show add-slot as dashed circle only after first slot is filled */
           <CyberwareAddSlot onClick={onAddSlot} />
         ) : null}
 
-        {/* Add button when first slot is empty and nothing else */}
+        {/* Add button when completely empty */}
         {!first && canAdd ? (
           <CyberwareAddSlot onClick={onAddSlot} />
         ) : null}
