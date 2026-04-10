@@ -17,9 +17,14 @@ const STEPS = 16
 
 function MeterRow({ label, filled }: { label: string; filled: number }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-      {/* circles first */}
-      <div style={{ display: 'flex', gap: '4px', flexWrap: 'nowrap' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <span
+        className="font-display uppercase text-[#0da7ff]"
+        style={{ fontSize: '0.78rem', letterSpacing: '0.28em', textShadow: '0 0 10px rgba(13,167,255,0.7)', minWidth: '5rem' }}
+      >
+        {label}
+      </span>
+      <div style={{ display: 'flex', gap: '4px' }}>
         {Array.from({ length: STEPS }, (_, i) => {
           const active = i < filled
           return (
@@ -34,13 +39,6 @@ function MeterRow({ label, filled }: { label: string; filled: number }) {
           )
         })}
       </div>
-      {/* label on the right */}
-      <span
-        className="font-display uppercase text-[#0da7ff]"
-        style={{ fontSize: '0.75rem', letterSpacing: '0.26em', textShadow: '0 0 10px rgba(13,167,255,0.7)' }}
-      >
-        {label}
-      </span>
     </div>
   )
 }
@@ -66,7 +64,7 @@ export function CyberwareBoard({ fieldData, onFieldChange, canEdit }: CyberwareB
   }
 
   return (
-    <div className="pointer-events-none absolute inset-0 flex flex-col" style={{ padding: '2% 3% 1%' }}>
+    <div className="pointer-events-none absolute inset-0 flex flex-col" style={{ padding: '1% 3% 1%' }}>
 
       {/* Title */}
       <p
@@ -146,7 +144,7 @@ export function CyberwareBoard({ fieldData, onFieldChange, canEdit }: CyberwareB
       {/* CYBER / SHIELD meters */}
       <div
         className="pointer-events-none mt-1 flex flex-col gap-1"
-        style={{ borderTop: '1px solid rgba(13,167,255,0.1)', paddingTop: '6px' }}
+        style={{ borderTop: '1px solid rgba(13,167,255,0.1)', paddingTop: '6px', paddingLeft: '26%' }}
       >
         <MeterRow label="CYBER"  filled={cyberFilled} />
         <MeterRow label="SHIELD" filled={shieldFilled} />
