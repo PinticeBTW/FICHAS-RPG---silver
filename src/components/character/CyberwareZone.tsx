@@ -16,7 +16,6 @@ export function CyberwareZone({ zone, slots, canEdit, onAddSlot, onRemoveSlot }:
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: isLeft ? 'flex-end' : 'flex-start', gap: '5px' }}>
-      {/* Label */}
       <p
         className="font-display uppercase text-[#0da7ff]"
         style={{
@@ -29,23 +28,19 @@ export function CyberwareZone({ zone, slots, canEdit, onAddSlot, onRemoveSlot }:
         {zone.label}
       </p>
 
-      {/* Slots */}
       <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexDirection: isLeft ? 'row-reverse' : 'row' }}>
-        {/* Always show slot 1 */}
         <CyberwareSlot
           filled={Boolean(first)}
           canEdit={canEdit}
           onRemove={first ? () => onRemoveSlot(first.id) : undefined}
         />
 
-        {/* Slot 2 or add button */}
         {second ? (
           <CyberwareSlot filled canEdit={canEdit} onRemove={() => onRemoveSlot(second.id)} />
         ) : canAdd && first ? (
           <CyberwareAddSlot onClick={onAddSlot} />
         ) : null}
 
-        {/* Add when slot 1 is also empty */}
         {!first && canAdd ? <CyberwareAddSlot onClick={onAddSlot} /> : null}
       </div>
     </div>

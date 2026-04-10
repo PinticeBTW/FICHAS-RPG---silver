@@ -14,9 +14,10 @@ export function CyberwareSlot({ filled, canEdit, onRemove }: CyberwareSlotProps)
   return (
     <div className="group relative inline-flex">
       <svg width="68" height="68" viewBox="0 0 68 68">
-        {/* Outer segmented ring */}
         <circle
-          cx="34" cy="34" r="30"
+          cx="34"
+          cy="34"
+          r="30"
           fill="none"
           stroke={filled ? C : C_FAINT}
           strokeWidth="1.8"
@@ -24,25 +25,30 @@ export function CyberwareSlot({ filled, canEdit, onRemove }: CyberwareSlotProps)
           strokeLinecap="butt"
           style={{ transition: 'stroke 0.2s', filter: filled ? GLOW : 'none' }}
         />
-        {/* Mid ring */}
         <circle
-          cx="34" cy="34" r="21"
+          cx="34"
+          cy="34"
+          r="21"
           fill={filled ? 'rgba(13,167,255,0.04)' : 'none'}
           stroke={filled ? 'rgba(13,167,255,0.28)' : 'rgba(13,167,255,0.07)'}
           strokeWidth="1"
           strokeDasharray="7 5"
           style={{ transition: 'all 0.2s' }}
         />
-        {/* Cardinal ticks */}
         {[0, 90, 180, 270].map((deg) => (
-          <line key={deg} x1="34" y1="2" x2="34" y2="9"
+          <line
+            key={deg}
+            x1="34"
+            y1="2"
+            x2="34"
+            y2="9"
             stroke={filled ? C : C_FAINT}
-            strokeWidth="2" strokeLinecap="round"
+            strokeWidth="2"
+            strokeLinecap="round"
             transform={`rotate(${deg} 34 34)`}
             style={{ transition: 'stroke 0.2s', filter: filled ? GLOW : 'none' }}
           />
         ))}
-        {/* Center */}
         {filled ? (
           <>
             <circle cx="34" cy="34" r="9" fill="rgba(13,167,255,0.1)" />
@@ -72,21 +78,47 @@ export function CyberwareAddSlot({ onClick }: { onClick: () => void }) {
   return (
     <button type="button" onClick={onClick} className="group inline-flex" title="Adicionar slot">
       <svg width="68" height="68" viewBox="0 0 68 68">
-        <circle cx="34" cy="34" r="30" fill="none"
-          stroke="rgba(13,167,255,0.1)" strokeWidth="1.8" strokeDasharray="11 4"
+        <circle
+          cx="34"
+          cy="34"
+          r="30"
+          fill="none"
+          stroke="rgba(13,167,255,0.1)"
+          strokeWidth="1.8"
+          strokeDasharray="11 4"
           className="transition-all duration-200 group-hover:stroke-[rgba(13,167,255,0.5)]"
           style={{ transition: 'stroke 0.2s' }}
         />
-        <circle cx="34" cy="34" r="21" fill="none"
-          stroke="rgba(13,167,255,0.04)" strokeWidth="1" strokeDasharray="7 5"
+        <circle
+          cx="34"
+          cy="34"
+          r="21"
+          fill="none"
+          stroke="rgba(13,167,255,0.04)"
+          strokeWidth="1"
+          strokeDasharray="7 5"
           style={{ transition: 'stroke 0.2s' }}
           className="group-hover:stroke-[rgba(13,167,255,0.18)]"
         />
-        <line x1="34" y1="23" x2="34" y2="45" stroke="rgba(13,167,255,0.25)" strokeWidth="2" strokeLinecap="round"
+        <line
+          x1="34"
+          y1="23"
+          x2="34"
+          y2="45"
+          stroke="rgba(13,167,255,0.25)"
+          strokeWidth="2"
+          strokeLinecap="round"
           style={{ transition: 'stroke 0.2s' }}
           className="group-hover:stroke-[rgba(13,167,255,0.75)]"
         />
-        <line x1="23" y1="34" x2="45" y2="34" stroke="rgba(13,167,255,0.25)" strokeWidth="2" strokeLinecap="round"
+        <line
+          x1="23"
+          y1="34"
+          x2="45"
+          y2="34"
+          stroke="rgba(13,167,255,0.25)"
+          strokeWidth="2"
+          strokeLinecap="round"
           style={{ transition: 'stroke 0.2s' }}
           className="group-hover:stroke-[rgba(13,167,255,0.75)]"
         />

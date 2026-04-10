@@ -31,6 +31,133 @@ export const pdfSheetPageSizes = [
   }
 ] as const
 
+const page3Columns = {
+  ability: {
+    x: 101.769,
+    width: 176.939,
+  },
+  value: {
+    x: 278.709,
+    width: 73.493,
+  },
+  description: {
+    x: 352.45,
+    width: 226.626,
+  },
+} as const
+
+const page2AttributeTopFields: PdfSheetTemplateField[] = [
+  {
+    name: 'AGILIDADE-TOP',
+    widgetIndex: 0,
+    page: 2,
+    x: 70.92,
+    y: 790.476,
+    width: 30,
+    height: 18,
+  },
+  {
+    name: 'VIGOR-TOP',
+    widgetIndex: 0,
+    page: 2,
+    x: 177.114,
+    y: 790.835,
+    width: 30,
+    height: 18,
+  },
+  {
+    name: 'PRESENCA-TOP',
+    widgetIndex: 0,
+    page: 2,
+    x: 282.467,
+    y: 790.835,
+    width: 30,
+    height: 18,
+  },
+  {
+    name: 'FORCA-TOP',
+    widgetIndex: 0,
+    page: 2,
+    x: 388.879,
+    y: 790.817,
+    width: 30,
+    height: 18,
+  },
+  {
+    name: 'INTELIGENCIA-TOP',
+    widgetIndex: 0,
+    page: 2,
+    x: 496.173,
+    y: 790.429,
+    width: 30,
+    height: 18,
+  },
+] as const
+
+const page3RowHeight = 30.659
+
+const page3RowBottoms = [
+  726.806,
+  696.148,
+  665.409,
+  635.579,
+  604.92,
+  574.181,
+  543.367,
+  513.538,
+  482.879,
+  452.14,
+  421.505,
+  328.511,
+  297.852,
+  267.113,
+  237.284,
+  206.625,
+  175.886,
+  145.072,
+  115.242,
+  84.584,
+  53.845,
+  23.21,
+] as const
+
+function buildPage3Fields(): PdfSheetTemplateField[] {
+  return page3RowBottoms.flatMap((y, index) => {
+    const slot = index + 1
+    const abilityName = slot === 1 ? 'HAB 1' : `HAB${slot}`
+
+    return [
+      {
+        name: abilityName,
+        widgetIndex: 0,
+        page: 3,
+        x: page3Columns.ability.x,
+        y,
+        width: page3Columns.ability.width,
+        height: page3RowHeight,
+      },
+      {
+        name: `CUSTO${slot}`,
+        widgetIndex: 0,
+        page: 3,
+        x: page3Columns.value.x,
+        y,
+        width: page3Columns.value.width,
+        height: page3RowHeight,
+      },
+      {
+        name: `DESC${slot}`,
+        widgetIndex: 0,
+        page: 3,
+        x: page3Columns.description.x,
+        y,
+        width: page3Columns.description.width,
+        height: page3RowHeight,
+      },
+    ]
+  })
+}
+
 export const pdfSheetTemplateFields: PdfSheetTemplateField[] = [
   {
     "name": "CIDADE",
@@ -675,47 +802,48 @@ export const pdfSheetTemplateFields: PdfSheetTemplateField[] = [
     "name": "PRESENÇA",
     "widgetIndex": 0,
     "page": 2,
-    "x": 254.619,
-    "y": 695.127,
-    "width": 84.437,
-    "height": 85.091
+    "x": 253.01,
+    "y": 695.016,
+    "width": 88.257,
+    "height": 88.936
   },
   {
     "name": "FORÇA",
     "widgetIndex": 0,
     "page": 2,
-    "x": 360.002,
-    "y": 693.818,
-    "width": 84.436,
-    "height": 85.091
+    "x": 359.432,
+    "y": 695.016,
+    "width": 88.257,
+    "height": 88.936
   },
   {
     "name": "AGILIDADE",
     "widgetIndex": 0,
     "page": 2,
-    "x": 42.546,
-    "y": 693.163,
-    "width": 84.436,
-    "height": 85.091
+    "x": 41.313,
+    "y": 694.676,
+    "width": 88.257,
+    "height": 88.936
   },
   {
     "name": "VIGOR",
     "widgetIndex": 0,
     "page": 2,
-    "x": 148.583,
-    "y": 693.163,
-    "width": 84.436,
-    "height": 85.091
+    "x": 147.443,
+    "y": 695.016,
+    "width": 88.257,
+    "height": 88.936
   },
   {
     "name": "INTELIGENCIA",
     "widgetIndex": 0,
     "page": 2,
-    "x": 467.348,
-    "y": 693.163,
-    "width": 84.436,
-    "height": 85.091
+    "x": 466.471,
+    "y": 694.624,
+    "width": 88.257,
+    "height": 88.936
   },
+  ...page2AttributeTopFields,
   {
     "name": "INVESTIGAÇÃO",
     "widgetIndex": 0,
@@ -1206,504 +1334,100 @@ export const pdfSheetTemplateFields: PdfSheetTemplateField[] = [
     "name": "PV",
     "widgetIndex": 0,
     "page": 2,
-    "x": 210.656,
-    "y": 225.488,
-    "width": 56.946,
-    "height": 34.691
+    "x": 211.395,
+    "y": 191.399,
+    "width": 56.599,
+    "height": 34.527
   },
   {
     "name": "DESL",
     "widgetIndex": 0,
     "page": 2,
-    "x": 465.209,
+    "x": 422.761,
     "y": 193.153,
-    "width": 93.861,
-    "height": 66.764
+    "width": 107.25,
+    "height": 67.577
   },
   {
     "name": "PV-ATUAL",
     "widgetIndex": 0,
     "page": 2,
-    "x": 211.419,
-    "y": 192.215,
-    "width": 54.328,
-    "height": 32.728
+    "x": 211.395,
+    "y": 225.926,
+    "width": 56.599,
+    "height": 34.527
   },
   {
     "name": "PS",
     "widgetIndex": 0,
     "page": 2,
-    "x": 211.691,
-    "y": 156.161,
-    "width": 57.165,
-    "height": 32.945
+    "x": 211.268,
+    "y": 120.426,
+    "width": 56.726,
+    "height": 34.502
   },
   {
     "name": "EX 1",
     "widgetIndex": 0,
     "page": 2,
-    "x": 465.317,
-    "y": 126.695,
-    "width": 93.993,
-    "height": 64.669
+    "x": 514.641,
+    "y": 125.62,
+    "width": 44.696,
+    "height": 67.174
   },
   {
     "name": "EX",
     "widgetIndex": 0,
     "page": 2,
-    "x": 328.757,
-    "y": 126.084,
-    "width": 99.23,
-    "height": 66.109
+    "x": 369.775,
+    "y": 125.689,
+    "width": 52.857,
+    "height": 67.21
   },
   {
     "name": "PS-ATUAL",
     "widgetIndex": 0,
     "page": 2,
-    "x": 212.018,
-    "y": 121.579,
-    "width": 54.983,
-    "height": 32.509
+    "x": 211.268,
+    "y": 154.928,
+    "width": 56.726,
+    "height": 36.453
   },
   {
     "name": "PE",
     "widgetIndex": 0,
     "page": 2,
-    "x": 212.128,
-    "y": 87.651,
-    "width": 54.328,
-    "height": 32.073
+    "x": 211.268,
+    "y": 51.423,
+    "width": 56.726,
+    "height": 34.502
   },
   {
     "name": "BLOQUEIO",
     "widgetIndex": 0,
     "page": 2,
-    "x": 517.669,
-    "y": 52.984,
-    "width": 41.935,
-    "height": 71.738
+    "x": 514.737,
+    "y": 51.418,
+    "width": 44.696,
+    "height": 73.878
   },
   {
     "name": "PE-ATUAL",
     "widgetIndex": 0,
     "page": 2,
-    "x": 212.455,
-    "y": 52.851,
-    "width": 54.545,
-    "height": 32.727
+    "x": 211.268,
+    "y": 85.925,
+    "width": 56.726,
+    "height": 34.502
   },
   {
     "name": "DEFESA",
     "widgetIndex": 0,
     "page": 2,
-    "x": 369.855,
-    "y": 52.638,
-    "width": 52.338,
-    "height": 71.642
+    "x": 369.871,
+    "y": 51.494,
+    "width": 52.857,
+    "height": 73.918
   },
-  {
-    "name": "HAB 1",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 19.782,
-    "y": 639.463,
-    "width": 206.179,
-    "height": 43.507
-  },
-  {
-    "name": "DESC1",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 338.124,
-    "y": 639.447,
-    "width": 240.437,
-    "height": 42.981
-  },
-  {
-    "name": "CUSTO1",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 227.28,
-    "y": 639.251,
-    "width": 109.343,
-    "height": 42.811
-  },
-  {
-    "name": "HAB2",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 19.669,
-    "y": 596.095,
-    "width": 206.871,
-    "height": 41.829
-  },
-  {
-    "name": "CUSTO2",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 227.051,
-    "y": 595.332,
-    "width": 110.325,
-    "height": 43.139
-  },
-  {
-    "name": "DESC2",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 338.45,
-    "y": 594.646,
-    "width": 240.438,
-    "height": 42.982
-  },
-  {
-    "name": "CUSTO3",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 226.888,
-    "y": 553.605,
-    "width": 109.997,
-    "height": 40.52
-  },
-  {
-    "name": "HAB3",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 19.451,
-    "y": 552.677,
-    "width": 206.215,
-    "height": 41.611
-  },
-  {
-    "name": "DESC3",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 337.577,
-    "y": 552.537,
-    "width": 240.438,
-    "height": 41.672
-  },
-  {
-    "name": "HAB4",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 20.602,
-    "y": 510.124,
-    "width": 206.215,
-    "height": 42.266
-  },
-  {
-    "name": "DESC4",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 338.619,
-    "y": 510.094,
-    "width": 240.438,
-    "height": 41.672
-  },
-  {
-    "name": "CUSTO4",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 226.457,
-    "y": 510.015,
-    "width": 109.998,
-    "height": 42.484
-  },
-  {
-    "name": "DESC5",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 338.619,
-    "y": 466.894,
-    "width": 239.129,
-    "height": 41.672
-  },
-  {
-    "name": "HAB5",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 19.948,
-    "y": 466.27,
-    "width": 206.216,
-    "height": 42.92
-  },
-  {
-    "name": "CUSTO5",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 227.112,
-    "y": 465.833,
-    "width": 109.997,
-    "height": 42.484
-  },
-  {
-    "name": "DESC6",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 337.965,
-    "y": 423.039,
-    "width": 239.129,
-    "height": 41.672
-  },
-  {
-    "name": "CUSTO6",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 227.112,
-    "y": 421.979,
-    "width": 109.997,
-    "height": 42.483
-  },
-  {
-    "name": "HAB6",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 19.948,
-    "y": 421.76,
-    "width": 206.216,
-    "height": 42.921
-  },
-  {
-    "name": "DESC7",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 338.619,
-    "y": 381.802,
-    "width": 239.129,
-    "height": 41.673
-  },
-  {
-    "name": "CUSTO7",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 227.112,
-    "y": 379.106,
-    "width": 109.997,
-    "height": 42.483
-  },
-  {
-    "name": "HAB7",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 20.275,
-    "y": 378.887,
-    "width": 206.215,
-    "height": 42.921
-  },
-  {
-    "name": "DESC8",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 338.292,
-    "y": 335.984,
-    "width": 240.438,
-    "height": 41.672
-  },
-  {
-    "name": "CUSTO8",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 227.112,
-    "y": 335.251,
-    "width": 109.997,
-    "height": 42.484
-  },
-  {
-    "name": "HAB8",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 19.62,
-    "y": 333.723,
-    "width": 206.215,
-    "height": 42.921
-  },
-  {
-    "name": "DESC9",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 339.601,
-    "y": 290.82,
-    "width": 239.129,
-    "height": 41.672
-  },
-  {
-    "name": "HAB9",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 19.62,
-    "y": 290.523,
-    "width": 206.215,
-    "height": 42.921
-  },
-  {
-    "name": "CUSTO9",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 227.112,
-    "y": 290.251,
-    "width": 109.997,
-    "height": 42.483
-  },
-  {
-    "name": "HAB10",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 20.602,
-    "y": 246.505,
-    "width": 206.215,
-    "height": 42.92
-  },
-  {
-    "name": "CUSTO10",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 227.766,
-    "y": 245.741,
-    "width": 109.998,
-    "height": 42.484
-  },
-  {
-    "name": "DESC10",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 340.256,
-    "y": 245.002,
-    "width": 239.129,
-    "height": 41.672
-  },
-  {
-    "name": "CUSTO11",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 228.421,
-    "y": 202.214,
-    "width": 109.997,
-    "height": 42.484
-  },
-  {
-    "name": "HAB11",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 20.602,
-    "y": 201.341,
-    "width": 204.252,
-    "height": 42.92
-  },
-  {
-    "name": "DESC11",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 338.947,
-    "y": 201.147,
-    "width": 239.129,
-    "height": 41.672
-  },
-  {
-    "name": "DESC12",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 338.9,
-    "y": 157.947,
-    "width": 240.438,
-    "height": 41.672
-  },
-  {
-    "name": "HAB12",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 20.929,
-    "y": 157.814,
-    "width": 204.906,
-    "height": 42.92
-  },
-  {
-    "name": "CUSTO12",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 228.421,
-    "y": 157.705,
-    "width": 109.997,
-    "height": 42.483
-  },
-  {
-    "name": "DESC13",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 338.9,
-    "y": 112.783,
-    "width": 239.129,
-    "height": 41.672
-  },
-  {
-    "name": "HAB13",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 20.275,
-    "y": 112.65,
-    "width": 206.215,
-    "height": 42.92
-  },
-  {
-    "name": "CUSTO13",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 227.766,
-    "y": 111.886,
-    "width": 109.998,
-    "height": 42.484
-  },
-  {
-    "name": "CUSTO14",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 227.766,
-    "y": 69.013,
-    "width": 109.998,
-    "height": 42.484
-  },
-  {
-    "name": "DESC14",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 338.246,
-    "y": 67.619,
-    "width": 239.129,
-    "height": 41.672
-  },
-  {
-    "name": "HAB14",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 20.275,
-    "y": 67.486,
-    "width": 206.215,
-    "height": 42.92
-  },
-  {
-    "name": "CUSTO15",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 227.766,
-    "y": 25.159,
-    "width": 109.998,
-    "height": 42.484
-  },
-  {
-    "name": "DESC15",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 338.246,
-    "y": 25.073,
-    "width": 239.129,
-    "height": 41.672
-  },
-  {
-    "name": "HAB15",
-    "widgetIndex": 0,
-    "page": 3,
-    "x": 20.602,
-    "y": 24.449,
-    "width": 206.215,
-    "height": 42.92
-  }
+  ...buildPage3Fields(),
 ]

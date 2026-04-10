@@ -1,5 +1,6 @@
 import type { Profile, WebSheetRecord } from '../types/domain'
 import { supabase, SUPABASE_CONFIG_ERROR } from './supabase'
+import { cyberwareSheetFieldDefaults, cyberwareSheetFieldKeys } from './cyberwareSheetLayout'
 import { pdfSheetTemplateFields } from './pdfSheetTemplate'
 
 const CURRENT_TEMPLATE_KEY = 'blank-grey-v2'
@@ -41,7 +42,10 @@ function mapProfile(row: ProfileRow): Profile {
 }
 
 function buildInitialFieldData() {
-  return Object.fromEntries(pdfSheetTemplateFields.map((field) => [field.name, '']))
+  return {
+    ...Object.fromEntries(pdfSheetTemplateFields.map((field) => [field.name, ''])),
+    ...cyberwareSheetFieldDefaults,
+  }
 }
 
 const EXTRA_FIELD_KEYS = [
@@ -53,6 +57,7 @@ const EXTRA_FIELD_KEYS = [
   'PLAYER_MESSAGES',
   'PLAYER_NOTES',
   'PLAYER_NOTE_PAGES',
+  ...cyberwareSheetFieldKeys,
 ]
 
 function mapSheet(row: SheetRow): WebSheetRecord {
@@ -65,7 +70,7 @@ function mapSheet(row: SheetRow): WebSheetRecord {
 
   for (const key of EXTRA_FIELD_KEYS) {
     const value = row.field_data?.[key]
-    nextFieldData[key] = typeof value === 'string' ? value : ''
+    nextFieldData[key] = typeof value === 'string' ? value : cyberwareSheetFieldDefaults[key] ?? ''
   }
 
   return {
@@ -103,7 +108,7 @@ function mapNpcSheet(row: NpcCardRow): WebSheetRecord {
   }
   for (const key of EXTRA_FIELD_KEYS) {
     const value = row.field_data?.[key]
-    nextFieldData[key] = typeof value === 'string' ? value : ''
+    nextFieldData[key] = typeof value === 'string' ? value : cyberwareSheetFieldDefaults[key] ?? ''
   }
   return {
     id: row.id,
