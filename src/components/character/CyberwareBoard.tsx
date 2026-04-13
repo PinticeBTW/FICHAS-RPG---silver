@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   createCyberwareSheetSlot,
   cyberwareSheetZones,
@@ -56,7 +56,24 @@ function MeterDots({ filled }: { filled: number }) {
   )
 }
 
+// Design reference width (px) — board was designed at this container width
+const DESIGN_WIDTH = 440
+
 export function CyberwareBoard({ fieldData, onFieldChange, canEdit }: CyberwareBoardProps) {
+  const outerRef = useRef<HTMLDivElement>(null)
+  const [scale, setScale] = useState(1)
+
+  useEffect(() => {
+    const el = outerRef.current
+    if (!el) return
+    const obs = new ResizeObserver(([entry]) => {
+      const w = entry.contentRect.width
+      if (w > 0) setScale(w / DESIGN_WIDTH)
+    })
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
+
   const zones = useMemo(
     () =>
       cyberwareSheetZones.map((zone) => ({
@@ -77,7 +94,8 @@ export function CyberwareBoard({ fieldData, onFieldChange, canEdit }: CyberwareB
   }
 
   return (
-    <div className="pointer-events-none absolute inset-0 flex flex-col" style={{ padding: '1% 3% 1%' }}>
+    <div ref={outerRef} className="pointer-events-none absolute inset-0 overflow-hidden">
+    <div className="pointer-events-none absolute inset-0 flex flex-col origin-top-left" style={{ padding: '1% 3% 1%', transform: `scale(${scale})`, width: `${100 / scale}%`, height: `${100 / scale}%` }}>
       <p
         className="pointer-events-none mb-3 text-center font-display uppercase text-[#0da7ff]"
         style={{ fontSize: '0.68rem', letterSpacing: '0.32em', textShadow: '0 0 12px rgba(13,167,255,0.65)' }}
@@ -188,6 +206,7 @@ export function CyberwareBoard({ fieldData, onFieldChange, canEdit }: CyberwareB
           <MeterDots filled={shieldFilled} />
         </div>
       </div>
+    </div>
     </div>
   )
 }
