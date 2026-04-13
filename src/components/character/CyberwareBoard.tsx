@@ -68,7 +68,7 @@ export function CyberwareBoard({ fieldData, onFieldChange, canEdit }: CyberwareB
     if (!el) return
     const obs = new ResizeObserver(([entry]) => {
       const w = entry.contentRect.width
-      if (w > 0) setScale(w / DESIGN_WIDTH)
+      if (w > 0) setScale(Math.min(1, w / DESIGN_WIDTH))
     })
     obs.observe(el)
     return () => obs.disconnect()
