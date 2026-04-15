@@ -525,7 +525,7 @@ function TemplatePdfPage({
           fieldData={fieldData}
           onFieldChange={onFieldChange}
           canEdit={canEdit}
-          tone={color}
+          tone={tone}
         />
       ) : null}
 
