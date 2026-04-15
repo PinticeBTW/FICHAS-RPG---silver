@@ -672,6 +672,7 @@ export function PdfSheetEditor({
         <RelationsBoard
           data={relationsData}
           canEdit={canEdit}
+          tone={color}
           onChange={(updated) => onFieldChange('P5_RELATIONS', stringifyRelationsData(updated))}
         />
       </div>

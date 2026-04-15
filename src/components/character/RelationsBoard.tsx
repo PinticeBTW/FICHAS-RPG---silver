@@ -8,14 +8,64 @@ import {
   makeGroupId,
 } from '../../lib/relationsTypes'
 
-// ─── Constants ───────────────────────────────────────────────────────────────
+// ─── Tone colour system ───────────────────────────────────────────────────────
 
-const CYAN = '#0da7ff'
-const CYAN_DIM = 'rgba(13,167,255,0.18)'
-const CYAN_MID = 'rgba(13,167,255,0.35)'
-const CYAN_GLOW = '0 0 12px rgba(13,167,255,0.55)'
-const BG = '#03091f'
-const BG_CARD = 'rgba(6,16,38,0.95)'
+export type RelationsTone = 'blue' | 'red' | 'grey'
+
+interface ToneColors {
+  accent: string
+  dim: string
+  mid: string
+  glow: string
+  bg: string
+  bgCard: string
+}
+
+const TONE_COLORS: Record<RelationsTone, ToneColors> = {
+  blue: {
+    accent:  '#0da7ff',
+    dim:     'rgba(13,167,255,0.18)',
+    mid:     'rgba(13,167,255,0.35)',
+    glow:    '0 0 12px rgba(13,167,255,0.55)',
+    bg:      '#03091f',
+    bgCard:  'rgba(6,16,38,0.95)',
+  },
+  red: {
+    accent:  '#ff5468',
+    dim:     'rgba(255,84,104,0.18)',
+    mid:     'rgba(255,84,104,0.35)',
+    glow:    '0 0 12px rgba(255,84,104,0.55)',
+    bg:      '#1a0308',
+    bgCard:  'rgba(38,6,12,0.95)',
+  },
+  grey: {
+    accent:  '#9ca3b2',
+    dim:     'rgba(156,163,178,0.18)',
+    mid:     'rgba(156,163,178,0.35)',
+    glow:    '0 0 10px rgba(156,163,178,0.4)',
+    bg:      '#0d0d0f',
+    bgCard:  'rgba(18,18,22,0.95)',
+  },
+}
+
+// Keep these as module-level vars that get overridden per-render via context
+// (we pass C down through props to keep things simple)
+let CYAN = '#0da7ff'
+let CYAN_DIM = 'rgba(13,167,255,0.18)'
+let CYAN_MID = 'rgba(13,167,255,0.35)'
+let CYAN_GLOW = '0 0 12px rgba(13,167,255,0.55)'
+let BG = '#03091f'
+let BG_CARD = 'rgba(6,16,38,0.95)'
+
+function applyTone(tone: RelationsTone) {
+  const c = TONE_COLORS[tone]
+  CYAN     = c.accent
+  CYAN_DIM = c.dim
+  CYAN_MID = c.mid
+  CYAN_GLOW = c.glow
+  BG       = c.bg
+  BG_CARD  = c.bgCard
+}
 
 // ─── Octagon Status Indicators ───────────────────────────────────────────────
 
@@ -660,12 +710,14 @@ function actionBtnStyle(color: string): React.CSSProperties {
 interface RelationsBoardProps {
   data: RelationsData
   canEdit: boolean
+  tone?: RelationsTone
   onChange: (updated: RelationsData) => void
 }
 
 type BoardView = 'grid' | 'card'
 
-export function RelationsBoard({ data, canEdit, onChange }: RelationsBoardProps) {
+export function RelationsBoard({ data, canEdit, tone = 'blue', onChange }: RelationsBoardProps) {
+  applyTone(tone)
   const [selectedGroupId, setSelectedGroupId] = useState<string>(data.groups[0]?.id ?? '')
   const [selectedNpcId, setSelectedNpcId] = useState<string | null>(null)
   const [view, setView] = useState<BoardView>('grid')
@@ -762,24 +814,6 @@ export function RelationsBoard({ data, canEdit, onChange }: RelationsBoardProps)
           paddingBottom: '0',
         }}
       >
-        {/* Plus icon (leftmost) */}
-        <div
-          style={{
-            width: '32px',
-            height: '32px',
-            border: `1px solid ${CYAN_MID}`,
-            borderBottom: 'none',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-            background: 'rgba(13,167,255,0.08)',
-            marginRight: '8px',
-          }}
-        >
-          <span style={{ color: CYAN, fontSize: '1.1rem', lineHeight: 1 }}>+</span>
-        </div>
-
         {data.groups.map((group) => (
           <GroupTab
             key={group.id}
