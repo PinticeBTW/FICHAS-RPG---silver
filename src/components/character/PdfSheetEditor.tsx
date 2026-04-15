@@ -419,12 +419,14 @@ function TemplatePdfPage({
   fieldData,
   onFieldChange,
   canEdit,
+  tone,
 }: {
   pageNumber: number
   templateUrl: string
   fieldData: Record<string, string>
   onFieldChange: (fieldName: string, value: string) => void
   canEdit: boolean
+  tone: 'blue' | 'red' | 'grey'
 }) {
   const pageSize = pdfSheetPageSizes[pageNumber - 1]
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -665,6 +667,7 @@ export function PdfSheetEditor({
           fieldData={fieldData}
           onFieldChange={onFieldChange}
           canEdit={canEdit}
+          tone={color}
         />
       ))}
 
