@@ -57,6 +57,7 @@ const EXTRA_FIELD_KEYS = [
   'PLAYER_MESSAGES',
   'PLAYER_NOTES',
   'PLAYER_NOTE_PAGES',
+  'P5_RELATIONS',
   ...cyberwareSheetFieldKeys,
 ]
 
