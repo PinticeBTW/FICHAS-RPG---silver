@@ -16,6 +16,7 @@ interface ToneColors {
   accent: string
   dim: string
   mid: string
+  faint: string   // very subtle — for inactive/unhovered states
   glow: string
   bg: string
   bgCard: string
@@ -27,6 +28,7 @@ const TONE_COLORS: Record<RelationsTone, ToneColors> = {
     accent:  '#0da7ff',
     dim:     'rgba(13,167,255,0.20)',
     mid:     'rgba(13,167,255,0.40)',
+    faint:   'rgba(13,167,255,0.10)',
     glow:    '0 0 12px rgba(13,167,255,0.55)',
     bg:      '#02061a',
     bgCard:  'rgba(4,10,30,0.95)',
@@ -36,6 +38,7 @@ const TONE_COLORS: Record<RelationsTone, ToneColors> = {
     accent:  '#cc1111',
     dim:     'rgba(204,17,17,0.22)',
     mid:     'rgba(204,17,17,0.42)',
+    faint:   'rgba(204,17,17,0.10)',
     glow:    '0 0 12px rgba(204,17,17,0.6)',
     bg:      '#0f0004',
     bgCard:  'rgba(22,4,8,0.97)',
@@ -45,6 +48,7 @@ const TONE_COLORS: Record<RelationsTone, ToneColors> = {
     accent:  '#c8cdd6',
     dim:     'rgba(200,205,214,0.22)',
     mid:     'rgba(200,205,214,0.45)',
+    faint:   'rgba(200,205,214,0.10)',
     glow:    '0 0 8px rgba(200,205,214,0.35)',
     bg:      '#6a6e73',
     bgCard:  'rgba(80,84,88,0.97)',
@@ -53,21 +57,23 @@ const TONE_COLORS: Record<RelationsTone, ToneColors> = {
 
 // Keep these as module-level vars that get overridden per-render via context
 // (we pass C down through props to keep things simple)
-let CYAN = '#0da7ff'
-let CYAN_DIM = 'rgba(13,167,255,0.18)'
-let CYAN_MID = 'rgba(13,167,255,0.35)'
+let CYAN      = '#0da7ff'
+let CYAN_DIM  = 'rgba(13,167,255,0.20)'
+let CYAN_MID  = 'rgba(13,167,255,0.40)'
+let CYAN_FAINT = 'rgba(13,167,255,0.10)'
 let CYAN_GLOW = '0 0 12px rgba(13,167,255,0.55)'
-let BG = '#03091f'
-let BG_CARD = 'rgba(6,16,38,0.95)'
+let BG        = '#02061a'
+let BG_CARD   = 'rgba(4,10,30,0.95)'
 
 function applyTone(tone: RelationsTone) {
-  const c = TONE_COLORS[tone]
-  CYAN     = c.accent
-  CYAN_DIM = c.dim
-  CYAN_MID = c.mid
-  CYAN_GLOW = c.glow
-  BG       = c.bg
-  BG_CARD  = c.bgCard
+  const c   = TONE_COLORS[tone]
+  CYAN       = c.accent
+  CYAN_DIM   = c.dim
+  CYAN_MID   = c.mid
+  CYAN_FAINT = c.faint
+  CYAN_GLOW  = c.glow
+  BG         = c.bg
+  BG_CARD    = c.bgCard
 }
 
 // ─── Octagon Status Indicators ───────────────────────────────────────────────
@@ -942,10 +948,10 @@ function GroupTab({
         className="font-display uppercase"
         style={{
           padding: '6px 16px 10px',
-          background: active ? CYAN_DIM : hovered ? `${CYAN_DIM}44` : 'none',
+          background: active ? CYAN_DIM : hovered ? CYAN_FAINT : 'none',
           border: active ? `1px solid ${CYAN_MID}` : `1px solid transparent`,
           borderBottom: active ? '1px solid ' + BG : `1px solid transparent`,
-          color: active ? CYAN : hovered ? CYAN_MID : `${CYAN_MID}99`,
+          color: active ? CYAN : hovered ? CYAN_MID : CYAN_FAINT,
           cursor: 'pointer',
           fontSize: '0.68rem',
           letterSpacing: '0.22em',
