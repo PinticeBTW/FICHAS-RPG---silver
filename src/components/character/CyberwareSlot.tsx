@@ -1,61 +1,64 @@
+import { useState } from 'react'
 import { X } from 'lucide-react'
 
-const C = '#0da7ff'
-const C_FAINT = 'rgba(13,167,255,0.2)'
-const GLOW = 'drop-shadow(0 0 5px rgba(13,167,255,0.65))'
+export interface CwColors {
+  accent: string
+  faint: string
+  dim: string
+  glowFilter: string
+}
 
 interface CyberwareSlotProps {
   filled: boolean
   canEdit: boolean
+  colors: CwColors
   onRemove?: () => void
 }
 
-export function CyberwareSlot({ filled, canEdit, onRemove }: CyberwareSlotProps) {
+export function CyberwareSlot({ filled, canEdit, colors, onRemove }: CyberwareSlotProps) {
+  const { accent, faint, dim, glowFilter } = colors
   return (
     <div className="group relative inline-flex">
       <svg width="68" height="68" viewBox="0 0 68 68">
+        {/* Outer dashed ring */}
         <circle
-          cx="34"
-          cy="34"
-          r="30"
+          cx="34" cy="34" r="30"
           fill="none"
-          stroke={filled ? C : C_FAINT}
+          stroke={filled ? accent : faint}
           strokeWidth="1.8"
           strokeDasharray="11 4"
           strokeLinecap="butt"
-          style={{ transition: 'stroke 0.2s', filter: filled ? GLOW : 'none' }}
+          style={{ transition: 'stroke 0.2s', filter: filled ? glowFilter : 'none' }}
         />
+        {/* Inner dashed ring */}
         <circle
-          cx="34"
-          cy="34"
-          r="21"
-          fill={filled ? 'rgba(13,167,255,0.04)' : 'none'}
-          stroke={filled ? 'rgba(13,167,255,0.28)' : 'rgba(13,167,255,0.07)'}
+          cx="34" cy="34" r="21"
+          fill={filled ? dim : 'none'}
+          stroke={filled ? faint : dim}
           strokeWidth="1"
           strokeDasharray="7 5"
           style={{ transition: 'all 0.2s' }}
         />
+        {/* Cardinal tick marks */}
         {[0, 90, 180, 270].map((deg) => (
           <line
             key={deg}
-            x1="34"
-            y1="2"
-            x2="34"
-            y2="9"
-            stroke={filled ? C : C_FAINT}
+            x1="34" y1="2" x2="34" y2="9"
+            stroke={filled ? accent : faint}
             strokeWidth="2"
             strokeLinecap="round"
             transform={`rotate(${deg} 34 34)`}
-            style={{ transition: 'stroke 0.2s', filter: filled ? GLOW : 'none' }}
+            style={{ transition: 'stroke 0.2s', filter: filled ? glowFilter : 'none' }}
           />
         ))}
+        {/* Center dot */}
         {filled ? (
           <>
-            <circle cx="34" cy="34" r="9" fill="rgba(13,167,255,0.1)" />
-            <circle cx="34" cy="34" r="4.5" fill={C} style={{ filter: GLOW }} />
+            <circle cx="34" cy="34" r="9" fill={dim} />
+            <circle cx="34" cy="34" r="4.5" fill={accent} style={{ filter: glowFilter }} />
           </>
         ) : (
-          <circle cx="34" cy="34" r="3" fill="rgba(13,167,255,0.08)" />
+          <circle cx="34" cy="34" r="3" fill={dim} />
         )}
       </svg>
 
@@ -74,53 +77,46 @@ export function CyberwareSlot({ filled, canEdit, onRemove }: CyberwareSlotProps)
   )
 }
 
-export function CyberwareAddSlot({ onClick }: { onClick: () => void }) {
+export function CyberwareAddSlot({ onClick, colors }: { onClick: () => void; colors: CwColors }) {
+  const [hovered, setHovered] = useState(false)
+  const { accent, faint, dim } = colors
+  const ringStroke    = hovered ? faint   : dim
+  const innerStroke   = hovered ? dim     : `${dim}`
+  const crossStroke   = hovered ? accent  : faint
+
   return (
-    <button type="button" onClick={onClick} className="group inline-flex" title="Adicionar slot">
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="inline-flex"
+      title="Adicionar slot"
+    >
       <svg width="68" height="68" viewBox="0 0 68 68">
         <circle
-          cx="34"
-          cy="34"
-          r="30"
+          cx="34" cy="34" r="30"
           fill="none"
-          stroke="rgba(13,167,255,0.1)"
+          stroke={ringStroke}
           strokeWidth="1.8"
           strokeDasharray="11 4"
-          className="transition-all duration-200 group-hover:stroke-[rgba(13,167,255,0.5)]"
           style={{ transition: 'stroke 0.2s' }}
         />
         <circle
-          cx="34"
-          cy="34"
-          r="21"
+          cx="34" cy="34" r="21"
           fill="none"
-          stroke="rgba(13,167,255,0.04)"
+          stroke={innerStroke}
           strokeWidth="1"
           strokeDasharray="7 5"
           style={{ transition: 'stroke 0.2s' }}
-          className="group-hover:stroke-[rgba(13,167,255,0.18)]"
         />
-        <line
-          x1="34"
-          y1="23"
-          x2="34"
-          y2="45"
-          stroke="rgba(13,167,255,0.25)"
-          strokeWidth="2"
-          strokeLinecap="round"
+        <line x1="34" y1="23" x2="34" y2="45"
+          stroke={crossStroke} strokeWidth="2" strokeLinecap="round"
           style={{ transition: 'stroke 0.2s' }}
-          className="group-hover:stroke-[rgba(13,167,255,0.75)]"
         />
-        <line
-          x1="23"
-          y1="34"
-          x2="45"
-          y2="34"
-          stroke="rgba(13,167,255,0.25)"
-          strokeWidth="2"
-          strokeLinecap="round"
+        <line x1="23" y1="34" x2="45" y2="34"
+          stroke={crossStroke} strokeWidth="2" strokeLinecap="round"
           style={{ transition: 'stroke 0.2s' }}
-          className="group-hover:stroke-[rgba(13,167,255,0.75)]"
         />
       </svg>
     </button>
