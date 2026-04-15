@@ -22,29 +22,32 @@ interface ToneColors {
 }
 
 const TONE_COLORS: Record<RelationsTone, ToneColors> = {
+  // Dark navy + bright cyan — matches blue sheet
   blue: {
     accent:  '#0da7ff',
-    dim:     'rgba(13,167,255,0.18)',
-    mid:     'rgba(13,167,255,0.35)',
+    dim:     'rgba(13,167,255,0.20)',
+    mid:     'rgba(13,167,255,0.40)',
     glow:    '0 0 12px rgba(13,167,255,0.55)',
-    bg:      '#03091f',
-    bgCard:  'rgba(6,16,38,0.95)',
+    bg:      '#02061a',
+    bgCard:  'rgba(4,10,30,0.95)',
   },
+  // Dark red-black + vivid red — matches red sheet
   red: {
-    accent:  '#ff5468',
-    dim:     'rgba(255,84,104,0.18)',
-    mid:     'rgba(255,84,104,0.35)',
-    glow:    '0 0 12px rgba(255,84,104,0.55)',
-    bg:      '#1a0308',
-    bgCard:  'rgba(38,6,12,0.95)',
+    accent:  '#cc1111',
+    dim:     'rgba(204,17,17,0.22)',
+    mid:     'rgba(204,17,17,0.42)',
+    glow:    '0 0 12px rgba(204,17,17,0.6)',
+    bg:      '#0f0004',
+    bgCard:  'rgba(22,4,8,0.97)',
   },
+  // Medium grey + white — matches grey sheet
   grey: {
-    accent:  '#9ca3b2',
-    dim:     'rgba(156,163,178,0.18)',
-    mid:     'rgba(156,163,178,0.35)',
-    glow:    '0 0 10px rgba(156,163,178,0.4)',
-    bg:      '#0d0d0f',
-    bgCard:  'rgba(18,18,22,0.95)',
+    accent:  '#c8cdd6',
+    dim:     'rgba(200,205,214,0.22)',
+    mid:     'rgba(200,205,214,0.45)',
+    glow:    '0 0 8px rgba(200,205,214,0.35)',
+    bg:      '#6a6e73',
+    bgCard:  'rgba(80,84,88,0.97)',
   },
 }
 
