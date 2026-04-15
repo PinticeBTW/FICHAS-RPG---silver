@@ -706,6 +706,7 @@ export function PdfSheetPreview({
         fieldData={fieldData}
         onFieldChange={() => {}}
         canEdit={false}
+        tone={color}
       />
     </div>
   )
