@@ -3,6 +3,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy } from 'pdfjs-dist'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { CyberwareBoard } from './CyberwareBoard'
+import { RelationsBoard } from './RelationsBoard'
+import { parseRelationsData, stringifyRelationsData } from '../../lib/relationsTypes'
 import { pdfSheetPageSizes, pdfSheetTemplateFields, type PdfSheetTemplateField } from '../../lib/pdfSheetTemplate'
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl
@@ -650,6 +652,8 @@ export function PdfSheetEditor({
   const gender = sexoToGender(fieldData['SEXO'] ?? '')
   const templateUrl = TEMPLATE_URLS[`${color}-${gender}`] ?? TEMPLATE_URLS['grey-m']
 
+  const relationsData = parseRelationsData(fieldData['P5_RELATIONS'])
+
   return (
     <div className="grid grid-cols-2 gap-4">
       {[1, 2, 3, 4].map((pageNumber) => (
@@ -662,6 +666,15 @@ export function PdfSheetEditor({
           canEdit={canEdit}
         />
       ))}
+
+      {/* Page 5 — Relações */}
+      <div className="col-span-2">
+        <RelationsBoard
+          data={relationsData}
+          canEdit={canEdit}
+          onChange={(updated) => onFieldChange('P5_RELATIONS', stringifyRelationsData(updated))}
+        />
+      </div>
     </div>
   )
 }
