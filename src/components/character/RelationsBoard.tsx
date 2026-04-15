@@ -77,7 +77,7 @@ function OctagonIndicator({ filled }: { filled: boolean }) {
     <svg width="42" height="42" viewBox="0 0 42 42">
       <polygon
         points="13,3 29,3 39,13 39,29 29,39 13,39 3,29 3,13"
-        fill={filled ? 'rgba(13,167,255,0.22)' : 'none'}
+        fill={filled ? CYAN_DIM : 'none'}
         stroke={filled ? CYAN : CYAN_DIM}
         strokeWidth="1.5"
         style={{ filter: filled ? CYAN_GLOW : 'none' }}
@@ -85,7 +85,7 @@ function OctagonIndicator({ filled }: { filled: boolean }) {
       {filled && (
         <polygon
           points="17,9 25,9 33,17 33,25 25,33 17,33 9,25 9,17"
-          fill="rgba(13,167,255,0.55)"
+          fill={CYAN_MID}
           stroke="none"
           style={{ filter: CYAN_GLOW }}
         />
@@ -568,7 +568,7 @@ function NpcSlot({
             style={{
               position: 'absolute',
               inset: 0,
-              background: 'rgba(13,167,255,0.08)',
+              background: CYAN_DIM,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -601,7 +601,7 @@ function NpcSlot({
               height: 5,
               borderRadius: '50%',
               background: i < npc.relacao ? CYAN : CYAN_DIM,
-              boxShadow: i < npc.relacao ? '0 0 4px rgba(13,167,255,0.8)' : 'none',
+              boxShadow: i < npc.relacao ? CYAN_GLOW : 'none',
             }}
           />
         ))}
@@ -799,7 +799,7 @@ export function RelationsBoard({ data, canEdit, tone = 'blue', onChange }: Relat
       style={{
         background: BG,
         border: `1px solid ${CYAN_MID}`,
-        boxShadow: `inset 0 0 60px rgba(13,167,255,0.04), 0 0 0 1px rgba(13,167,255,0.08)`,
+        boxShadow: `inset 0 0 60px ${CYAN_DIM}, 0 0 0 1px ${CYAN_DIM}`,
         padding: '20px 24px 20px',
         display: 'flex',
         flexDirection: 'column',
@@ -942,15 +942,15 @@ function GroupTab({
         className="font-display uppercase"
         style={{
           padding: '6px 16px 10px',
-          background: active ? 'rgba(13,167,255,0.12)' : hovered ? 'rgba(13,167,255,0.05)' : 'none',
+          background: active ? CYAN_DIM : hovered ? `${CYAN_DIM}44` : 'none',
           border: active ? `1px solid ${CYAN_MID}` : `1px solid transparent`,
           borderBottom: active ? '1px solid ' + BG : `1px solid transparent`,
-          color: active ? CYAN : hovered ? 'rgba(13,167,255,0.6)' : 'rgba(13,167,255,0.35)',
+          color: active ? CYAN : hovered ? CYAN_MID : `${CYAN_MID}99`,
           cursor: 'pointer',
           fontSize: '0.68rem',
           letterSpacing: '0.22em',
           transition: 'all 0.15s',
-          textShadow: active ? `0 0 10px rgba(13,167,255,0.5)` : 'none',
+          textShadow: active ? CYAN_GLOW : 'none',
           marginBottom: '-1px',
         }}
       >
