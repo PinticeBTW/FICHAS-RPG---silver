@@ -40,8 +40,8 @@ import {
 } from '../lib/playerInbox'
 import type { Profile, WebSheetRecord } from '../types/domain'
 
-const AUTOSAVE_DELAY_MS = 60000
-const SILVER_AUTOSAVE_DELAY_MS = 60000
+const AUTOSAVE_DELAY_MS = 3000
+const SILVER_AUTOSAVE_DELAY_MS = 3000
 
 function serializeFieldData(fieldData: Record<string, string>) {
   return JSON.stringify(
