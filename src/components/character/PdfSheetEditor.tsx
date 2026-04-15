@@ -315,7 +315,7 @@ const infoPhotoZone: {
   cropH: number
   imagePosition?: string
 } = {
-  style: { left: '3.6%', top: '11.1%', width: '46.2%', height: '31.25%' },
+  style: { left: '1.5%', top: '11.1%', width: '46.2%', height: '31.25%' },
   cropW: 360,
   cropH: 300,
   imagePosition: 'center center',
