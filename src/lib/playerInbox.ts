@@ -1,3 +1,5 @@
+import { normaliseNoteHtmlForStorage } from './noteRichText'
+
 export type PlayerInboxMessage = {
   id: string
   title: string
@@ -74,6 +76,7 @@ export function mergePlayerInboxMessageValues(localValue: string, remoteValue: s
       if (remoteMessage && localMessage) {
         return {
           ...remoteMessage,
+          body: localMessage.body || remoteMessage.body,
           readAt: localMessage.readAt ?? remoteMessage.readAt,
           archivedAt: localMessage.archivedAt ?? remoteMessage.archivedAt,
         }
@@ -101,7 +104,7 @@ export function buildPlayerInboxMessage({
   return {
     id: crypto.randomUUID(),
     title: title.trim(),
-    body: body.trim(),
+    body: normaliseNoteHtmlForStorage(body.trim().replace(/\n/g, '<br>')),
     senderProfileId,
     senderName,
     sentAt: new Date().toISOString(),

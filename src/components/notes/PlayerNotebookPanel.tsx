@@ -1,12 +1,16 @@
 import { Pin, PinOff, Plus, Search, Trash2 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  buildChecklistSearchText,
+  getChecklistProgress,
+  parseNoteChecklistItems,
+} from '../../lib/noteChecklist'
+import { HighlightableTextEditor } from '../common/HighlightableTextEditor'
+import { stripRichTextHtml } from '../../lib/noteRichText'
+import type { NotebookPageCore } from '../../types/notebook'
+import { NoteChecklist } from './NoteChecklist'
 
-type PlayerNotebookPage = {
-  id: string
-  title: string
-  content: string
-  pinned: boolean
-}
+type PlayerNotebookPage = NotebookPageCore
 
 type PlayerNotebookPanelProps = {
   value: string
@@ -22,6 +26,7 @@ function buildDefaultPage(content = '', pageNumber = 1): PlayerNotebookPage {
     title: `Pagina ${pageNumber}`,
     content,
     pinned: false,
+    checklistItems: [],
   }
 }
 
@@ -51,6 +56,7 @@ function parseNotebookPages(pagesValue: string, legacyValue: string) {
           title: parseStoredTitle(page.title, `Pagina ${index + 1}`),
           content: typeof page.content === 'string' ? page.content : '',
           pinned: Boolean(page.pinned),
+          checklistItems: parseNoteChecklistItems(page.checklistItems),
         }
       })
 
@@ -64,6 +70,27 @@ function serializeNotebookPages(pages: PlayerNotebookPage[]) {
   return JSON.stringify(pages)
 }
 
+function describePlayerNotebookPage(page: PlayerNotebookPage) {
+  const hasNotes = Boolean(stripRichTextHtml(page.content))
+  const checklistProgress = getChecklistProgress(page.checklistItems)
+
+  if (!hasNotes && !checklistProgress.total) {
+    return 'vazia'
+  }
+
+  const parts: string[] = []
+
+  if (hasNotes) {
+    parts.push('com notas')
+  }
+
+  if (checklistProgress.total) {
+    parts.push(`${checklistProgress.completed}/${checklistProgress.total} tarefas`)
+  }
+
+  return parts.join(' | ')
+}
+
 export function PlayerNotebookPanel({
   value,
   pagesValue,
@@ -74,6 +101,8 @@ export function PlayerNotebookPanel({
   const notePages = useMemo(() => parseNotebookPages(pagesValue, value), [pagesValue, value])
   const [activePageId, setActivePageId] = useState<string>('')
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
   const resolvedActivePageId = notePages.some((page) => page.id === activePageId)
     ? activePageId
@@ -89,12 +118,20 @@ export function PlayerNotebookPanel({
     }
   }, [activePageId, notePages])
 
+  useEffect(() => {
+    if (searchOpen) {
+      searchInputRef.current?.focus()
+    }
+  }, [searchOpen])
+
   const filteredPages = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
 
     const visiblePages = query
       ? notePages.filter((page) =>
-          `${page.title} ${page.content}`.toLowerCase().includes(query),
+          `${page.title} ${stripRichTextHtml(page.content)} ${buildChecklistSearchText(page.checklistItems)}`
+            .toLowerCase()
+            .includes(query),
         )
       : notePages
 
@@ -150,6 +187,16 @@ export function PlayerNotebookPanel({
     )
   }
 
+  const handleToggleSearch = () => {
+    if (searchOpen && !searchQuery.trim()) {
+      setSearchOpen(false)
+      return
+    }
+
+    setSearchOpen(true)
+    window.setTimeout(() => searchInputRef.current?.focus(), 0)
+  }
+
   return (
     <section className="mt-4 rounded-[22px] border border-white/10 bg-black/25 p-3">
       <div className="flex items-start justify-between gap-3">
@@ -160,15 +207,27 @@ export function PlayerNotebookPanel({
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={createPage}
-          disabled={!canEdit}
-          className="signal-button inline-flex items-center gap-2 px-3 py-2 text-xs"
-          title="Nova pagina"
-        >
-          <Plus size={13} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleToggleSearch}
+            className="signal-button inline-flex items-center gap-2 px-3 py-2 text-xs"
+            data-variant={searchOpen || searchQuery.trim() ? undefined : 'ghost'}
+            title="Pesquisar notas"
+          >
+            <Search size={13} />
+          </button>
+
+          <button
+            type="button"
+            onClick={createPage}
+            disabled={!canEdit}
+            className="signal-button inline-flex items-center gap-2 px-3 py-2 text-xs"
+            title="Nova pagina"
+          >
+            <Plus size={13} />
+          </button>
+        </div>
       </div>
 
       <div className="mt-3 flex items-center gap-2">
@@ -198,19 +257,22 @@ export function PlayerNotebookPanel({
         </button>
       </div>
 
-      <div className="relative mt-3">
-        <Search
-          size={14}
-          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-stone-500"
-        />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(event) => setSearchQuery(event.target.value)}
-          placeholder="Pesquisar paginas ou notas"
-          className="w-full border border-white/10 bg-black/30 py-2 pl-9 pr-3 text-xs text-white outline-none focus:border-[#f3e600]/45"
-        />
-      </div>
+      {searchOpen || searchQuery.trim() ? (
+        <div className="relative mt-3">
+          <Search
+            size={14}
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-stone-500"
+          />
+          <input
+            ref={searchInputRef}
+            type="text"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Pesquisar paginas ou notas"
+            className="w-full border border-white/10 bg-black/30 py-2 pl-9 pr-3 text-xs text-white outline-none focus:border-[#f3e600]/45"
+          />
+        </div>
+      ) : null}
 
       <div className="mt-3 max-h-[180px] space-y-2 overflow-y-auto pr-1">
         {filteredPages.length ? (
@@ -237,7 +299,7 @@ export function PlayerNotebookPanel({
                       {page.pinned ? <Pin size={11} className="shrink-0 text-[#f3e600]" /> : null}
                     </div>
                     <p className="mt-1 text-[0.68rem] uppercase tracking-[0.18em] text-stone-500">
-                      {page.content.trim() ? 'com notas' : 'vazia'}
+                      {describePlayerNotebookPage(page)}
                     </p>
                   </button>
 
@@ -263,17 +325,30 @@ export function PlayerNotebookPanel({
         )}
       </div>
 
-      <textarea
+      <HighlightableTextEditor
         value={activePage.content}
-        readOnly={!canEdit}
-        onChange={(event) =>
+        onChange={(nextHtml) =>
           updateActivePage((page) => ({
             ...page,
-            content: event.target.value,
+            content: nextHtml,
           }))
         }
+        canEdit={canEdit}
         placeholder="Escreve aqui as tuas notas privadas..."
-        className="mt-3 min-h-[240px] w-full resize-none border border-white/10 bg-black/30 px-4 py-4 font-mono text-sm leading-7 text-stone-100 outline-none focus:border-[#f3e600]/45"
+        className="mt-3"
+        editorClassName="min-h-[240px] w-full border border-white/10 bg-black/30 px-4 py-4 font-mono text-sm leading-7 text-stone-100 outline-none focus:border-[#f3e600]/45"
+      />
+
+      <NoteChecklist
+        items={activePage.checklistItems}
+        canEdit={canEdit}
+        onChange={(nextItems) =>
+          updateActivePage((page) => ({
+            ...page,
+            checklistItems: nextItems,
+          }))
+        }
+        className="mt-3"
       />
     </section>
   )

@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { X } from 'lucide-react'
+import type { Cyberware } from '../../types/cyberware'
+import { CyberwareIcon } from './CyberwareIcon'
 
 export interface CwColors {
   accent: string
@@ -9,116 +9,59 @@ export interface CwColors {
 }
 
 interface CyberwareSlotProps {
-  filled: boolean
+  cyberware: Cyberware | null
+  selected: boolean
   canEdit: boolean
   colors: CwColors
-  onRemove?: () => void
+  onClick?: () => void
 }
 
-export function CyberwareSlot({ filled, canEdit, colors, onRemove }: CyberwareSlotProps) {
-  const { accent, faint, dim, glowFilter } = colors
+export function CyberwareSlot({ cyberware, selected, canEdit, colors, onClick }: CyberwareSlotProps) {
+  const isInteractive = canEdit && Boolean(onClick)
+  const filled = Boolean(cyberware)
+
   return (
-    <div className="group relative inline-flex">
-      <svg width="68" height="68" viewBox="0 0 68 68">
-        {/* Outer dashed ring */}
-        <circle
-          cx="34" cy="34" r="30"
-          fill="none"
-          stroke={filled ? accent : faint}
-          strokeWidth="1.8"
-          strokeDasharray="11 4"
-          strokeLinecap="butt"
-          style={{ transition: 'stroke 0.2s', filter: filled ? glowFilter : 'none' }}
+    <div className="group relative inline-flex h-full w-full items-center justify-center">
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={!isInteractive}
+        className="absolute inset-0 flex items-center justify-center bg-transparent disabled:cursor-default"
+        title={filled ? 'Ver cyberware' : 'Equipar cyberware'}
+      >
+        <span
+          className="pointer-events-none absolute inset-[10%] rounded-full transition-all duration-150"
+          style={{
+            background: selected ? colors.dim : 'transparent',
+            boxShadow: selected ? `0 0 14px ${colors.faint}` : 'none',
+            border: selected ? `1px solid ${colors.accent}` : '1px solid transparent',
+          }}
         />
-        {/* Inner dashed ring */}
-        <circle
-          cx="34" cy="34" r="21"
-          fill={filled ? dim : 'none'}
-          stroke={filled ? faint : dim}
-          strokeWidth="1"
-          strokeDasharray="7 5"
-          style={{ transition: 'all 0.2s' }}
-        />
-        {/* Cardinal tick marks */}
-        {[0, 90, 180, 270].map((deg) => (
-          <line
-            key={deg}
-            x1="34" y1="2" x2="34" y2="9"
-            stroke={filled ? accent : faint}
-            strokeWidth="2"
-            strokeLinecap="round"
-            transform={`rotate(${deg} 34 34)`}
-            style={{ transition: 'stroke 0.2s', filter: filled ? glowFilter : 'none' }}
-          />
-        ))}
-        {/* Center dot */}
-        {filled ? (
-          <>
-            <circle cx="34" cy="34" r="9" fill={dim} />
-            <circle cx="34" cy="34" r="4.5" fill={accent} style={{ filter: glowFilter }} />
-          </>
+
+        {!filled ? (
+          <span
+            className="pointer-events-none font-display leading-none transition-transform duration-150 group-hover:scale-110"
+            style={{
+              color: colors.accent,
+              fontSize: 'calc(22px * var(--sheet-scale, 1))',
+              textShadow: `0 0 8px ${colors.faint}`,
+            }}
+          >
+            +
+          </span>
         ) : (
-          <circle cx="34" cy="34" r="3" fill={dim} />
+          cyberware ? (
+            <CyberwareIcon
+              cyberware={cyberware}
+              alt={cyberware.name}
+              accentColor={colors.accent}
+              glowFilter={colors.glowFilter}
+              className="pointer-events-none absolute h-[56%] w-[56%] object-contain"
+              fallbackClassName="pointer-events-none absolute flex h-[56%] w-[56%] items-center justify-center font-display text-[calc(12px_*_var(--sheet-scale,1))] leading-none"
+            />
+          ) : null
         )}
-      </svg>
-
-      {filled && canEdit && onRemove ? (
-        <button
-          type="button"
-          onClick={onRemove}
-          className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center border bg-[#020c1e] opacity-0 transition-opacity group-hover:opacity-100"
-          style={{ borderColor: 'rgba(255,60,60,0.45)', color: 'rgba(255,80,80,0.85)' }}
-          title="Remover"
-        >
-          <X size={10} />
-        </button>
-      ) : null}
+      </button>
     </div>
-  )
-}
-
-export function CyberwareAddSlot({ onClick, colors }: { onClick: () => void; colors: CwColors }) {
-  const [hovered, setHovered] = useState(false)
-  const { accent, faint, dim } = colors
-  const ringStroke    = hovered ? faint   : dim
-  const innerStroke   = hovered ? dim     : `${dim}`
-  const crossStroke   = hovered ? accent  : faint
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      className="inline-flex"
-      title="Adicionar slot"
-    >
-      <svg width="68" height="68" viewBox="0 0 68 68">
-        <circle
-          cx="34" cy="34" r="30"
-          fill="none"
-          stroke={ringStroke}
-          strokeWidth="1.8"
-          strokeDasharray="11 4"
-          style={{ transition: 'stroke 0.2s' }}
-        />
-        <circle
-          cx="34" cy="34" r="21"
-          fill="none"
-          stroke={innerStroke}
-          strokeWidth="1"
-          strokeDasharray="7 5"
-          style={{ transition: 'stroke 0.2s' }}
-        />
-        <line x1="34" y1="23" x2="34" y2="45"
-          stroke={crossStroke} strokeWidth="2" strokeLinecap="round"
-          style={{ transition: 'stroke 0.2s' }}
-        />
-        <line x1="23" y1="34" x2="45" y2="34"
-          stroke={crossStroke} strokeWidth="2" strokeLinecap="round"
-          style={{ transition: 'stroke 0.2s' }}
-        />
-      </svg>
-    </button>
   )
 }

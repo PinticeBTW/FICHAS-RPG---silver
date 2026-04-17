@@ -1,5 +1,6 @@
 import { Archive, BellRing, Check, Inbox, RotateCcw, Send, Users } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { HighlightableTextEditor } from '../common/HighlightableTextEditor'
 import {
   getUnreadPlayerInboxCount,
   parsePlayerInboxMessages,
@@ -111,6 +112,15 @@ export function PlayerInboxPanel({ value, onChange, canEdit }: PlayerInboxPanelP
     )
   }
 
+  const updateMessageBody = (messageId: string, body: string) => {
+    persistMessages(
+      updateMessageCollection(messages, messageId, (message) => ({
+        ...message,
+        body,
+      })),
+    )
+  }
+
   return (
     <section className="mt-4 rounded-[22px] border border-white/10 bg-black/25 p-3">
       <div className="flex items-start justify-between gap-3">
@@ -160,9 +170,14 @@ export function PlayerInboxPanel({ value, onChange, canEdit }: PlayerInboxPanelP
                   ) : null}
                 </div>
 
-                <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-stone-200">
-                  {message.body}
-                </p>
+                <HighlightableTextEditor
+                  value={message.body}
+                  onChange={(nextBody) => updateMessageBody(message.id, nextBody)}
+                  canEdit={canEdit}
+                  allowTextEditing={false}
+                  className="mt-3"
+                  editorClassName="text-sm leading-6 text-stone-200"
+                />
 
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button
@@ -228,9 +243,14 @@ export function PlayerInboxPanel({ value, onChange, canEdit }: PlayerInboxPanelP
                   </button>
                 </div>
 
-                <p className="mt-2 line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-stone-400">
-                  {message.body}
-                </p>
+                <HighlightableTextEditor
+                  value={message.body}
+                  onChange={(nextBody) => updateMessageBody(message.id, nextBody)}
+                  canEdit={canEdit}
+                  allowTextEditing={false}
+                  className="mt-2"
+                  editorClassName="line-clamp-3 text-sm leading-6 text-stone-400"
+                />
               </article>
             ))}
           </div>
