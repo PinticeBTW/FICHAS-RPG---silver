@@ -12,6 +12,7 @@ import {
   type SilverBoardProfileSummary,
 } from '../components/notes/SilverNotebook'
 import { useAuth } from '../hooks/useAuth'
+import { useUnsavedChangesWarning } from '../hooks/useUnsavedChangesWarning'
 import { formatTimestamp } from '../lib/utils'
 import {
   createNpcCard,
@@ -42,6 +43,10 @@ import type { Profile, WebSheetRecord } from '../types/domain'
 
 const AUTOSAVE_DELAY_MS = 3000
 const SILVER_AUTOSAVE_DELAY_MS = 3000
+const UNSAVED_CHANGES_LEAVE_MESSAGE =
+  'Tens alteracoes por guardar. Clica em Guardar antes de fechar para nao perderes o teu progresso.'
+const SAVING_LEAVE_MESSAGE =
+  'Ainda estamos a guardar a ficha. Espera um momento ou guarda antes de sair.'
 
 function serializeFieldData(fieldData: Record<string, string>) {
   return JSON.stringify(
@@ -430,6 +435,14 @@ export function SheetWorkspacePage() {
     [draftFields],
   )
   const isDirty = sheet !== null && sheetSignature !== draftSignature
+  const hasPendingUnsavedChanges = canEdit && (isDirty || saving)
+
+  useUnsavedChangesWarning(
+    hasPendingUnsavedChanges,
+    saving
+      ? SAVING_LEAVE_MESSAGE
+      : UNSAVED_CHANGES_LEAVE_MESSAGE,
+  )
 
   useEffect(() => {
     sheetSignatureRef.current = sheetSignature
@@ -972,9 +985,19 @@ export function SheetWorkspacePage() {
   }, [newFichaName, navigate, refreshProfiles])
 
   const handleSignOut = useCallback(async () => {
+    if (hasPendingUnsavedChanges) {
+      const shouldLeave = window.confirm(
+        saving ? SAVING_LEAVE_MESSAGE : UNSAVED_CHANGES_LEAVE_MESSAGE,
+      )
+
+      if (!shouldLeave) {
+        return
+      }
+    }
+
     await signOut()
     navigate('/', { replace: true })
-  }, [navigate, signOut])
+  }, [hasPendingUnsavedChanges, navigate, saving, signOut])
 
   const handleStartRename = useCallback((target: Profile) => {
     setOpenMoveDropdown(null)

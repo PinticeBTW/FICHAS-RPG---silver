@@ -4,6 +4,14 @@ import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy } from 'pdfjs-d
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { CyberwareBoard } from './CyberwareBoard'
 import { RelationsBoard } from './RelationsBoard'
+import {
+  DEBUG_INPUTS_ONLY,
+  type SheetFieldVisualPreset,
+  sheetFieldVisualPresets,
+  sheetImageZoneConfigs,
+  sheetPageSectionConfigs,
+  type SheetLayoutBox,
+} from '../../lib/pdfSheetLayoutConfig'
 import { parseRelationsData, stringifyRelationsData } from '../../lib/relationsTypes'
 import { pdfSheetPageSizes, pdfSheetTemplateFields, type PdfSheetTemplateField } from '../../lib/pdfSheetTemplate'
 
@@ -31,47 +39,28 @@ function sexoToGender(sexo: string): 'm' | 'f' {
   return feminine.some((w) => v === w || v.startsWith(w)) ? 'f' : 'm'
 }
 
-const centeredFieldNames = new Set([
-  'AGILIDADE', 'VIGOR', 'PRESENÇA', 'FORÇA', 'INTELIGENCIA',
-  'KARMA', 'CYBERPHYSHOSIS',
-  'PV', 'PV-ATUAL', 'PS', 'PS-ATUAL', 'PE', 'PE-ATUAL',
-  'DEFESA', 'BLOQUEIO', 'DESL', 'EX', 'EX 1',
-  // Ataques: TESTE e DANO centrados
-  'TESTE1','TESTE2','TESTE3','TESTE4','TESTE5','TESTE6','TESTE7',
-  'TESTE8','TESTE9','TESTE10','TESTE11','TESTE12','TESTE13',
-  'DANO1','DANO2','DANO3','DANO4','DANO5','DANO6','DANO7',
-  'DANO8','DANO9','DANO10','DANO11','DANO12','DANO13',
-  // Inventário: ESPAÇO centrado
-  'ESP1','ESP2','ESP3','ESP4','ESP5','ESP6','ESP7','ESP8','ESP9','ESP10','ESP11',
-  // Codex: CUSTO centrado
-  'CUSTO1','CUSTO2','CUSTO3','CUSTO4','CUSTO5','CUSTO6','CUSTO7','CUSTO8','CUSTO9','CUSTO10',
-  'CUSTO11','CUSTO12','CUSTO13','CUSTO14','CUSTO15','CUSTO16','CUSTO17','CUSTO18','CUSTO19','CUSTO20',
-])
-
-// Campos muito grandes (atributos principais + cyberpsychosis)
-const largeFieldNames = new Set([
-  'CIDADE', 'AGILIDADE', 'VIGOR', 'PRESENÇA', 'FORÇA', 'INTELIGENCIA',
-  'CYBERPHYSHOSIS',
-])
-
-// Karma — tamanho médio
-const karmaFieldNames = new Set(['KARMA'])
-
-// Campos de stats numéricos (vida, ram, defesa, etc.)
 const statFieldNames = new Set([
   'PV', 'PV-ATUAL', 'PS', 'PS-ATUAL', 'PE', 'PE-ATUAL',
   'DEFESA', 'BLOQUEIO', 'DESL', 'EX', 'EX 1',
 ])
 
-const infoFieldNames = new Set([
+const infoFieldKeys = new Set([
   'NOME',
   'IDADE',
   'ALTURA',
   'SEXO',
   'NACIONALIDADE',
   'TIPOLOGIA',
-  'OCUPAÇÃO',
   'OCUPACAO',
+
+])
+
+const page2AttributeKeys = new Set([
+  'AGILIDADE',
+  'VIGOR',
+  'PRESENCA',
+  'FORCA',
+  'INTELIGENCIA',
 ])
 
 const skillSelectKeys = new Set([
@@ -134,10 +123,6 @@ function isMultilineField(field: PdfSheetTemplateField) {
   return /^DESC\d+$/i.test(field.name) || /^HAB ?\d+$/i.test(field.name) || /^CUSTO\d+$/i.test(field.name)
 }
 
-function isCodexField(field: PdfSheetTemplateField) {
-  return field.page === 3 && isMultilineField(field)
-}
-
 function isCodexValueField(field: PdfSheetTemplateField) {
   return field.page === 3 && /^CUSTO\d+$/i.test(field.name)
 }
@@ -146,8 +131,12 @@ function isCodexTextField(field: PdfSheetTemplateField) {
   return field.page === 3 && (/^HAB ?\d+$/i.test(field.name) || /^DESC\d+$/i.test(field.name))
 }
 
+function isCodexSingleLineTextField(field: PdfSheetTemplateField) {
+  return isCodexTextField(field)
+}
+
 function isPage2AttributeField(field: PdfSheetTemplateField) {
-  return field.page === 2 && ['AGILIDADE', 'VIGOR', 'PRESENÇA', 'FORÇA', 'INTELIGENCIA'].includes(field.name)
+  return field.page === 2 && page2AttributeKeys.has(normalizeFieldKey(field.name))
 }
 
 function isPage2AttributeTopField(field: PdfSheetTemplateField) {
@@ -159,11 +148,7 @@ function isPage2ResourceField(field: PdfSheetTemplateField) {
 }
 
 function isNumericField(field: PdfSheetTemplateField) {
-  return isPage2AttributeField(field) || isPage2AttributeTopField(field) || isPage2ResourceField(field) || isCodexValueField(field)
-}
-
-function isRightAlignedField(_field: PdfSheetTemplateField) {
-  return false
+  return hasNormalizedPage2Attribute(field) || isPage2AttributeTopField(field) || isPage2ResourceField(field) || isCodexValueField(field) || isSkillBonusBox2(field) || field.name === 'CYBERPHYSHOSIS'
 }
 
 function isRamField(field: PdfSheetTemplateField) {
@@ -179,8 +164,20 @@ function normalizeFieldKey(value: string) {
     .replace(/[^A-Z0-9]/g, '')
 }
 
+function hasNormalizedPage2Attribute(field: PdfSheetTemplateField) {
+  return isPage2AttributeField(field)
+}
+
+function isInfoField(field: PdfSheetTemplateField) {
+  return field.page === 1 && infoFieldKeys.has(normalizeFieldKey(field.name))
+}
+
+function isSkillBonusBox2(field: PdfSheetTemplateField) {
+  return field.page === 2 && / 2$/i.test(field.name) && skillSelectKeys.has(normalizeFieldKey(field.name.replace(/ 2$/i, ' 1')))
+}
+
 function isSkillSelectField(field: PdfSheetTemplateField) {
-  return field.page === 2 && skillSelectKeys.has(normalizeFieldKey(field.name))
+  return field.page === 2 && !/ 2$/i.test(field.name) && skillSelectKeys.has(normalizeFieldKey(field.name))
 }
 
 function isSkillScoreField(field: PdfSheetTemplateField) {
@@ -216,151 +213,142 @@ function resolveSkillSelectValue(fieldName: string, fieldData: Record<string, st
   return scoreToOptionLabel.get(score) ?? explicitValue
 }
 
-function getFieldClassName(field: PdfSheetTemplateField, canEdit: boolean) {
-  const isCentered = centeredFieldNames.has(field.name) || isCodexValueField(field) || isPage2AttributeTopField(field)
-  const isRightAligned = isRightAlignedField(field)
-  const isLarge = largeFieldNames.has(field.name)
-  const isKarma = karmaFieldNames.has(field.name)
-  const isStat = statFieldNames.has(field.name)
-  const isMultiline = isMultilineField(field)
-  const isInfoField = infoFieldNames.has(field.name)
-  const isCodex = isCodexField(field)
-  const isCodexValue = isCodexValueField(field)
-  const isCodexText = isCodexTextField(field)
-  const isAttributeTop = isPage2AttributeTopField(field)
-  const isRam = isRamField(field)
+type FieldVisualPresetKey = keyof typeof sheetFieldVisualPresets
+
+function resolveFieldSectionId(field: PdfSheetTemplateField) {
+  if (field.page === 1) {
+    if (field.name === 'CIDADE') return 'page1-city'
+    if (isInfoField(field)) return 'page1-info'
+    if (/^(ATAQUES|TESTE|DANO)\d+$/i.test(field.name)) return 'page1-attacks'
+    if (field.name === 'KARMA') return 'page1-karma'
+    if (/^INV \d+$/i.test(field.name) || /^ESP\d+$/i.test(field.name)) return 'page1-inventory'
+    if (field.name === 'CYBERPHYSHOSIS') return 'page1-cyberpsychosis'
+  }
+
+  if (field.page === 2) {
+    if (hasNormalizedPage2Attribute(field) || isPage2AttributeTopField(field)) return 'page2-attributes'
+    if (isSkillSelectField(field) || isSkillScoreField(field) || isSkillBonusBox2(field)) return 'page2-skills'
+    if (['PV', 'PV-ATUAL', 'PS', 'PS-ATUAL', 'PE', 'PE-ATUAL'].includes(field.name)) return 'page2-vitals'
+    if (['DESL', 'EX', 'EX 1', 'DEFESA', 'BLOQUEIO'].includes(field.name)) return 'page2-combat'
+  }
+
+  if (field.page === 3) {
+    const codexIndex = Number(field.name.replace(/^\D+/g, ''))
+    return codexIndex > 11 ? 'page3-codex-bottom' : 'page3-codex-top'
+  }
+
+  return null
+}
+
+function resolveFieldVisualPreset(field: PdfSheetTemplateField): FieldVisualPresetKey {
+  if (field.name === 'CIDADE') return 'city'
+  if (isInfoField(field)) return 'info'
+  if (field.name === 'KARMA') return 'page1Karma'
+  if (field.name === 'CYBERPHYSHOSIS') return 'page1Cyberpsychosis'
+  if (/^INV \d+$/i.test(field.name)) return 'inventoryCell'
+  if (/^ESP\d+$/i.test(field.name)) return 'inventoryCellCentered'
+  if (/^ATAQUES\d+$/i.test(field.name)) return 'attackCell'
+  if (/^TESTE\d+$/i.test(field.name) || /^DANO\d+$/i.test(field.name)) return 'attackCellCentered'
+  if (hasNormalizedPage2Attribute(field)) return 'page2Attribute'
+  if (isPage2AttributeTopField(field)) return 'page2AttributeTop'
+  if (isSkillSelectField(field)) return 'skillSelect'
+  if (isSkillBonusBox2(field)) return 'skillBonus'
+  if (isSkillScoreField(field)) return 'skillScore'
+  if (isRamField(field)) return 'page2Ram'
+  if (['DEFESA', 'BLOQUEIO', 'EX', 'EX 1'].includes(field.name)) return 'page2CombatStat'
+  if (statFieldNames.has(field.name)) return 'page2Stat'
+  if (isCodexValueField(field)) return 'codexValue'
+  if (isCodexTextField(field)) return 'codexText'
+  if (isMultilineField(field)) return 'multiline'
+  return field.height > 24 ? 'tallCell' : 'compactCell'
+}
+
+function getFieldInputClassName(field: PdfSheetTemplateField, canEdit: boolean) {
+  const preset = sheetFieldVisualPresets[resolveFieldVisualPreset(field)] as SheetFieldVisualPreset
 
   return [
-    'absolute border-none bg-transparent text-[#f8f8f4] shadow-none outline-none',
-    'appearance-none font-display tracking-[0.04em] caret-white',
-    isRightAligned ? 'text-right' : isCentered ? 'text-center' : 'text-left',
+    'absolute inset-0 h-full w-full border-none bg-transparent text-[#f8f8f4] shadow-none outline-none box-border',
+    'appearance-none caret-white',
+    preset.fontClass,
     canEdit ? '' : 'pointer-events-none',
-    isLarge
-      ? 'text-[clamp(1.6rem,3vw,3.6rem)] leading-[0.88]'
-      : isKarma
-        ? 'text-[clamp(1.1rem,2vw,2.6rem)] leading-[0.88]'
-        : isRam
-          ? 'text-[clamp(1.3rem,2.1vw,1.95rem)] leading-none'
-        : isStat
-          ? 'text-[clamp(1.1rem,1.9vw,2.2rem)] leading-none'
-            : isAttributeTop
-              ? 'text-[1.08rem] leading-none'
-          : isInfoField
-            ? 'font-body text-[clamp(1.1rem,1.35vw,1.55rem)] font-semibold italic leading-none tracking-normal'
-            : isCodexValue
-              ? 'text-[1rem] leading-none'
-              : isCodexText
-                ? 'font-body text-[0.95rem] leading-[1.12] tracking-normal'
-                : isCodex
-                  ? 'font-body text-[0.9rem] leading-[1.08] tracking-normal'
-            : isMultiline
-              ? 'text-[1.3rem] leading-[1.15]'
-              : field.height > 24
-                ? 'text-[1rem] leading-none'
-                : 'text-[0.82rem] leading-none',
   ].join(' ')
 }
 
-function buildFieldStyle(field: PdfSheetTemplateField) {
-  const pageSize = pdfSheetPageSizes[field.page - 1]
-  const top = pageSize.height - (field.y + field.height)
-  const isCodex = isCodexField(field)
-  const isCodexValue = isCodexValueField(field)
-  const isCodexText = isCodexTextField(field)
-  const isRightAligned = isRightAlignedField(field)
-  const isAttributeTop = isPage2AttributeTopField(field)
-  const isRam = isRamField(field)
+function buildFieldInputStyle(field: PdfSheetTemplateField) {
+  const preset = sheetFieldVisualPresets[resolveFieldVisualPreset(field)] as SheetFieldVisualPreset
 
   return {
-    left: `${(field.x / pageSize.width) * 100}%`,
-    top: `${(top / pageSize.height) * 100}%`,
-    width: `${(field.width / pageSize.width) * 100}%`,
-    height: `${(field.height / pageSize.height) * 100}%`,
-    padding: largeFieldNames.has(field.name) || karmaFieldNames.has(field.name)
-      ? '0.18rem 0.35rem'
-      : isRam
-        ? '0.34rem 0.18rem 0.08rem 0.18rem'
-        : isAttributeTop
-          ? '0.08rem'
-      : isRightAligned
-        ? '0.12rem 0.7rem 0.12rem 0.18rem'
-        : isCodexValue
-          ? '0.12rem 0.16rem'
-          : isCodexText
-            ? '0.18rem 0.24rem'
-            : isCodex
-              ? '0.12rem 0.2rem'
-              : isMultilineField(field)
-                ? '0.32rem 0.42rem'
-                : '0.18rem 0.28rem',
+    padding: preset.padding,
+    fontSize: preset.fontSize,
+    lineHeight: preset.lineHeight,
+    textAlign: preset.textAlign,
+    letterSpacing: preset.letterSpacing ?? '0.04em',
+    fontStyle: preset.italic ? 'italic' : 'normal',
+    fontWeight: preset.fontWeight ?? '400',
+    overflow: 'hidden',
+    textOverflow: 'clip',
+    whiteSpace: isMultilineField(field) ? 'pre-wrap' : 'nowrap',
+    overflowWrap: 'anywhere',
   } satisfies React.CSSProperties
 }
 
-// Zonas de imagem na página 1 (coordenadas em % da página)
-const portraitZone: {
-  style: React.CSSProperties
-  cropW: number
-  cropH: number
-  imagePosition?: string
-} = {
-  style: { left: '65.3%', top: '43.7%', width: '31.8%', height: '15.2%' },
-  cropW: 320,
-  cropH: 180,
-  imagePosition: 'center center',
+function buildBoxStyle(
+  box: SheetLayoutBox,
+  pageSize: (typeof pdfSheetPageSizes)[number],
+  referenceBox?: SheetLayoutBox,
+) {
+  const top = pageSize.height - (box.y + box.height)
+
+  if (!referenceBox) {
+    return {
+      left: `${(box.x / pageSize.width) * 100}%`,
+      top: `${(top / pageSize.height) * 100}%`,
+      width: `${(box.width / pageSize.width) * 100}%`,
+      height: `${(box.height / pageSize.height) * 100}%`,
+    } satisfies React.CSSProperties
+  }
+
+  const referenceTop = pageSize.height - (referenceBox.y + referenceBox.height)
+
+  return {
+    left: `${((box.x - referenceBox.x) / referenceBox.width) * 100}%`,
+    top: `${((top - referenceTop) / referenceBox.height) * 100}%`,
+    width: `${(box.width / referenceBox.width) * 100}%`,
+    height: `${(box.height / referenceBox.height) * 100}%`,
+  } satisfies React.CSSProperties
 }
 
-const infoPhotoZone: {
-  style: React.CSSProperties
-  cropW: number
-  cropH: number
-  imagePosition?: string
-} = {
-  style: { left: '1.5%', top: '11.1%', width: '46.2%', height: '31.25%' },
-  cropW: 360,
-  cropH: 300,
-  imagePosition: 'center center',
+function buildDebugInputStyle(): React.CSSProperties {
+  return DEBUG_INPUTS_ONLY
+    ? {
+        outline: '1px dashed rgba(255, 215, 0, 0.78)',
+      }
+    : {}
 }
+
+
+// Zonas de imagem na página 1 (coordenadas em % da página)
+
 
 function ImageUploadZone({
   value,
   canEdit,
   onChange,
-  cropW,
-  cropH,
-  imagePosition,
-  imageInset,
 }: {
   value: string
   canEdit: boolean
   onChange: (dataUrl: string) => void
-  cropW: number
-  cropH: number
-  imagePosition?: string
-  imageInset?: React.CSSProperties
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
 
   const handleFile = (file: File) => {
-    const img = new Image()
-    const url = URL.createObjectURL(file)
-    img.onload = () => {
-      const W = cropW
-      const H = cropH
-      const canvas = document.createElement('canvas')
-      canvas.width = W
-      canvas.height = H
-      const ctx = canvas.getContext('2d')!
-      // crop ao centro mantendo proporção
-      const scale = Math.max(W / img.width, H / img.height)
-      const sw = W / scale
-      const sh = H / scale
-      const sx = (img.width - sw) / 2
-      const sy = (img.height - sh) / 2
-      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, W, H)
-      URL.revokeObjectURL(url)
-      onChange(canvas.toDataURL('image/jpeg', 0.85))
+    const reader = new FileReader()
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        onChange(reader.result)
+      }
     }
-    img.src = url
+    reader.readAsDataURL(file)
   }
 
   return (
@@ -375,8 +363,7 @@ function ImageUploadZone({
               left: 0,
               width: '100%',
               height: '100%',
-              ...(imagePosition ? { objectPosition: imagePosition } : {}),
-              ...(imageInset ?? {}),
+              pointerEvents: 'none',
             }}
           />
           {canEdit && (
@@ -429,8 +416,10 @@ function TemplatePdfPage({
   tone: 'blue' | 'red' | 'grey'
 }) {
   const pageSize = pdfSheetPageSizes[pageNumber - 1]
+  const pageRef = useRef<HTMLElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const [renderError, setRenderError] = useState(false)
+  const [sheetScale, setSheetScale] = useState(1)
 
   useEffect(() => {
     let cancelled = false
@@ -475,16 +464,180 @@ function TemplatePdfPage({
     }
   }, [pageNumber, templateUrl])
 
+  useEffect(() => {
+    const node = pageRef.current
+
+    if (!node) {
+      return
+    }
+
+    const updateScale = () => {
+      const nextScale = node.getBoundingClientRect().width / pageSize.width
+
+      setSheetScale((current) => (Math.abs(current - nextScale) > 0.001 ? nextScale : current))
+    }
+
+    updateScale()
+
+    const observer = new ResizeObserver(() => updateScale())
+    observer.observe(node)
+
+    return () => observer.disconnect()
+  }, [pageSize.width])
+
   const pageFields = pdfSheetTemplateFields.filter((field) => field.page === pageNumber)
+  const pageSections = sheetPageSectionConfigs.filter((section) => section.page === pageNumber)
+  const pageImageZones = sheetImageZoneConfigs.filter((zone) => zone.page === pageNumber)
+  const fieldsBySectionId = useMemo(() => {
+    const grouped = new Map<string, PdfSheetTemplateField[]>()
+
+    for (const field of pageFields) {
+      const sectionId = resolveFieldSectionId(field)
+
+      if (!sectionId) {
+        continue
+      }
+
+      const bucket = grouped.get(sectionId)
+
+      if (bucket) {
+        bucket.push(field)
+      } else {
+        grouped.set(sectionId, [field])
+      }
+    }
+
+    return grouped
+  }, [pageFields])
   const pageStyle = useMemo(
     () => ({
       aspectRatio: `${pageSize.width} / ${pageSize.height}`,
+      '--sheet-scale': `${sheetScale}`,
     }),
-    [pageSize.height, pageSize.width],
+    [pageSize.height, pageSize.width, sheetScale],
   )
+
+  const renderField = (field: PdfSheetTemplateField, sectionBox?: SheetLayoutBox) => {
+    const fieldBox = { x: field.x, y: field.y, width: field.width, height: field.height }
+    const wrapperStyle = buildBoxStyle(fieldBox, pageSize, sectionBox)
+    const inputClassName = getFieldInputClassName(field, canEdit)
+    const inputStyle = field.name === 'CIDADE'
+      ? { ...buildFieldInputStyle(field), ...buildDebugInputStyle(), fontFamily: 'CyberwayRiders, sans-serif' }
+      : { ...buildFieldInputStyle(field), ...buildDebugInputStyle() }
+    const fieldKey = `${field.page}-${field.name}-${field.widgetIndex}`
+
+    if (field.name === 'SEXO') {
+      const value = fieldData['SEXO'] ?? ''
+
+      return (
+        <div key={fieldKey} className="absolute overflow-hidden" style={wrapperStyle}>
+          <select
+            value={value}
+            disabled={!canEdit}
+            spellCheck={false}
+            onChange={(event) => onFieldChange('SEXO', event.target.value)}
+            className={`${inputClassName} cursor-pointer`}
+            style={inputStyle}
+          >
+            <option value="">-</option>
+            <option value="Masculino">Masculino</option>
+            <option value="Feminino">Feminino</option>
+          </select>
+        </div>
+      )
+    }
+
+    if (isSkillScoreField(field)) {
+      const value = fieldData[field.name] ?? '0'
+
+      return (
+        <div
+            key={fieldKey}
+            className="absolute flex items-center justify-center overflow-hidden"
+            style={wrapperStyle}
+        >
+          <span
+            className="absolute inset-0 flex items-center justify-center font-display text-[#f8f8f4]"
+            style={inputStyle}
+          >
+            {value || '0'}
+          </span>
+        </div>
+      )
+    }
+
+    if (isSkillSelectField(field)) {
+      const value = resolveSkillSelectValue(field.name, fieldData)
+      const scoreFieldName = getSkillScoreFieldName(field.name)
+
+      return (
+        <div key={fieldKey} className="absolute overflow-hidden" style={wrapperStyle}>
+          <select
+            value={value}
+            disabled={!canEdit}
+            spellCheck={false}
+            onChange={(event) => {
+              const nextValue = event.target.value
+              const option = skillSelectOptions.find((entry) => entry.label === nextValue)
+
+              onFieldChange(field.name, nextValue)
+
+              if (scoreFieldName && option) {
+                onFieldChange(scoreFieldName, option.score)
+              }
+            }}
+            className={`${inputClassName} cursor-pointer`}
+            style={{ ...inputStyle, padding: '0.02rem 0.72rem 0 0.08rem' }}
+          >
+            {skillSelectOptions.map((option) => (
+              <option key={option.label || 'empty'} value={option.label}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <ChevronDown
+            size={10}
+            className="pointer-events-none absolute right-[0.1rem] top-1/2 -translate-y-1/2 text-[#2d2d2d]"
+          />
+        </div>
+      )
+    }
+
+    const value = fieldData[field.name] ?? ''
+
+    if (isMultilineField(field) && !isCodexValueField(field) && !isCodexSingleLineTextField(field)) {
+      return (
+        <div key={fieldKey} className="absolute overflow-hidden" style={wrapperStyle}>
+          <textarea
+            value={value}
+            readOnly={!canEdit}
+            spellCheck={false}
+            onChange={(event) => onFieldChange(field.name, event.target.value)}
+            className={`${inputClassName} resize-none`}
+            style={inputStyle}
+          />
+        </div>
+      )
+    }
+
+    return (
+      <div key={fieldKey} className="absolute overflow-hidden" style={wrapperStyle}>
+        <input
+          value={value}
+          readOnly={!canEdit}
+          spellCheck={false}
+          inputMode={isNumericField(field) ? 'numeric' : 'text'}
+          onChange={(event) => onFieldChange(field.name, event.target.value)}
+          className={inputClassName}
+          style={inputStyle}
+        />
+      </div>
+    )
+  }
 
   return (
     <section
+      ref={pageRef}
       className="relative overflow-hidden border-2 border-white/70 bg-[#a7a7a6] shadow-[0_18px_50px_rgba(0,0,0,0.35)]"
       style={pageStyle}
     >
@@ -493,32 +646,6 @@ function TemplatePdfPage({
       ) : (
         <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
       )}
-
-      {pageNumber === 1 ? (
-        <>
-          <div className="group/img absolute overflow-hidden" style={infoPhotoZone.style}>
-          <ImageUploadZone
-            value={fieldData.FOTO2 ?? ''}
-            canEdit={canEdit}
-              onChange={(dataUrl) => onFieldChange('FOTO2', dataUrl)}
-              cropW={infoPhotoZone.cropW}
-              cropH={infoPhotoZone.cropH}
-              imagePosition={infoPhotoZone.imagePosition}
-            />
-          </div>
-
-          <div className="group/img absolute overflow-hidden" style={portraitZone.style}>
-          <ImageUploadZone
-            value={fieldData.FOTO ?? ''}
-            canEdit={canEdit}
-              onChange={(dataUrl) => onFieldChange('FOTO', dataUrl)}
-              cropW={portraitZone.cropW}
-              cropH={portraitZone.cropH}
-              imagePosition={portraitZone.imagePosition}
-            />
-          </div>
-        </>
-      ) : null}
 
       {pageNumber === 4 ? (
         <CyberwareBoard
@@ -529,113 +656,41 @@ function TemplatePdfPage({
         />
       ) : null}
 
-      {pageFields.map((field) => {
-        const style = buildFieldStyle(field)
-        const className = getFieldClassName(field, canEdit)
-
-        if (field.name === 'SEXO') {
-          const value = fieldData['SEXO'] ?? ''
-          return (
-            <select
-              key={`${field.page}-${field.name}-${field.widgetIndex}`}
-              value={value}
-              disabled={!canEdit}
-              spellCheck={false}
-              onChange={(e) => onFieldChange('SEXO', e.target.value)}
-              className={`${className} cursor-pointer`}
-              style={style}
-            >
-              <option value="">—</option>
-              <option value="Masculino">Masculino</option>
-              <option value="Feminino">Feminino</option>
-            </select>
-          )
-        }
-
-        if (isSkillScoreField(field)) {
-          const value = fieldData[field.name] ?? '0'
-
-          return (
-            <div
-              key={`${field.page}-${field.name}-${field.widgetIndex}`}
-              className="absolute flex items-center justify-center"
-              style={style}
-            >
-              <span className="font-display text-[0.82rem] leading-none tracking-[0.04em] text-[#f8f8f4]">
-                {value || '0'}
-              </span>
-            </div>
-          )
-        }
-
-        if (isSkillSelectField(field)) {
-          const value = resolveSkillSelectValue(field.name, fieldData)
-          const scoreFieldName = getSkillScoreFieldName(field.name)
-
-          return (
-            <div
-              key={`${field.page}-${field.name}-${field.widgetIndex}`}
-              className="absolute"
-              style={style}
-            >
-              <select
-                value={value}
-                disabled={!canEdit}
-                spellCheck={false}
-                onChange={(event) => {
-                  const nextValue = event.target.value
-                  const option = skillSelectOptions.find((entry) => entry.label === nextValue)
-
-                  onFieldChange(field.name, nextValue)
-
-                  if (scoreFieldName && option) {
-                    onFieldChange(scoreFieldName, option.score)
-                  }
-                }}
-                className={`${className} h-full w-full pr-6 italic`}
-                style={{ inset: 0, padding: '0.08rem 1.15rem 0.08rem 0.2rem' }}
-              >
-                {skillSelectOptions.map((option) => (
-                  <option key={option.label || 'empty'} value={option.label}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown
-                size={14}
-                className="pointer-events-none absolute right-[0.14rem] top-1/2 -translate-y-1/2 text-[#2d2d2d]"
-              />
-            </div>
-          )
-        }
-
-        const value = fieldData[field.name] ?? ''
-
-        if (isMultilineField(field) && !isCodexValueField(field)) {
-          return (
-            <textarea
-              key={`${field.page}-${field.name}-${field.widgetIndex}`}
-              value={value}
-              readOnly={!canEdit}
-              spellCheck={false}
-              onChange={(event) => onFieldChange(field.name, event.target.value)}
-              className={`${className} resize-none`}
-              style={style}
-            />
-          )
+      {pageImageZones.map((imageZone) => (
+        <div
+          key={imageZone.id}
+          className="group/img absolute overflow-hidden"
+          style={{
+            ...imageZone.absoluteStyle,
+            pointerEvents: canEdit ? 'auto' : 'none',
+          }}
+        >
+          <ImageUploadZone
+            value={fieldData[imageZone.fieldName] ?? ''}
+            canEdit={canEdit}
+            onChange={(dataUrl) => onFieldChange(imageZone.fieldName, dataUrl)}
+          />
+        </div>
+      ))}
+      {pageSections.map((section) => {
+        const sectionFields = fieldsBySectionId.get(section.id) ?? []
+        if (!sectionFields.length) {
+          return null
         }
 
         return (
-          <input
-            key={`${field.page}-${field.name}-${field.widgetIndex}`}
-            value={value}
-            readOnly={!canEdit}
-            spellCheck={false}
-            inputMode={isNumericField(field) ? 'numeric' : 'text'}
-            onChange={(event) => onFieldChange(field.name, event.target.value)}
-            className={className}
-            style={field.name === 'CIDADE' ? { ...style, fontFamily: 'CyberwayRiders, sans-serif' } : style}
-          />
+          <div
+            key={section.id}
+            className="absolute"
+            style={{
+              ...buildBoxStyle(section.box, pageSize),
+              ...(section.clip ? { overflow: 'hidden' } : {}),
+            }}
+          >
+
+
+            {sectionFields.map((field) => renderField(field, section.box))}
+          </div>
         )
       })}
     </section>
@@ -696,18 +751,35 @@ export function PdfSheetPreview({
   const color = karmaToColor(fieldData['KARMA'] ?? '')
   const gender = sexoToGender(fieldData['SEXO'] ?? '')
   const templateUrl = TEMPLATE_URLS[`${color}-${gender}`] ?? TEMPLATE_URLS['grey-m']
-  const safePageNumber = Math.min(4, Math.max(1, Math.round(pageNumber)))
+  const safePageNumber = Math.min(5, Math.max(1, Math.round(pageNumber)))
+  const relationsData = parseRelationsData(fieldData['P5_RELATIONS'])
 
   return (
     <div className={className}>
-      <TemplatePdfPage
-        pageNumber={safePageNumber}
-        templateUrl={templateUrl}
-        fieldData={fieldData}
-        onFieldChange={() => {}}
-        canEdit={false}
-        tone={color}
-      />
+      {safePageNumber === 5 ? (
+        <RelationsBoard
+          data={relationsData}
+          canEdit={false}
+          tone={color}
+          onChange={() => {}}
+        />
+      ) : (
+        <TemplatePdfPage
+          pageNumber={safePageNumber}
+          templateUrl={templateUrl}
+          fieldData={fieldData}
+          onFieldChange={() => {}}
+          canEdit={false}
+          tone={color}
+        />
+      )}
     </div>
   )
 }
+
+
+
+
+
+
+

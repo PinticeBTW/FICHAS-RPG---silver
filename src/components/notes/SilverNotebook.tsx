@@ -28,7 +28,15 @@ import {
   type WheelEvent as ReactWheelEvent,
 } from 'react'
 import type { SilverMessageRecipientOption } from '../../lib/playerInbox'
+import {
+  buildChecklistSearchText,
+  getChecklistProgress,
+  parseNoteChecklistItems,
+} from '../../lib/noteChecklist'
+import type { NotebookPageCore } from '../../types/notebook'
+import { HighlightableTextEditor } from '../common/HighlightableTextEditor'
 import { PdfSheetPreview } from '../character/PdfSheetEditor'
+import { NoteChecklist } from './NoteChecklist'
 import { SilverMessageComposerPanel } from './PlayerMessagesPanel'
 
 type SilverReminder = {
@@ -40,11 +48,7 @@ type SilverReminder = {
   triggeredAt?: string
 }
 
-type SilverNotePage = {
-  id: string
-  title: string
-  content: string
-  pinned: boolean
+type SilverNotePage = NotebookPageCore & {
   stickies: SilverSticky[]
   drawings: SilverStroke[]
 }
@@ -107,6 +111,19 @@ type SilverDrawingDragState = {
   historyCaptured: boolean
   historySnapshot: SilverHistorySnapshot
 }
+
+type SilverDrawingBounds = {
+  left: number
+  top: number
+  right: number
+  bottom: number
+  width: number
+  height: number
+  centerX: number
+  centerY: number
+}
+
+type SilverDrawingTransformMode = 'scale' | 'rotate'
 
 type SilverSelectionBox = {
   startX: number
@@ -274,15 +291,108 @@ function doesStrokeIntersectSelection(stroke: SilverStroke, selectionBox: Silver
   )
 }
 
+function getStrokeBounds(stroke: SilverStroke): SilverDrawingBounds | null {
+  if (!stroke.points.length) {
+    return null
+  }
+
+  const xs = stroke.points.map((point) => point.x)
+  const ys = stroke.points.map((point) => point.y)
+  const left = Math.min(...xs)
+  const top = Math.min(...ys)
+  const right = Math.max(...xs)
+  const bottom = Math.max(...ys)
+  const width = Math.max(1, right - left)
+  const height = Math.max(1, bottom - top)
+
+  return {
+    left,
+    top,
+    right,
+    bottom,
+    width,
+    height,
+    centerX: left + width / 2,
+    centerY: top + height / 2,
+  }
+}
+
+function getCombinedDrawingBounds(strokes: SilverStroke[]): SilverDrawingBounds | null {
+  const strokeBounds = strokes
+    .map((stroke) => getStrokeBounds(stroke))
+    .filter((bounds): bounds is SilverDrawingBounds => Boolean(bounds))
+
+  if (!strokeBounds.length) {
+    return null
+  }
+
+  const left = Math.min(...strokeBounds.map((bounds) => bounds.left))
+  const top = Math.min(...strokeBounds.map((bounds) => bounds.top))
+  const right = Math.max(...strokeBounds.map((bounds) => bounds.right))
+  const bottom = Math.max(...strokeBounds.map((bounds) => bounds.bottom))
+  const width = Math.max(1, right - left)
+  const height = Math.max(1, bottom - top)
+
+  return {
+    left,
+    top,
+    right,
+    bottom,
+    width,
+    height,
+    centerX: left + width / 2,
+    centerY: top + height / 2,
+  }
+}
+
+function transformStrokePoints(
+  points: SilverStrokePoint[],
+  options: {
+    originX: number
+    originY: number
+    scaleX?: number
+    scaleY?: number
+    rotation?: number
+  },
+) {
+  const scaleX = options.scaleX ?? 1
+  const scaleY = options.scaleY ?? 1
+  const rotation = options.rotation ?? 0
+  const cos = Math.cos(rotation)
+  const sin = Math.sin(rotation)
+
+  return points.map((point) => {
+    const translatedX = (point.x - options.originX) * scaleX
+    const translatedY = (point.y - options.originY) * scaleY
+
+    return {
+      x: Number((options.originX + translatedX * cos - translatedY * sin).toFixed(2)),
+      y: Number((options.originY + translatedX * sin + translatedY * cos).toFixed(2)),
+    }
+  })
+}
+
 function buildDefaultPage(content = '', pageNumber = 1): SilverNotePage {
   return {
     id: crypto.randomUUID(),
     title: `Pagina ${pageNumber}`,
     content,
     pinned: false,
+    checklistItems: [],
     stickies: [],
     drawings: [],
   }
+}
+
+function describeSilverPage(page: SilverNotePage) {
+  const checklistProgress = getChecklistProgress(page.checklistItems)
+  const summaryParts = [`${page.stickies.length} bloco${page.stickies.length === 1 ? '' : 's'}`]
+
+  if (checklistProgress.total) {
+    summaryParts.push(`${checklistProgress.completed}/${checklistProgress.total} tarefas`)
+  }
+
+  return summaryParts.join(' | ')
 }
 
 function buildDefaultSticky(
@@ -522,6 +632,7 @@ function parseNotePages(pagesValue: string, legacyValue: string): SilverNotePage
           title: parseStoredTitle(page.title, `Pagina ${index + 1}`),
           content: typeof page.content === 'string' ? page.content : '',
           pinned: Boolean(page.pinned),
+          checklistItems: parseNoteChecklistItems(page.checklistItems),
           stickies: parseStickies(page.stickies),
           drawings: parseDrawings(page.drawings),
         }
@@ -727,6 +838,16 @@ export function SilverNotebook({
   const boardImageInputRef = useRef<HTMLInputElement | null>(null)
   const dragStateRef = useRef<SilverDragState | null>(null)
   const drawingDragStateRef = useRef<SilverDrawingDragState | null>(null)
+  const drawingTransformStateRef = useRef<{
+    mode: SilverDrawingTransformMode
+    bounds: SilverDrawingBounds
+    originPoints: Record<string, SilverStrokePoint[]>
+    startPointerAngle: number
+    startWidth: number
+    startHeight: number
+    historyCaptured: boolean
+    historySnapshot: SilverHistorySnapshot
+  } | null>(null)
   const resizeStateRef = useRef<{
     stickyId: string
     startWidth: number
@@ -789,9 +910,17 @@ export function SilverNotebook({
     previewSheetSticky?.linkedProfileId
       ? boardProfilesById.get(previewSheetSticky.linkedProfileId)
       : undefined
-  const previewSheetPage = Math.min(4, Math.max(1, previewSheetSticky?.sheetPage ?? 1))
+  const previewSheetPage = Math.min(5, Math.max(1, previewSheetSticky?.sheetPage ?? 1))
   const selectedItemIdsSet = useMemo(() => new Set(selectedItemIds), [selectedItemIds])
   const selectedDrawingIdsSet = useMemo(() => new Set(selectedDrawingIds), [selectedDrawingIds])
+  const selectedDrawings = useMemo(
+    () => activePage.drawings.filter((stroke) => selectedDrawingIdsSet.has(stroke.id)),
+    [activePage.drawings, selectedDrawingIdsSet],
+  )
+  const selectedDrawingBounds = useMemo(
+    () => getCombinedDrawingBounds(selectedDrawings),
+    [selectedDrawings],
+  )
   const currentSnapshot = useMemo<SilverHistorySnapshot>(
     () => ({
       pagesValue,
@@ -1033,6 +1162,7 @@ export function SilverNotebook({
   useEffect(() => {
     setDraftStroke(null)
     drawStateRef.current = null
+    drawingTransformStateRef.current = null
   }, [activePage.id])
 
   useEffect(() => () => {
@@ -1067,6 +1197,7 @@ export function SilverNotebook({
           const searchable = [
             page.title,
             stripHtml(page.content),
+            buildChecklistSearchText(page.checklistItems),
             ...page.stickies.map((sticky) => `${sticky.title} ${sticky.content}`),
           ]
             .join(' ')
@@ -1109,6 +1240,10 @@ export function SilverNotebook({
     const editor = editorRef.current
 
     if (!editor) {
+      return
+    }
+
+    if (document.activeElement === editor) {
       return
     }
 
@@ -1348,13 +1483,6 @@ export function SilverNotebook({
     handleEditorInput()
   }
 
-  const handleEditorPaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
-    event.preventDefault()
-    const pastedText = event.clipboardData.getData('text/plain')
-    document.execCommand('insertText', false, pastedText)
-    handleEditorInput()
-  }
-
   const handleEditorShortcuts = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (!(event.ctrlKey || event.metaKey) || event.altKey) {
       return
@@ -1533,6 +1661,90 @@ export function SilverNotebook({
       ),
     }))
   }, [updateActivePageWithoutHistory])
+
+  const applySelectedDrawingTransform = useCallback((
+    options: {
+      scaleX?: number
+      scaleY?: number
+      rotation?: number
+    },
+    config?: { skipHistory?: boolean; originPoints?: Record<string, SilverStrokePoint[]> },
+  ) => {
+    if (!selectedDrawingBounds || !selectedDrawingIds.length) {
+      return
+    }
+
+    const originPoints =
+      config?.originPoints ??
+      Object.fromEntries(
+        activePage.drawings
+          .filter((stroke) => selectedDrawingIdsSet.has(stroke.id))
+          .map((stroke) => [stroke.id, stroke.points.map((point) => ({ ...point }))]),
+      )
+
+    const updater = (page: SilverNotePage) => ({
+      ...page,
+      drawings: page.drawings.map((stroke) => {
+        const basePoints = originPoints[stroke.id]
+
+        if (!basePoints) {
+          return stroke
+        }
+
+        return {
+          ...stroke,
+          points: transformStrokePoints(basePoints, {
+            originX: selectedDrawingBounds.centerX,
+            originY: selectedDrawingBounds.centerY,
+            scaleX: options.scaleX,
+            scaleY: options.scaleY,
+            rotation: options.rotation,
+          }),
+        }
+      }),
+    })
+
+    if (config?.skipHistory) {
+      updateActivePageWithoutHistory(updater)
+      return
+    }
+
+    updateActivePage(updater)
+  }, [
+    activePage.drawings,
+    selectedDrawingBounds,
+    selectedDrawingIds.length,
+    selectedDrawingIdsSet,
+    updateActivePage,
+    updateActivePageWithoutHistory,
+  ])
+
+  const scaleSelectedDrawings = useCallback((scale: number) => {
+    applySelectedDrawingTransform({
+      scaleX: scale,
+      scaleY: scale,
+    })
+  }, [applySelectedDrawingTransform])
+
+  const rotateSelectedDrawings = useCallback((angle: number) => {
+    applySelectedDrawingTransform({
+      rotation: angle,
+    })
+  }, [applySelectedDrawingTransform])
+
+  const flipSelectedDrawingsHorizontally = useCallback(() => {
+    applySelectedDrawingTransform({
+      scaleX: -1,
+      scaleY: 1,
+    })
+  }, [applySelectedDrawingTransform])
+
+  const flipSelectedDrawingsVertically = useCallback(() => {
+    applySelectedDrawingTransform({
+      scaleX: 1,
+      scaleY: -1,
+    })
+  }, [applySelectedDrawingTransform])
 
   const deleteSelectedEntities = useCallback((stickyIds: string[], drawingIds: string[]) => {
     const stickiesToDelete = dedupeItemIds(stickyIds)
@@ -1995,6 +2207,63 @@ export function SilverNotebook({
     }
   }
 
+  const startDrawingScaleTransform = (event: ReactMouseEvent<HTMLButtonElement>) => {
+    if (!canEdit || !selectedDrawingBounds || !selectedDrawingIds.length) {
+      return
+    }
+
+    event.preventDefault()
+    event.stopPropagation()
+    lockDocumentSelection()
+
+    drawingTransformStateRef.current = {
+      mode: 'scale',
+      bounds: selectedDrawingBounds,
+      originPoints: Object.fromEntries(
+        activePage.drawings
+          .filter((stroke) => selectedDrawingIdsSet.has(stroke.id))
+          .map((stroke) => [stroke.id, stroke.points.map((point) => ({ ...point }))]),
+      ),
+      startPointerAngle: 0,
+      startWidth: selectedDrawingBounds.width,
+      startHeight: selectedDrawingBounds.height,
+      historyCaptured: false,
+      historySnapshot: currentSnapshot,
+    }
+  }
+
+  const startDrawingRotateTransform = (event: ReactMouseEvent<HTMLButtonElement>) => {
+    if (!canEdit || !selectedDrawingBounds || !selectedDrawingIds.length || !viewportRef.current) {
+      return
+    }
+
+    event.preventDefault()
+    event.stopPropagation()
+    lockDocumentSelection()
+
+    const viewportRect = viewportRef.current.getBoundingClientRect()
+    const worldX = camera.x + (event.clientX - viewportRect.left) / camera.zoom
+    const worldY = camera.y + (event.clientY - viewportRect.top) / camera.zoom
+
+    drawingTransformStateRef.current = {
+      mode: 'rotate',
+      bounds: selectedDrawingBounds,
+      originPoints: Object.fromEntries(
+        activePage.drawings
+          .filter((stroke) => selectedDrawingIdsSet.has(stroke.id))
+          .map((stroke) => [stroke.id, stroke.points.map((point) => ({ ...point }))]),
+      ),
+      startPointerAngle: Math.atan2(
+        worldY - selectedDrawingBounds.centerY,
+        worldX - selectedDrawingBounds.centerX,
+      ),
+      startWidth: selectedDrawingBounds.width,
+      startHeight: selectedDrawingBounds.height,
+      historyCaptured: false,
+      historySnapshot: currentSnapshot,
+    }
+  }
+
   const handleViewportWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
     if (!viewportRef.current) {
       return
@@ -2169,6 +2438,114 @@ export function SilverNotebook({
 
   useEffect(() => {
     const handleMove = (event: MouseEvent) => {
+      if (!drawingTransformStateRef.current || !viewportRef.current) {
+        return
+      }
+
+      const viewportRect = viewportRef.current.getBoundingClientRect()
+      const worldX = camera.x + (event.clientX - viewportRect.left) / camera.zoom
+      const worldY = camera.y + (event.clientY - viewportRect.top) / camera.zoom
+      const transformState = drawingTransformStateRef.current
+
+      if (transformState.mode === 'scale') {
+        const widthRatio =
+          (worldX - transformState.bounds.left) / Math.max(transformState.startWidth, 1)
+        const heightRatio =
+          (worldY - transformState.bounds.top) / Math.max(transformState.startHeight, 1)
+        const nextScale = Math.max(0.12, Math.max(widthRatio, heightRatio))
+
+        if (!Number.isFinite(nextScale)) {
+          return
+        }
+
+        if (!transformState.historyCaptured && Math.abs(nextScale - 1) > 0.001) {
+          pushHistorySnapshot(transformState.historySnapshot)
+          transformState.historyCaptured = true
+        }
+
+        updateActivePageWithoutHistory((page) => ({
+          ...page,
+          drawings: page.drawings.map((stroke) => {
+            const basePoints = transformState.originPoints[stroke.id]
+
+            if (!basePoints) {
+              return stroke
+            }
+
+            return {
+              ...stroke,
+              points: transformStrokePoints(basePoints, {
+                originX: transformState.bounds.left,
+                originY: transformState.bounds.top,
+                scaleX: nextScale,
+                scaleY: nextScale,
+              }),
+            }
+          }),
+        }))
+
+        return
+      }
+
+      const nextAngle = Math.atan2(
+        worldY - transformState.bounds.centerY,
+        worldX - transformState.bounds.centerX,
+      )
+      const delta = nextAngle - transformState.startPointerAngle
+
+      if (!transformState.historyCaptured && Math.abs(delta) > 0.001) {
+        pushHistorySnapshot(transformState.historySnapshot)
+        transformState.historyCaptured = true
+      }
+
+      updateActivePageWithoutHistory((page) => ({
+        ...page,
+        drawings: page.drawings.map((stroke) => {
+          const basePoints = transformState.originPoints[stroke.id]
+
+          if (!basePoints) {
+            return stroke
+          }
+
+          return {
+            ...stroke,
+            points: transformStrokePoints(basePoints, {
+              originX: transformState.bounds.centerX,
+              originY: transformState.bounds.centerY,
+              rotation: delta,
+            }),
+          }
+        }),
+      }))
+    }
+
+    const handleUp = () => {
+      if (!drawingTransformStateRef.current) {
+        return
+      }
+
+      drawingTransformStateRef.current = null
+      unlockDocumentSelection()
+    }
+
+    window.addEventListener('mousemove', handleMove)
+    window.addEventListener('mouseup', handleUp)
+
+    return () => {
+      window.removeEventListener('mousemove', handleMove)
+      window.removeEventListener('mouseup', handleUp)
+    }
+  }, [
+    camera.x,
+    camera.y,
+    camera.zoom,
+    pushHistorySnapshot,
+    unlockDocumentSelection,
+    updateActivePageWithoutHistory,
+  ])
+
+  useEffect(() => {
+    const handleMove = (event: MouseEvent) => {
       if (!resizeStateRef.current) {
         return
       }
@@ -2219,6 +2596,14 @@ export function SilverNotebook({
     ? [...activePage.drawings, draftStroke]
     : activePage.drawings
   const selectionBoxBounds = selectionBox ? getSelectionBounds(selectionBox) : null
+  const selectedDrawingScreenBounds = selectedDrawingBounds
+    ? {
+        left: (selectedDrawingBounds.left - camera.x) * camera.zoom,
+        top: (selectedDrawingBounds.top - camera.y) * camera.zoom,
+        width: selectedDrawingBounds.width * camera.zoom,
+        height: selectedDrawingBounds.height * camera.zoom,
+      }
+    : null
 
   return (
     <section className="hud-panel rounded-[28px] p-3 md:p-4">
@@ -2583,6 +2968,45 @@ export function SilverNotebook({
               }}
             />
           ) : null}
+
+          {selectedDrawingScreenBounds && boardTool === 'pan' ? (
+            <div
+              className="pointer-events-none absolute border border-dashed border-[#53b5ff]/80 bg-[#53b5ff]/8 shadow-[0_0_0_1px_rgba(83,181,255,0.16)]"
+              style={{
+                left: `${selectedDrawingScreenBounds.left}px`,
+                top: `${selectedDrawingScreenBounds.top}px`,
+                width: `${selectedDrawingScreenBounds.width}px`,
+                height: `${selectedDrawingScreenBounds.height}px`,
+              }}
+            >
+              <div className="absolute left-2 top-2 rounded-full border border-[#53b5ff]/35 bg-[#050b13]/92 px-2 py-1 text-[0.62rem] uppercase tracking-[0.16em] text-[#8bd2ff]">
+                {selectedDrawingIds.length} desenho{selectedDrawingIds.length === 1 ? '' : 's'}
+              </div>
+
+              {canEdit ? (
+                <>
+                  <button
+                    type="button"
+                    data-board-item="true"
+                    onMouseDown={startDrawingRotateTransform}
+                    className="pointer-events-auto absolute left-1/2 top-0 h-4 w-4 -translate-x-1/2 -translate-y-[160%] rounded-full border border-[#53b5ff] bg-[#050b13] shadow-[0_0_14px_rgba(83,181,255,0.22)]"
+                    style={{ cursor: 'grab' }}
+                    title="Rodar desenhos"
+                  />
+                  <div className="pointer-events-none absolute left-1/2 top-0 h-4 w-px -translate-x-1/2 -translate-y-full bg-[#53b5ff]/75" />
+
+                  <button
+                    type="button"
+                    data-board-item="true"
+                    onMouseDown={startDrawingScaleTransform}
+                    className="pointer-events-auto absolute bottom-0 right-0 h-4 w-4 translate-x-1/2 translate-y-1/2 border border-[#53b5ff] bg-[#050b13] shadow-[0_0_14px_rgba(83,181,255,0.22)]"
+                    style={{ cursor: 'nwse-resize' }}
+                    title="Escalar desenhos"
+                  />
+                </>
+              ) : null}
+            </div>
+          ) : null}
         </div>
 
         <div className="pointer-events-none absolute inset-0">
@@ -2674,7 +3098,7 @@ export function SilverNotebook({
                               {page.pinned ? <Pin size={11} className="shrink-0 text-[#f3e600]" /> : null}
                             </div>
                             <p className="mt-1 text-[0.68rem] uppercase tracking-[0.18em] text-stone-500">
-                              {page.stickies.length} bloco{page.stickies.length === 1 ? '' : 's'}
+                              {describeSilverPage(page)}
                             </p>
                           </button>
 
@@ -2729,15 +3153,32 @@ export function SilverNotebook({
                   <p className="text-xs text-stone-500">Ctrl+I para italico.</p>
                 </div>
 
-                <div
+                <HighlightableTextEditor
                   ref={editorRef}
-                  contentEditable={canEdit}
-                  suppressContentEditableWarning
-                  onInput={handleEditorInput}
-                  onPaste={handleEditorPaste}
+                  value={activePage.content}
+                  onChange={(nextHtml) =>
+                    updateActivePage((page) => ({
+                      ...page,
+                      content: nextHtml,
+                    }))
+                  }
+                  canEdit={canEdit}
+                  placeholder="Rascunho rapido desta pagina..."
+                  className="mt-3"
+                  editorClassName="min-h-[220px] w-full overflow-y-auto border border-white/10 bg-black/30 px-4 py-4 font-mono text-sm leading-7 text-stone-100 outline-none transition focus:border-[#f3e600]/45 [&_em]:italic [&_i]:italic"
                   onKeyDown={handleEditorShortcuts}
-                  data-placeholder="Rascunho rapido desta pagina..."
-                  className="mt-3 min-h-[220px] w-full overflow-y-auto border border-white/10 bg-black/30 px-4 py-4 font-mono text-sm leading-7 text-stone-100 outline-none transition empty:before:pointer-events-none empty:before:text-stone-600 empty:before:content-[attr(data-placeholder)] focus:border-[#f3e600]/45 [&_em]:italic [&_i]:italic"
+                />
+
+                <NoteChecklist
+                  items={activePage.checklistItems}
+                  canEdit={canEdit}
+                  onChange={(nextItems) =>
+                    updateActivePage((page) => ({
+                      ...page,
+                      checklistItems: nextItems,
+                    }))
+                  }
+                  className="mt-3"
                 />
               </div>
             </div>
@@ -2745,7 +3186,7 @@ export function SilverNotebook({
           ) : null}
 
           {showRemindersPanel ? (
-          <div className="pointer-events-auto absolute right-4 top-4 flex max-h-[calc(100%-120px)] w-[320px] flex-col gap-3">
+          <div className="pointer-events-auto absolute right-4 top-4 flex h-[calc(100%-120px)] w-[320px] min-h-0 flex-col gap-3 overflow-y-auto pr-1">
             <SilverMessageComposerPanel
               recipients={playerMessageRecipients}
               onSend={async (recipientId, title, body) => {
@@ -2756,7 +3197,7 @@ export function SilverNotebook({
               error={playerMessageError}
             />
 
-            <div className="rounded-[22px] border border-white/10 bg-[#0b0b0b]/95 p-3 shadow-[0_14px_32px_rgba(0,0,0,0.4)] backdrop-blur">
+            <div className="shrink-0 rounded-[22px] border border-white/10 bg-[#0b0b0b]/95 p-3 shadow-[0_14px_32px_rgba(0,0,0,0.4)] backdrop-blur">
               <div className="flex items-center gap-2">
                 <BellRing size={16} className="text-[#f3e600]" />
                 <p className="panel-title">Lembretes</p>
@@ -2826,7 +3267,7 @@ export function SilverNotebook({
                 </button>
               </div>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto rounded-[22px] border border-white/10 bg-[#0b0b0b]/95 p-3 shadow-[0_14px_32px_rgba(0,0,0,0.4)] backdrop-blur">
+            <div className="shrink-0 rounded-[22px] border border-white/10 bg-[#0b0b0b]/95 p-3 shadow-[0_14px_32px_rgba(0,0,0,0.4)] backdrop-blur">
               <p className="panel-title">Agenda</p>
 
               <div className="mt-3 space-y-2">
@@ -2966,6 +3407,87 @@ export function SilverNotebook({
               {quickSaveBusy ? 'A guardar...' : 'Guardar'}
             </button>
 
+            {selectedDrawingIds.length ? (
+              <>
+                <div className="mx-1 h-5 w-px bg-white/10" />
+
+                <div className="text-right">
+                  <p className="text-[0.6rem] uppercase tracking-[0.18em] text-stone-500">
+                    Desenho
+                  </p>
+                  <p className="text-[0.72rem] font-semibold text-[#8bd2ff]">
+                    {selectedDrawingIds.length} sel.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => scaleSelectedDrawings(0.9)}
+                  disabled={!canEdit || boardTool !== 'pan'}
+                  className="signal-button inline-flex items-center gap-2 px-3 py-2 text-xs"
+                  data-variant="ghost"
+                  title="Diminuir desenho"
+                >
+                  Escala -
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => scaleSelectedDrawings(1.1)}
+                  disabled={!canEdit || boardTool !== 'pan'}
+                  className="signal-button inline-flex items-center gap-2 px-3 py-2 text-xs"
+                  data-variant="ghost"
+                  title="Aumentar desenho"
+                >
+                  Escala +
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => rotateSelectedDrawings(-Math.PI / 12)}
+                  disabled={!canEdit || boardTool !== 'pan'}
+                  className="signal-button inline-flex items-center gap-2 px-3 py-2 text-xs"
+                  data-variant="ghost"
+                  title="Rodar para a esquerda"
+                >
+                  Rot-
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => rotateSelectedDrawings(Math.PI / 12)}
+                  disabled={!canEdit || boardTool !== 'pan'}
+                  className="signal-button inline-flex items-center gap-2 px-3 py-2 text-xs"
+                  data-variant="ghost"
+                  title="Rodar para a direita"
+                >
+                  Rot+
+                </button>
+
+                <button
+                  type="button"
+                  onClick={flipSelectedDrawingsHorizontally}
+                  disabled={!canEdit || boardTool !== 'pan'}
+                  className="signal-button inline-flex items-center gap-2 px-3 py-2 text-xs"
+                  data-variant="ghost"
+                  title="Virar horizontalmente"
+                >
+                  Flip H
+                </button>
+
+                <button
+                  type="button"
+                  onClick={flipSelectedDrawingsVertically}
+                  disabled={!canEdit || boardTool !== 'pan'}
+                  className="signal-button inline-flex items-center gap-2 px-3 py-2 text-xs"
+                  data-variant="ghost"
+                  title="Virar verticalmente"
+                >
+                  Flip V
+                </button>
+              </>
+            ) : null}
+
             <div className="mx-1 h-5 w-px bg-white/10" />
 
             <button
@@ -3025,7 +3547,7 @@ export function SilverNotebook({
                       <ChevronLeft size={12} />
                     </button>
 
-                    {[1, 2, 3, 4].map((page) => (
+                    {[1, 2, 3, 4, 5].map((page) => (
                       <button
                         key={page}
                         type="button"
@@ -3047,12 +3569,12 @@ export function SilverNotebook({
                       onClick={() =>
                         updateSticky(previewSheetSticky.id, (entry) => ({
                           ...entry,
-                          sheetPage: Math.min(4, (entry.sheetPage ?? 1) + 1),
+                          sheetPage: Math.min(5, (entry.sheetPage ?? 1) + 1),
                         }))
                       }
                       className="signal-button px-2 py-1 text-[0.65rem]"
                       data-variant="ghost"
-                      disabled={previewSheetPage >= 4}
+                      disabled={previewSheetPage >= 5}
                       title="Pagina seguinte"
                     >
                       <ChevronRight size={12} />
