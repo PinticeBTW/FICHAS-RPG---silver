@@ -34,7 +34,6 @@ import {
 import {
   PLAYER_MESSAGES_FIELD_KEY,
   buildPlayerInboxMessage,
-  mergePlayerInboxMessageValues,
   parsePlayerInboxMessages,
   serializePlayerInboxMessages,
   type SilverMessageRecipientOption,
@@ -320,8 +319,6 @@ export function SheetWorkspacePage() {
   const [saving, setSaving] = useState(false)
   const [syncLabel, setSyncLabel] = useState('Guardar manual')
   const [error, setError] = useState<string | null>(null)
-  const sheetSignatureRef = useRef('')
-  const draftSignatureRef = useRef('')
   const draftFieldsRef = useRef<Record<string, string>>({})
   const selectedProfileRef = useRef<Profile | null>(null)
   const isDirtyRef = useRef(false)
@@ -446,14 +443,6 @@ export function SheetWorkspacePage() {
   )
 
   useEffect(() => {
-    sheetSignatureRef.current = sheetSignature
-  }, [sheetSignature])
-
-  useEffect(() => {
-    draftSignatureRef.current = draftSignature
-  }, [draftSignature])
-
-  useEffect(() => {
     draftFieldsRef.current = draftFields
   }, [draftFields])
 
@@ -554,69 +543,30 @@ export function SheetWorkspacePage() {
   }, [selectedProfile])
 
   useEffect(() => {
-    if (!selectedProfile) {
+    if (!selectedProfile || canEdit) {
       return
     }
 
     const unsubscribe = subscribeToSheet(selectedProfile.id, (nextSheet) => {
-      const nextSignature = serializeFieldData(nextSheet.fieldData)
-
       setSheet((current) => {
         if (
           current &&
           current.updatedAt === nextSheet.updatedAt &&
-          serializeFieldData(current.fieldData) === nextSignature
+          serializeFieldData(current.fieldData) === serializeFieldData(nextSheet.fieldData)
         ) {
           return current
         }
 
         return nextSheet
       })
-
-      setDraftFields((current) => {
-        const currentSignature = serializeFieldData(current)
-
-        if (currentSignature === nextSignature) {
-          return current
-        }
-
-        // Compute hasLocalChanges from current state, not a potentially stale ref
-        const hasLocalChanges = currentSignature !== sheetSignatureRef.current
-
-        if (hasLocalChanges) {
-          const mergedPlayerMessages = mergePlayerInboxMessageValues(
-            current[PLAYER_MESSAGES_FIELD_KEY] ?? '',
-            nextSheet.fieldData[PLAYER_MESSAGES_FIELD_KEY] ?? '',
-          )
-
-          if (mergedPlayerMessages !== (current[PLAYER_MESSAGES_FIELD_KEY] ?? '')) {
-            return {
-              ...current,
-              [PLAYER_MESSAGES_FIELD_KEY]: mergedPlayerMessages,
-            }
-          }
-
-          return current
-        }
-
-        return nextSheet.fieldData
-      })
-
-      setSyncLabel(
-        draftSignatureRef.current !== sheetSignatureRef.current
-          ? 'Alteracoes locais por guardar...'
-          : 'Atualizado em tempo real',
-      )
-
-      if (draftSignatureRef.current === sheetSignatureRef.current) {
-        setSaving(false)
-      }
+      setDraftFields(nextSheet.fieldData)
+      setSyncLabel('Atualizado em tempo real')
     })
 
     return () => {
       unsubscribe()
     }
-  }, [selectedProfile])
+  }, [canEdit, selectedProfile])
 
   useEffect(() => {
     if (!isSilverWorkspace || !accessibleProfiles.length) {
