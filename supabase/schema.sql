@@ -14,6 +14,13 @@ exception
   when duplicate_object then null;
 end $$;
 
+do $$
+begin
+  create type public.sheet_share_target_kind as enum ('profile', 'npc');
+exception
+  when duplicate_object then null;
+end $$;
+
 create or replace function public.set_updated_at()
 returns trigger
 language plpgsql
@@ -178,6 +185,15 @@ create table if not exists public.pdf_document_access (
   unique (document_id, profile_id)
 );
 
+create table if not exists public.sheet_share_access (
+  id uuid primary key default gen_random_uuid(),
+  viewer_profile_id uuid not null references public.profiles (id) on delete cascade,
+  target_kind public.sheet_share_target_kind not null,
+  target_id uuid not null,
+  created_at timestamptz not null default timezone('utc', now()),
+  unique (viewer_profile_id, target_kind, target_id)
+);
+
 create table if not exists public.character_sheet_forms (
   id uuid primary key default gen_random_uuid(),
   profile_id uuid not null unique references public.profiles (id) on delete cascade,
@@ -335,6 +351,25 @@ as $$
   );
 $$;
 
+create or replace function public.has_sheet_share_access(
+  target_kind public.sheet_share_target_kind,
+  target_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.sheet_share_access access_entry
+    where access_entry.viewer_profile_id = auth.uid()
+      and access_entry.target_kind = has_sheet_share_access.target_kind
+      and access_entry.target_id = has_sheet_share_access.target_id
+  );
+$$;
+
 create or replace function public.is_profile_role_unchanged(
   target_profile uuid,
   next_role public.app_role
@@ -366,6 +401,7 @@ grant select, insert, update, delete on public.character_cyberware to authentica
 grant select, insert, update, delete on public.character_notes to authenticated;
 grant select, insert, update, delete on public.pdf_documents to authenticated;
 grant select, insert, update, delete on public.pdf_document_access to authenticated;
+grant select, insert, update, delete on public.sheet_share_access to authenticated;
 grant select, insert, update, delete on public.character_sheet_forms to authenticated;
 
 alter table public.profiles enable row level security;
@@ -380,6 +416,7 @@ alter table public.character_cyberware enable row level security;
 alter table public.character_notes enable row level security;
 alter table public.pdf_documents enable row level security;
 alter table public.pdf_document_access enable row level security;
+alter table public.sheet_share_access enable row level security;
 alter table public.character_sheet_forms enable row level security;
 
 drop policy if exists profiles_select_shared_campaign on public.profiles;
@@ -390,6 +427,7 @@ to authenticated
 using (
   id = auth.uid()
   or public.is_current_user_gm()
+  or public.has_sheet_share_access('profile', id)
 );
 
 drop policy if exists profiles_update_self on public.profiles;
@@ -891,6 +929,38 @@ for delete
 to authenticated
 using (public.is_current_user_gm());
 
+drop policy if exists sheet_share_access_select_allowed on public.sheet_share_access;
+create policy sheet_share_access_select_allowed
+on public.sheet_share_access
+for select
+to authenticated
+using (
+  public.is_current_user_gm()
+  or viewer_profile_id = auth.uid()
+);
+
+drop policy if exists sheet_share_access_insert_gm on public.sheet_share_access;
+create policy sheet_share_access_insert_gm
+on public.sheet_share_access
+for insert
+to authenticated
+with check (public.is_current_user_gm());
+
+drop policy if exists sheet_share_access_update_gm on public.sheet_share_access;
+create policy sheet_share_access_update_gm
+on public.sheet_share_access
+for update
+to authenticated
+using (public.is_current_user_gm())
+with check (public.is_current_user_gm());
+
+drop policy if exists sheet_share_access_delete_gm on public.sheet_share_access;
+create policy sheet_share_access_delete_gm
+on public.sheet_share_access
+for delete
+to authenticated
+using (public.is_current_user_gm());
+
 drop policy if exists character_sheet_forms_select_allowed on public.character_sheet_forms;
 create policy character_sheet_forms_select_allowed
 on public.character_sheet_forms
@@ -899,6 +969,7 @@ to authenticated
 using (
   public.is_current_user_gm()
   or profile_id = auth.uid()
+  or public.has_sheet_share_access('profile', profile_id)
 );
 
 drop policy if exists character_sheet_forms_insert_allowed on public.character_sheet_forms;
@@ -1016,6 +1087,21 @@ begin
       and tablename = 'character_sheet_forms'
   ) then
     alter publication supabase_realtime add table public.character_sheet_forms;
+  end if;
+exception
+  when duplicate_object then null;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'sheet_share_access'
+  ) then
+    alter publication supabase_realtime add table public.sheet_share_access;
   end if;
 exception
   when duplicate_object then null;

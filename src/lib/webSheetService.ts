@@ -22,6 +22,10 @@ type SheetRow = {
   updated_at: string | null
 }
 
+type SheetShareAccessRow = {
+  viewer_profile_id: string
+}
+
 function ensureSupabase() {
   if (!supabase) {
     throw new Error(SUPABASE_CONFIG_ERROR)
@@ -30,7 +34,47 @@ function ensureSupabase() {
   return supabase
 }
 
-function mapProfile(row: ProfileRow): Profile {
+function sheetSharingErrorText(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return ''
+  }
+
+  const candidate = error as {
+    message?: string
+    details?: string
+    hint?: string
+    code?: string
+  }
+
+  return [
+    candidate.code,
+    candidate.message,
+    candidate.details,
+    candidate.hint,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+}
+
+export function isSheetSharingUnavailableError(error: unknown) {
+  const text = sheetSharingErrorText(error)
+
+  return (
+    text.includes('sheet_share_access') ||
+    text.includes('sheet_share_target_kind') ||
+    text.includes('has_sheet_share_access') ||
+    text.includes('42p01') ||
+    text.includes('42883') ||
+    text.includes('42704') ||
+    text.includes('pgrst205')
+  )
+}
+
+function mapProfile(
+  row: ProfileRow,
+  metadata?: Pick<Profile, 'sheetAccess' | 'sheetSource'>,
+): Profile {
   return {
     id: row.id,
     email: row.email,
@@ -38,6 +82,8 @@ function mapProfile(row: ProfileRow): Profile {
     handle: row.handle,
     role: row.role,
     avatarUrl: row.avatar_url ?? undefined,
+    sheetAccess: metadata?.sheetAccess,
+    sheetSource: metadata?.sheetSource,
   }
 }
 
@@ -147,13 +193,18 @@ type NpcCardRow = {
   updated_at: string | null
 }
 
-function mapNpcProfile(row: NpcCardRow): Profile {
+function mapNpcProfile(
+  row: NpcCardRow,
+  metadata?: Pick<Profile, 'sheetAccess' | 'sheetSource'>,
+): Profile {
   return {
     id: row.id,
     email: `${NPC_EMAIL_PREFIX}${row.id}`,
     displayName: row.display_name,
     handle: row.id,
     role: 'player',
+    sheetAccess: metadata?.sheetAccess,
+    sheetSource: metadata?.sheetSource,
   }
 }
 
@@ -167,7 +218,31 @@ function mapNpcSheet(row: NpcCardRow): WebSheetRecord {
   }
 }
 
-export async function listSheetProfiles() {
+function resolveSheetAccessMetadata(entry: Profile, viewer: Profile) {
+  const isShared = viewer.role !== 'gm' && (isNpcProfile(entry) || entry.id !== viewer.id)
+
+  return {
+    sheetAccess: isShared ? 'shared' : 'owner',
+    sheetSource: isNpcProfile(entry) ? 'npc' : 'profile',
+  } as const
+}
+
+function resolveShareTarget(entry: Profile) {
+  return {
+    targetKind: isNpcProfile(entry) ? 'npc' : 'profile',
+    targetId: entry.id,
+  } as const
+}
+
+function sortAccessibleProfiles(left: Profile, right: Profile) {
+  if (left.sheetAccess !== right.sheetAccess) {
+    return left.sheetAccess === 'owner' ? -1 : 1
+  }
+
+  return left.displayName.localeCompare(right.displayName)
+}
+
+export async function listSheetProfiles(viewer: Profile) {
   const client = ensureSupabase()
   const [profilesResult, npcsResult] = await Promise.all([
     client
@@ -181,11 +256,24 @@ export async function listSheetProfiles() {
   ])
 
   if (profilesResult.error) throw profilesResult.error
+  if (npcsResult.error) throw npcsResult.error
 
-  const profiles = ((profilesResult.data ?? []) as ProfileRow[]).map(mapProfile)
-  const npcs = ((npcsResult.data ?? []) as NpcCardRow[]).map(mapNpcProfile)
+  const profiles = ((profilesResult.data ?? []) as ProfileRow[]).map((entry) => {
+    const baseProfile = mapProfile(entry)
+    return {
+      ...baseProfile,
+      ...resolveSheetAccessMetadata(baseProfile, viewer),
+    }
+  })
+  const npcs = ((npcsResult.data ?? []) as NpcCardRow[]).map((entry) => {
+    const baseProfile = mapNpcProfile(entry)
+    return {
+      ...baseProfile,
+      ...resolveSheetAccessMetadata(baseProfile, viewer),
+    }
+  })
 
-  return [...profiles, ...npcs]
+  return [...profiles, ...npcs].sort(sortAccessibleProfiles)
 }
 
 export async function createNpcCard(displayName: string): Promise<Profile> {
@@ -369,6 +457,56 @@ export async function saveSheetFields(profileId: string, fieldData: Record<strin
   return mapSheet(data as SheetRow)
 }
 
+export async function listSheetShareViewerIds(target: Profile) {
+  const client = ensureSupabase()
+  const { targetKind, targetId } = resolveShareTarget(target)
+  const { data, error } = await client
+    .from('sheet_share_access')
+    .select('viewer_profile_id')
+    .eq('target_kind', targetKind)
+    .eq('target_id', targetId)
+
+  if (error) {
+    throw error
+  }
+
+  return [...new Set(((data ?? []) as SheetShareAccessRow[]).map((entry) => entry.viewer_profile_id))]
+}
+
+export async function updateSheetShareAccess(target: Profile, viewerIds: string[]) {
+  const client = ensureSupabase()
+  const { targetKind, targetId } = resolveShareTarget(target)
+  const normalizedViewerIds = [...new Set(viewerIds)]
+    .filter(Boolean)
+    .filter((viewerId) => targetKind === 'npc' || viewerId !== targetId)
+
+  const { error: deleteError } = await client
+    .from('sheet_share_access')
+    .delete()
+    .eq('target_kind', targetKind)
+    .eq('target_id', targetId)
+
+  if (deleteError) {
+    throw deleteError
+  }
+
+  if (!normalizedViewerIds.length) {
+    return
+  }
+
+  const { error: insertError } = await client.from('sheet_share_access').insert(
+    normalizedViewerIds.map((viewerProfileId) => ({
+      viewer_profile_id: viewerProfileId,
+      target_kind: targetKind,
+      target_id: targetId,
+    })),
+  )
+
+  if (insertError) {
+    throw insertError
+  }
+}
+
 export function subscribeToSheet(
   profileId: string,
   onChange: (sheet: WebSheetRecord) => void,
@@ -394,6 +532,66 @@ export function subscribeToSheet(
         }
 
         onChange(mapSheet(payload.new as SheetRow))
+      },
+    )
+    .subscribe()
+
+  return () => {
+    void client.removeChannel(channel)
+  }
+}
+
+export function subscribeToNpcSheet(
+  npcId: string,
+  onChange: (sheet: WebSheetRecord) => void,
+) {
+  const client = ensureSupabase()
+  const channelId =
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2)
+  const channel = client
+    .channel(`npc-sheet:${npcId}:${Date.now()}:${channelId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'npc_cards',
+        filter: `id=eq.${npcId}`,
+      },
+      (payload) => {
+        if (payload.eventType === 'DELETE' || !payload.new) {
+          return
+        }
+
+        onChange(mapNpcSheet(payload.new as NpcCardRow))
+      },
+    )
+    .subscribe()
+
+  return () => {
+    void client.removeChannel(channel)
+  }
+}
+
+export function subscribeToSheetShareAccess(onChange: () => void) {
+  const client = ensureSupabase()
+  const channelId =
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2)
+  const channel = client
+    .channel(`sheet-share-access:${Date.now()}:${channelId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'sheet_share_access',
+      },
+      () => {
+        onChange()
       },
     )
     .subscribe()

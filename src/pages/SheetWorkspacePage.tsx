@@ -21,14 +21,19 @@ import {
   fetchNpcSheet,
   fetchOrCreateSheet,
   isNpcProfile,
+  isSheetSharingUnavailableError,
   listSheetProfiles,
+  listSheetShareViewerIds,
   loadGmGroups,
   saveGmGroups,
-  updateNpcCardDisplayName,
-  updateProfileDisplayName,
   saveNpcSheet,
   saveSheetFields,
+  subscribeToNpcSheet,
   subscribeToSheet,
+  subscribeToSheetShareAccess,
+  updateNpcCardDisplayName,
+  updateProfileDisplayName,
+  updateSheetShareAccess,
   type ProfileGroup,
 } from '../lib/webSheetService'
 import {
@@ -51,6 +56,10 @@ function serializeFieldData(fieldData: Record<string, string>) {
       .sort((left, right) => left.localeCompare(right))
       .map((key) => [key, fieldData[key] ?? '']),
   )
+}
+
+function serializeViewerIds(ids: string[]) {
+  return JSON.stringify([...new Set(ids)].sort((left, right) => left.localeCompare(right)))
 }
 
 function readSheetField(fieldData: Record<string, string> | undefined, ...keys: string[]) {
@@ -139,6 +148,18 @@ function ProfileCard({
   const isNpc = entry.email.startsWith('npc:')
   const assignedGroupIds = new Set(groups.filter((g) => g.profileIds.includes(entry.id)).map((g) => g.id))
   const isInAnyGroup = assignedGroupIds.size > 0
+  const accessLabel =
+    entry.role === 'gm'
+      ? 'GM'
+      : isNpc
+        ? 'NPC'
+        : 'Jogador'
+  const secondaryLine =
+    entry.sheetAccess === 'shared'
+      ? 'Ficha partilhada pelo Silver'
+      : isNpc
+        ? 'NPC'
+        : entry.email
 
   return (
     <div className="group/card relative">
@@ -152,9 +173,9 @@ function ProfileCard({
         }`}
       >
         <p className="truncate pr-6 text-sm font-semibold text-white">{entry.displayName}</p>
-        <p className="mt-1 truncate text-xs text-stone-400">{isNpc ? 'NPC' : entry.email}</p>
+        <p className="mt-1 truncate text-xs text-stone-400">{secondaryLine}</p>
         <p className="mt-2 text-[0.68rem] uppercase tracking-[0.22em] text-stone-500">
-          {entry.role === 'gm' ? 'GM' : 'Jogador'}
+          {accessLabel}
         </p>
       </button>
 
@@ -355,19 +376,23 @@ export function SheetWorkspacePage() {
   const [profileSearchQuery, setProfileSearchQuery] = useState('')
   const [sendingPlayerMessage, setSendingPlayerMessage] = useState(false)
   const [playerMessageError, setPlayerMessageError] = useState<string | null>(null)
+  const [shareViewerIds, setShareViewerIds] = useState<string[]>([])
+  const [loadedShareViewerIds, setLoadedShareViewerIds] = useState<string[]>([])
+  const [loadingShareAccess, setLoadingShareAccess] = useState(false)
+  const [savingShareAccess, setSavingShareAccess] = useState(false)
+  const [shareAccessError, setShareAccessError] = useState<string | null>(null)
+  const [sheetSharingUnavailable, setSheetSharingUnavailable] = useState(false)
 
   const accessibleProfiles = useMemo(() => {
     if (!profile) {
       return []
     }
-
-    return profile.role === 'gm'
-      ? profiles
-      : profiles.filter((entry) => entry.id === profile.id)
+    return profiles
   }, [profile, profiles])
 
   const selectedProfile =
     accessibleProfiles.find((entry) => entry.id === profileId) ?? accessibleProfiles[0] ?? null
+  const isOwnSelectedProfile = Boolean(profile && selectedProfile && selectedProfile.id === profile.id)
 
   const isSilverWorkspace = Boolean(
     profile &&
@@ -378,6 +403,24 @@ export function SheetWorkspacePage() {
   )
 
   const canEdit = Boolean(profile && selectedProfile && (profile.role === 'gm' || selectedProfile.id === profile.id))
+  const canConfigureShareAccess = Boolean(
+    profile &&
+    selectedProfile &&
+    profile.role === 'gm' &&
+    selectedProfile.id !== profile.id,
+  )
+  const shareablePlayers = useMemo(
+    () =>
+      profiles.filter(
+        (entry) =>
+          entry.role !== 'gm' &&
+          !isNpcProfile(entry) &&
+          entry.id !== selectedProfile?.id,
+      ),
+    [profiles, selectedProfile?.id],
+  )
+  const shareAccessDirty =
+    serializeViewerIds(shareViewerIds) !== serializeViewerIds(loadedShareViewerIds)
   const normalizedProfileSearchQuery = profileSearchQuery.trim().toLowerCase()
   const filteredAccessibleProfiles = useMemo(() => {
     if (!normalizedProfileSearchQuery) {
@@ -463,11 +506,15 @@ export function SheetWorkspacePage() {
   }, [selectedProfile?.id])
 
   const refreshProfiles = useCallback(async () => {
+    if (!profile) {
+      return
+    }
+
     setLoadingProfiles(true)
     setError(null)
 
     try {
-      const nextProfiles = await listSheetProfiles()
+      const nextProfiles = await listSheetProfiles(profile)
       setProfiles(nextProfiles)
     } catch (caughtError) {
       const message =
@@ -478,11 +525,29 @@ export function SheetWorkspacePage() {
     } finally {
       setLoadingProfiles(false)
     }
-  }, [])
+  }, [profile])
 
   useEffect(() => {
+    if (!profile) {
+      return
+    }
+
     void refreshProfiles()
-  }, [refreshProfiles])
+  }, [profile, refreshProfiles])
+
+  useEffect(() => {
+    if (!profile) {
+      return
+    }
+
+    const unsubscribe = subscribeToSheetShareAccess(() => {
+      void refreshProfiles()
+    })
+
+    return () => {
+      unsubscribe()
+    }
+  }, [profile, refreshProfiles])
 
   useEffect(() => {
     if (!loadingProfiles && selectedProfile && selectedProfile.id !== profileId) {
@@ -507,9 +572,18 @@ export function SheetWorkspacePage() {
       try {
         const nextSheet = isNpcProfile(selectedProfile)
           ? await fetchNpcSheet(selectedProfile.id)
-          : await fetchOrCreateSheet(selectedProfile)
+          : canEdit
+            ? await fetchOrCreateSheet(selectedProfile)
+            : await fetchSheetSnapshot(selectedProfile)
 
         if (cancelled) {
+          return
+        }
+
+        if (!nextSheet) {
+          setSheet(null)
+          setDraftFields({})
+          setSyncLabel('Ficha partilhada indisponivel')
           return
         }
 
@@ -540,14 +614,14 @@ export function SheetWorkspacePage() {
     return () => {
       cancelled = true
     }
-  }, [selectedProfile])
+  }, [canEdit, selectedProfile])
 
   useEffect(() => {
     if (!selectedProfile) {
       return
     }
 
-    const unsubscribe = subscribeToSheet(selectedProfile.id, (nextSheet) => {
+    const handleIncomingSheet = (nextSheet: WebSheetRecord) => {
       const nextSignature = serializeFieldData(nextSheet.fieldData)
 
       setSheet((current) => {
@@ -581,7 +655,11 @@ export function SheetWorkspacePage() {
           ? 'Alteracoes locais por guardar. Clica em Guardar.'
           : 'Atualizado em tempo real',
       )
-    })
+    }
+
+    const unsubscribe = isNpcProfile(selectedProfile)
+      ? subscribeToNpcSheet(selectedProfile.id, handleIncomingSheet)
+      : subscribeToSheet(selectedProfile.id, handleIncomingSheet)
 
     return () => {
       unsubscribe()
@@ -653,6 +731,63 @@ export function SheetWorkspacePage() {
       unsubscribeCallbacks.forEach((unsubscribe) => unsubscribe())
     }
   }, [accessibleProfiles, isSilverWorkspace])
+
+  useEffect(() => {
+    if (!canConfigureShareAccess || !selectedProfile) {
+      setShareViewerIds([])
+      setLoadedShareViewerIds([])
+      setLoadingShareAccess(false)
+      setShareAccessError(null)
+      setSheetSharingUnavailable(false)
+      return
+    }
+
+    let cancelled = false
+
+    const loadShareAccess = async () => {
+      setLoadingShareAccess(true)
+      setShareAccessError(null)
+
+      try {
+        const nextViewerIds = await listSheetShareViewerIds(selectedProfile)
+
+        if (cancelled) {
+          return
+        }
+
+        setSheetSharingUnavailable(false)
+        setShareViewerIds(nextViewerIds)
+        setLoadedShareViewerIds(nextViewerIds)
+      } catch (caughtError) {
+        if (cancelled) {
+          return
+        }
+
+        if (isSheetSharingUnavailableError(caughtError)) {
+          setSheetSharingUnavailable(true)
+          setShareAccessError(null)
+        } else {
+          setShareAccessError(
+            caughtError instanceof Error
+              ? caughtError.message
+              : 'Nao foi possivel carregar a partilha desta ficha.',
+          )
+        }
+        setShareViewerIds([])
+        setLoadedShareViewerIds([])
+      } finally {
+        if (!cancelled) {
+          setLoadingShareAccess(false)
+        }
+      }
+    }
+
+    void loadShareAccess()
+
+    return () => {
+      cancelled = true
+    }
+  }, [canConfigureShareAccess, selectedProfile])
 
   const queueBoardProfileCard = useCallback((profileId: string) => {
     setPendingBoardProfileCard({
@@ -732,6 +867,37 @@ export function SheetWorkspacePage() {
     },
     [accessibleProfiles, isSilverWorkspace, profile, selectedProfile],
   )
+
+  const handleSaveShareAccess = useCallback(async () => {
+    if (!selectedProfile) {
+      return
+    }
+
+    setSavingShareAccess(true)
+    setShareAccessError(null)
+
+    try {
+      await updateSheetShareAccess(selectedProfile, shareViewerIds)
+      setLoadedShareViewerIds(shareViewerIds)
+      setSheetSharingUnavailable(false)
+      await refreshProfiles()
+    } catch (caughtError) {
+      if (isSheetSharingUnavailableError(caughtError)) {
+        setSheetSharingUnavailable(true)
+        setShareAccessError(
+          'A partilha ainda nao esta ativa no Supabase. Corre o ficheiro supabase/sheet-sharing.sql.',
+        )
+      } else {
+        setShareAccessError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : 'Nao foi possivel guardar a partilha desta ficha.',
+        )
+      }
+    } finally {
+      setSavingShareAccess(false)
+    }
+  }, [refreshProfiles, selectedProfile, shareViewerIds])
 
   const handleSave = useCallback(async () => {
     if (savingRef.current) {
@@ -1154,7 +1320,7 @@ export function SheetWorkspacePage() {
 
           <div className="mt-4 space-y-1">
             {/* Player: só o seu card */}
-            {!isGm && selectedProfile && (
+            {!isGm && selectedProfile && isOwnSelectedProfile && (
               <>
                 <div className="border border-[#f3e600] bg-[#f3e600]/10 px-4 py-3">
                   {editingName ? (
@@ -1232,6 +1398,16 @@ export function SheetWorkspacePage() {
                 />
               </>
             )}
+
+            {!isGm && selectedProfile && !isOwnSelectedProfile ? (
+              <div className="border border-sky-500/30 bg-sky-500/10 px-4 py-3">
+                <p className="truncate text-sm font-semibold text-white">{selectedProfile.displayName}</p>
+                <p className="mt-2 text-xs leading-6 text-stone-300">
+                  Ficha partilhada pelo Silver. Esta vista aparece no teu terminal, mas fica em modo
+                  leitura.
+                </p>
+              </div>
+            ) : null}
 
             {/* GM: nova ficha */}
             {isGm && (
@@ -1554,16 +1730,115 @@ export function SheetWorkspacePage() {
                 canEdit={canEdit}
               />
             ) : (
-              <PdfSheetEditor
-                fieldData={draftFields}
-                onFieldChange={(fieldName, value) => {
-                  setDraftFields((current) => ({
-                    ...current,
-                    [fieldName]: value,
-                  }))
-                }}
-                canEdit={canEdit}
-              />
+              <>
+                <PdfSheetEditor
+                  fieldData={draftFields}
+                  onFieldChange={(fieldName, value) => {
+                    setDraftFields((current) => ({
+                      ...current,
+                      [fieldName]: value,
+                    }))
+                  }}
+                  canEdit={canEdit}
+                />
+
+                {canConfigureShareAccess ? (
+                  <section className="hud-panel rounded-[28px] p-4">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                      <div>
+                        <p className="panel-title">Partilha</p>
+                        <p className="mt-2 text-lg font-semibold text-white">
+                          Quem pode abrir esta ficha
+                        </p>
+                        <p className="mt-1 text-sm leading-7 text-stone-400">
+                          {isNpcProfile(selectedProfile)
+                            ? 'Escolhe que players vao ver esta ficha de NPC no terminal deles.'
+                            : `O dono (${selectedProfile.displayName}) continua com acesso proprio. Marca quem mais a pode ver.`}
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => void handleSaveShareAccess()}
+                        className="signal-button px-4 py-2 text-sm"
+                        disabled={
+                          loadingShareAccess ||
+                          savingShareAccess ||
+                          sheetSharingUnavailable ||
+                          !shareAccessDirty
+                        }
+                      >
+                        {savingShareAccess ? 'A guardar...' : 'Guardar partilha'}
+                      </button>
+                    </div>
+
+                    {shareAccessError ? (
+                      <div className="mt-4 border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+                        {shareAccessError}
+                      </div>
+                    ) : null}
+
+                    {sheetSharingUnavailable ? (
+                      <div className="mt-4 border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+                        A partilha ainda nao esta ativa no Supabase. Corre `supabase/sheet-sharing.sql`
+                        para ligar esta feature.
+                      </div>
+                    ) : null}
+
+                    <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                      {loadingShareAccess ? (
+                        <div className="border border-white/10 bg-black/25 px-4 py-3 text-sm text-stone-300">
+                          A carregar acessos desta ficha...
+                        </div>
+                      ) : sheetSharingUnavailable ? (
+                        <div className="border border-white/10 bg-black/25 px-4 py-3 text-sm text-stone-300">
+                          Quando o SQL estiver aplicado, vais poder escolher aqui exatamente que
+                          players podem ver esta ficha.
+                        </div>
+                      ) : !shareablePlayers.length ? (
+                        <div className="border border-white/10 bg-black/25 px-4 py-3 text-sm text-stone-300">
+                          Ainda nao ha players disponiveis para receber esta ficha.
+                        </div>
+                      ) : (
+                        shareablePlayers.map((person) => {
+                          const checked = shareViewerIds.includes(person.id)
+
+                          return (
+                            <label
+                              key={person.id}
+                              className={`flex cursor-pointer items-start gap-3 border px-4 py-3 transition ${
+                                checked
+                                  ? 'border-[#f3e600]/60 bg-[#f3e600]/10'
+                                  : 'border-white/10 bg-black/25 hover:border-white/20'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                disabled={sheetSharingUnavailable || savingShareAccess}
+                                onChange={() =>
+                                  setShareViewerIds((current) =>
+                                    current.includes(person.id)
+                                      ? current.filter((entry) => entry !== person.id)
+                                      : [...current, person.id],
+                                  )
+                                }
+                                className="mt-1 h-4 w-4 accent-[#f3e600]"
+                              />
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold text-white">
+                                  {person.displayName}
+                                </p>
+                                <p className="truncate text-xs text-stone-400">{person.email}</p>
+                              </div>
+                            </label>
+                          )
+                        })
+                      )}
+                    </div>
+                  </section>
+                ) : null}
+              </>
             )
           ) : (
             <EmptyState
