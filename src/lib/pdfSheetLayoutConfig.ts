@@ -95,7 +95,7 @@ export const sheetPageSectionConfigs: SheetLayoutSection[] = [
     id: 'page1-karma',
     page: 1,
     label: 'Karma',
-    box: { x: 317, y: 236, width: 148, height: 36 },
+    box: { x: 317, y: 327, width: 148, height: 36 },
     clip: true,
     debugColor: 'rgba(255, 0, 180, 0.55)',
   },
@@ -103,7 +103,7 @@ export const sheetPageSectionConfigs: SheetLayoutSection[] = [
     id: 'page1-inventory',
     page: 1,
     label: 'Inventario',
-    box: { x: 317, y: 14, width: 148, height: 222 },
+    box: { x: 317, y: 30, width: 148, height: 272 },
     clip: true,
     debugColor: 'rgba(255, 110, 110, 0.55)',
   },
@@ -201,17 +201,6 @@ export const sheetImageZoneConfigs: SheetImageZoneConfig[] = [
       height: '30%',
     },
   },
-  {
-    id: 'page1-portrait',
-    page: 1,
-    fieldName: 'FOTO',
-    absoluteStyle: {
-      left: '67.3%',
-      top: '42.8%',
-      width: '29.8%',
-      height: '13.4%',
-    },
-  },
 ]
 
 export const sheetFieldVisualPresets = {
@@ -233,7 +222,7 @@ export const sheetFieldVisualPresets = {
   },
   page1Karma: {
     fontClass: 'font-display',
-    fontSize: sheetScaledPx(18),
+    fontSize: sheetScaledPx(22),
     lineHeight: '1',
     padding: sheetScaledPadding(2, 2, 0, 2),
     textAlign: 'center',

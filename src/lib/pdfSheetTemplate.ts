@@ -55,14 +55,16 @@ function buildAttackFields(): PdfSheetTemplateField[] {
 }
 
 const page1InventoryRows = [
-  { index: 1, item: { x: 319, y: 190, width: 80, height: 23 }, space: { x: 400, y: 190, width: 63, height: 23 } },
-  { index: 2, item: { x: 319, y: 166, width: 80, height: 23 }, space: { x: 400, y: 166, width: 63, height: 23 } },
-  { index: 3, item: { x: 319, y: 141, width: 80, height: 23 }, space: { x: 400, y: 141, width: 63, height: 23 } },
-  { index: 4, item: { x: 320, y: 116, width: 80, height: 23 }, space: { x: 400, y: 115, width: 63, height: 23 } },
-  { index: 5, item: { x: 319, y: 91, width: 80, height: 23 }, space: { x: 400, y: 91, width: 63, height: 23 } },
-  { index: 6, item: { x: 320, y: 66, width: 80, height: 23 }, space: { x: 401, y: 66, width: 63, height: 23 } },
-  { index: 7, item: { x: 319, y: 42, width: 80, height: 23 }, space: { x: 400, y: 41, width: 63, height: 23 } },
-  { index: 8, item: { x: 320, y: 16, width: 80, height: 23 }, space: { x: 401, y: 16, width: 63, height: 23 } },
+  { index: 1, item: { x: 319, y: 257, width: 80, height: 23 }, space: { x: 400, y: 257, width: 63, height: 23 } },
+  { index: 2, item: { x: 319, y: 232, width: 80, height: 23 }, space: { x: 400, y: 232, width: 63, height: 23 } },
+  { index: 3, item: { x: 319, y: 207, width: 80, height: 23 }, space: { x: 400, y: 207, width: 63, height: 23 } },
+  { index: 4, item: { x: 319, y: 182, width: 80, height: 23 }, space: { x: 400, y: 182, width: 63, height: 23 } },
+  { index: 5, item: { x: 319, y: 157, width: 80, height: 23 }, space: { x: 400, y: 157, width: 63, height: 23 } },
+  { index: 6, item: { x: 319, y: 132, width: 80, height: 23 }, space: { x: 400, y: 132, width: 63, height: 23 } },
+  { index: 7, item: { x: 319, y: 107, width: 80, height: 23 }, space: { x: 400, y: 107, width: 63, height: 23 } },
+  { index: 8, item: { x: 319, y: 82, width: 80, height: 23 }, space: { x: 400, y: 82, width: 63, height: 23 } },
+  { index: 9, item: { x: 319, y: 57, width: 80, height: 23 }, space: { x: 400, y: 57, width: 63, height: 23 } },
+  { index: 10, item: { x: 319, y: 32, width: 80, height: 23 }, space: { x: 400, y: 32, width: 63, height: 23 } },
 ] as const
 
 function buildInventoryFields(): PdfSheetTemplateField[] {
@@ -196,7 +198,7 @@ export const pdfSheetTemplateFields: PdfSheetTemplateField[] = [
   ...buildAttackFields(),
   { name: 'CYBERPHYSHOSIS', widgetIndex: 0, page: 1, x: 195, y: 16, width: 122, height: 39 },
   ...buildInventoryFields(),
-  { name: 'KARMA', widgetIndex: 0, page: 1, x: 330, y: 243, width: 128, height: 27 },
+  { name: 'KARMA', widgetIndex: 0, page: 1, x: 330, y: 334, width: 128, height: 27 },
 
   { name: 'AGILIDADE', widgetIndex: 0, page: 2, x: 24, y: 552, width: 66, height: 69 },
   { name: 'VIGOR', widgetIndex: 0, page: 2, x: 113, y: 552, width: 66, height: 69 },
