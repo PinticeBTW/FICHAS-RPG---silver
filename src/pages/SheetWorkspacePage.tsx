@@ -29,6 +29,7 @@ import {
   saveNpcSheet,
   saveSheetFields,
   subscribeToNpcSheet,
+  subscribeToSheetDirectory,
   subscribeToSheet,
   subscribeToSheetShareAccess,
   updateNpcCardDisplayName,
@@ -505,12 +506,17 @@ export function SheetWorkspacePage() {
     setPlayerMessageError(null)
   }, [selectedProfile?.id])
 
-  const refreshProfiles = useCallback(async () => {
+  const refreshProfiles = useCallback(async (options?: { showLoading?: boolean }) => {
     if (!profile) {
       return
     }
 
-    setLoadingProfiles(true)
+    const showLoading = options?.showLoading ?? true
+
+    if (showLoading) {
+      setLoadingProfiles(true)
+    }
+
     setError(null)
 
     try {
@@ -523,7 +529,9 @@ export function SheetWorkspacePage() {
           : 'Nao foi possivel carregar as fichas do grupo.'
       setError(message)
     } finally {
-      setLoadingProfiles(false)
+      if (showLoading) {
+        setLoadingProfiles(false)
+      }
     }
   }, [profile])
 
@@ -540,12 +548,16 @@ export function SheetWorkspacePage() {
       return
     }
 
-    const unsubscribe = subscribeToSheetShareAccess(() => {
-      void refreshProfiles()
+    const unsubscribeDirectory = subscribeToSheetDirectory(() => {
+      void refreshProfiles({ showLoading: false })
+    })
+    const unsubscribeShareAccess = subscribeToSheetShareAccess(() => {
+      void refreshProfiles({ showLoading: false })
     })
 
     return () => {
-      unsubscribe()
+      unsubscribeDirectory()
+      unsubscribeShareAccess()
     }
   }, [profile, refreshProfiles])
 
