@@ -23,6 +23,8 @@ export interface Profile {
   role: AppRole
   avatarUrl?: string
   activeCampaignId?: string
+  sheetAccess?: 'owner' | 'shared'
+  sheetSource?: 'profile' | 'npc'
 }
 
 export interface CharacterStats {
