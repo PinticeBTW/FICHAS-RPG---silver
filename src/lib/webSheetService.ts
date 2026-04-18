@@ -18,7 +18,7 @@ type SheetRow = {
   id: string
   profile_id: string
   template_key: string
-  field_data: Record<string, unknown> | null
+  field_data: Record<string, unknown> | string | null
   updated_at: string | null
 }
 
@@ -41,13 +41,6 @@ function mapProfile(row: ProfileRow): Profile {
   }
 }
 
-function buildInitialFieldData() {
-  return {
-    ...Object.fromEntries(pdfSheetTemplateFields.map((field) => [field.name, ''])),
-    ...cyberwareSheetFieldDefaults,
-  }
-}
-
 const EXTRA_FIELD_KEYS = [
   'FOTO',
   'FOTO2',
@@ -61,24 +54,82 @@ const EXTRA_FIELD_KEYS = [
   ...cyberwareSheetFieldKeys,
 ]
 
-function mapSheet(row: SheetRow): WebSheetRecord {
-  const nextFieldData: Record<string, string> = {}
-
-  for (const field of pdfSheetTemplateFields) {
-    const value = row.field_data?.[field.name]
-    nextFieldData[field.name] = typeof value === 'string' ? value : ''
-  }
+function buildInitialFieldData() {
+  const initialFieldData = {
+    ...Object.fromEntries(pdfSheetTemplateFields.map((field) => [field.name, ''])),
+    ...cyberwareSheetFieldDefaults,
+  } as Record<string, string>
 
   for (const key of EXTRA_FIELD_KEYS) {
-    const value = row.field_data?.[key]
-    nextFieldData[key] = typeof value === 'string' ? value : cyberwareSheetFieldDefaults[key] ?? ''
+    initialFieldData[key] = cyberwareSheetFieldDefaults[key] ?? ''
   }
 
+  return initialFieldData
+}
+
+function parseSheetFieldData(fieldData: Record<string, unknown> | string | null) {
+  if (!fieldData) {
+    return {}
+  }
+
+  if (typeof fieldData === 'string') {
+    try {
+      const parsed = JSON.parse(fieldData)
+
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>
+      }
+    } catch {
+      return {}
+    }
+
+    return {}
+  }
+
+  if (typeof fieldData === 'object' && !Array.isArray(fieldData)) {
+    return fieldData
+  }
+
+  return {}
+}
+
+function coerceFieldValue(value: unknown) {
+  if (typeof value === 'string') {
+    return value
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value)
+  }
+
+  if (value == null) {
+    return ''
+  }
+
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return ''
+  }
+}
+
+function normalizeFieldData(fieldData: Record<string, unknown> | string | null) {
+  const parsedFieldData = parseSheetFieldData(fieldData)
+  const nextFieldData = buildInitialFieldData()
+
+  for (const [key, value] of Object.entries(parsedFieldData)) {
+    nextFieldData[key] = coerceFieldValue(value)
+  }
+
+  return nextFieldData
+}
+
+function mapSheet(row: SheetRow): WebSheetRecord {
   return {
     id: row.id,
     profileId: row.profile_id,
     templateKey: row.template_key,
-    fieldData: nextFieldData,
+    fieldData: normalizeFieldData(row.field_data),
     updatedAt: row.updated_at ?? new Date().toISOString(),
   }
 }
@@ -89,7 +140,12 @@ export function isNpcProfile(profile: Profile) {
   return profile.email.startsWith(NPC_EMAIL_PREFIX)
 }
 
-type NpcCardRow = { id: string; display_name: string; field_data: Record<string, unknown> | null; updated_at: string | null }
+type NpcCardRow = {
+  id: string
+  display_name: string
+  field_data: Record<string, unknown> | string | null
+  updated_at: string | null
+}
 
 function mapNpcProfile(row: NpcCardRow): Profile {
   return {
@@ -102,20 +158,11 @@ function mapNpcProfile(row: NpcCardRow): Profile {
 }
 
 function mapNpcSheet(row: NpcCardRow): WebSheetRecord {
-  const nextFieldData: Record<string, string> = {}
-  for (const field of pdfSheetTemplateFields) {
-    const value = row.field_data?.[field.name]
-    nextFieldData[field.name] = typeof value === 'string' ? value : ''
-  }
-  for (const key of EXTRA_FIELD_KEYS) {
-    const value = row.field_data?.[key]
-    nextFieldData[key] = typeof value === 'string' ? value : cyberwareSheetFieldDefaults[key] ?? ''
-  }
   return {
     id: row.id,
     profileId: row.id,
     templateKey: CURRENT_TEMPLATE_KEY,
-    fieldData: nextFieldData,
+    fieldData: normalizeFieldData(row.field_data),
     updatedAt: row.updated_at ?? new Date().toISOString(),
   }
 }
@@ -233,9 +280,10 @@ export async function deleteNpcCard(npcId: string): Promise<void> {
 
 export async function saveNpcSheet(npcId: string, fieldData: Record<string, string>): Promise<WebSheetRecord> {
   const client = ensureSupabase()
+  const normalizedFieldData = normalizeFieldData(fieldData)
   const { data, error } = await client
     .from('npc_cards')
-    .update({ field_data: fieldData, updated_at: new Date().toISOString() })
+    .update({ field_data: normalizedFieldData, updated_at: new Date().toISOString() })
     .eq('id', npcId)
     .select('id, display_name, field_data, updated_at')
     .single()
@@ -260,12 +308,12 @@ export async function fetchOrCreateSheet(profile: Profile) {
     const existingSheet = data as SheetRow
 
     if (existingSheet.template_key !== CURRENT_TEMPLATE_KEY) {
-      const resetFieldData = buildInitialFieldData()
+      const migratedFieldData = normalizeFieldData(existingSheet.field_data)
       const { data: migrated, error: migrationError } = await client
         .from('character_sheet_forms')
         .update({
           template_key: CURRENT_TEMPLATE_KEY,
-          field_data: resetFieldData,
+          field_data: migratedFieldData,
         })
         .eq('id', existingSheet.id)
         .select('id, profile_id, template_key, field_data, updated_at')
@@ -300,13 +348,14 @@ export async function fetchOrCreateSheet(profile: Profile) {
 
 export async function saveSheetFields(profileId: string, fieldData: Record<string, string>) {
   const client = ensureSupabase()
+  const normalizedFieldData = normalizeFieldData(fieldData)
   const { data, error } = await client
     .from('character_sheet_forms')
     .upsert(
       {
         profile_id: profileId,
         template_key: CURRENT_TEMPLATE_KEY,
-        field_data: fieldData,
+        field_data: normalizedFieldData,
       },
       { onConflict: 'profile_id' },
     )
