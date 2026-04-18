@@ -1319,6 +1319,39 @@ export function SheetWorkspacePage() {
           ) : null}
 
           <div className="mt-4 space-y-1">
+            {!isGm && accessibleProfiles.length > 1 ? (
+              <div className="mb-3 space-y-2">
+                <p className="px-1 text-[0.62rem] uppercase tracking-[0.22em] text-stone-600">
+                  Fichas acessiveis
+                </p>
+
+                {accessibleProfiles.map((entry) => {
+                  const isSelected = entry.id === selectedProfile?.id
+                  const isOwnEntry = entry.id === profile.id
+
+                  return (
+                    <button
+                      key={entry.id}
+                      type="button"
+                      onClick={() => navigate(`/app/sheets/${entry.id}`)}
+                      className={`w-full border px-4 py-3 text-left transition ${
+                        isSelected
+                          ? 'border-[#f3e600] bg-[#f3e600]/10'
+                          : 'border-white/10 bg-black/25 hover:border-white/20'
+                      }`}
+                    >
+                      <p className="truncate text-sm font-semibold text-white">{entry.displayName}</p>
+                      <p className="mt-1 truncate text-xs text-stone-400">
+                        {isOwnEntry ? entry.email : 'Ficha partilhada pelo Silver'}
+                      </p>
+                      <p className="mt-2 text-[0.68rem] uppercase tracking-[0.22em] text-stone-500">
+                        {isOwnEntry ? 'Jogador' : 'Partilhada'}
+                      </p>
+                    </button>
+                  )
+                })}
+              </div>
+            ) : null}
             {/* Player: só o seu card */}
             {!isGm && selectedProfile && isOwnSelectedProfile && (
               <>
