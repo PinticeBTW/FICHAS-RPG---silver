@@ -220,7 +220,7 @@ export function CharacterSheetView({ character }: CharacterSheetViewProps) {
     test: '',
     damage: '',
   }))
-  const inventoryRows = padRows<SheetInventoryItem>(sheet.inventory, 8, () => ({
+  const inventoryRows = padRows<SheetInventoryItem>(sheet.inventory, 10, () => ({
     name: '',
     slots: '',
   }))
