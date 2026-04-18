@@ -142,12 +142,17 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const trimmed = name.trim()
     if (!trimmed) return
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('profiles')
       .update({ display_name: trimmed })
       .eq('id', profile.id)
+      .select('id, display_name')
+      .maybeSingle()
 
     if (error) throw error
+    if (!data) {
+      throw new Error('Nao foi possivel guardar o teu novo nome no Supabase.')
+    }
 
     setProfile((prev) => prev ? { ...prev, displayName: trimmed } : prev)
   }
