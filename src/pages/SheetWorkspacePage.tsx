@@ -41,8 +41,6 @@ import {
 } from '../lib/playerInbox'
 import type { Profile, WebSheetRecord } from '../types/domain'
 
-const AUTOSAVE_DELAY_MS = 3000
-const SILVER_AUTOSAVE_DELAY_MS = 3000
 const UNSAVED_CHANGES_LEAVE_MESSAGE =
   'Tens alteracoes por guardar. Clica em Guardar antes de fechar para nao perderes o teu progresso.'
 const SAVING_LEAVE_MESSAGE =
@@ -320,9 +318,8 @@ export function SheetWorkspacePage() {
   const [loadingProfiles, setLoadingProfiles] = useState(true)
   const [loadingSheet, setLoadingSheet] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [syncLabel, setSyncLabel] = useState('Auto-save ativo')
+  const [syncLabel, setSyncLabel] = useState('Guardar manual')
   const [error, setError] = useState<string | null>(null)
-  const autosaveTimerRef = useRef<number | null>(null)
   const sheetSignatureRef = useRef('')
   const draftSignatureRef = useRef('')
   const draftFieldsRef = useRef<Record<string, string>>({})
@@ -384,7 +381,6 @@ export function SheetWorkspacePage() {
   )
 
   const canEdit = Boolean(profile && selectedProfile && (profile.role === 'gm' || selectedProfile.id === profile.id))
-  const autosaveDelayMs = isSilverWorkspace ? SILVER_AUTOSAVE_DELAY_MS : AUTOSAVE_DELAY_MS
   const normalizedProfileSearchQuery = profileSearchQuery.trim().toLowerCase()
   const filteredAccessibleProfiles = useMemo(() => {
     if (!normalizedProfileSearchQuery) {
@@ -509,7 +505,7 @@ export function SheetWorkspacePage() {
     if (!selectedProfile) {
       setSheet(null)
       setDraftFields({})
-      setSyncLabel('Auto-save ativo')
+      setSyncLabel('Guardar manual')
       return
     }
 
@@ -530,7 +526,7 @@ export function SheetWorkspacePage() {
 
         setSheet(nextSheet)
         setDraftFields(nextSheet.fieldData)
-        setSyncLabel('Ficha sincronizada')
+        setSyncLabel('Ficha pronta')
       } catch (caughtError) {
         if (cancelled) {
           return
@@ -767,16 +763,7 @@ export function SheetWorkspacePage() {
     [accessibleProfiles, isSilverWorkspace, profile, selectedProfile],
   )
 
-  const clearAutosaveTimer = useCallback(() => {
-    if (autosaveTimerRef.current) {
-      window.clearTimeout(autosaveTimerRef.current)
-      autosaveTimerRef.current = null
-    }
-  }, [])
-
   const handleSave = useCallback(async () => {
-    clearAutosaveTimer()
-
     if (savingRef.current) {
       queuedSaveRef.current = true
       return
@@ -806,19 +793,22 @@ export function SheetWorkspacePage() {
       const savedSheet = isNpcProfile(profileToSave)
         ? await saveNpcSheet(profileToSave.id, draftToSave)
         : await saveSheetFields(profileToSave.id, draftToSave)
+      const optimisticSavedSheet = {
+        ...savedSheet,
+        fieldData: draftToSave,
+      }
 
       if (selectedProfileRef.current?.id === saveProfileId) {
-        setSheet(savedSheet)
+        setSheet(optimisticSavedSheet)
         setDraftFields((current) => {
-          const savedSig = serializeFieldData(savedSheet.fieldData)
           const currentSig = serializeFieldData(current)
 
           // If user made changes during the save, preserve them
           if (currentSig !== draftSigAtSave) return current
-          // No new changes - normalize to saved version (in case server mutated anything)
-          return currentSig === savedSig ? current : savedSheet.fieldData
+
+          return current
         })
-        setSyncLabel('Guardado automaticamente')
+        setSyncLabel('Guardado manualmente')
       }
     } catch (caughtError) {
       const message =
@@ -826,7 +816,7 @@ export function SheetWorkspacePage() {
           ? caughtError.message
           : 'Nao foi possivel guardar a ficha.'
       setError(message)
-      setSyncLabel('Falha no auto-save')
+      setSyncLabel('Falha ao guardar')
     } finally {
       savingRef.current = false
       setSaving(false)
@@ -838,29 +828,15 @@ export function SheetWorkspacePage() {
         }, 0)
       }
     }
-  }, [clearAutosaveTimer])
+  }, [])
 
   useEffect(() => {
     if (!canEdit || !selectedProfile || !sheet || !isDirty || saving) {
       return
     }
 
-    setSyncLabel(
-      isSilverWorkspace
-        ? 'Alteracoes por guardar. Clica em Guardar ou espera alguns segundos sem mexer.'
-        : 'Alteracoes por guardar...',
-    )
-
-    clearAutosaveTimer()
-
-    autosaveTimerRef.current = window.setTimeout(() => {
-      void handleSave()
-    }, autosaveDelayMs)
-
-    return () => {
-      clearAutosaveTimer()
-    }
-  }, [autosaveDelayMs, canEdit, clearAutosaveTimer, handleSave, isDirty, isSilverWorkspace, saving, selectedProfile, sheet])
+    setSyncLabel('Alteracoes por guardar. Clica em Guardar.')
+  }, [canEdit, isDirty, saving, selectedProfile, sheet])
 
   // Carregar grupos do Supabase quando o GM entra
   useEffect(() => {
