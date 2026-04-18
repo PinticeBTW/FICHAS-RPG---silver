@@ -543,30 +543,50 @@ export function SheetWorkspacePage() {
   }, [selectedProfile])
 
   useEffect(() => {
-    if (!selectedProfile || canEdit) {
+    if (!selectedProfile) {
       return
     }
 
     const unsubscribe = subscribeToSheet(selectedProfile.id, (nextSheet) => {
+      const nextSignature = serializeFieldData(nextSheet.fieldData)
+
       setSheet((current) => {
         if (
           current &&
           current.updatedAt === nextSheet.updatedAt &&
-          serializeFieldData(current.fieldData) === serializeFieldData(nextSheet.fieldData)
+          serializeFieldData(current.fieldData) === nextSignature
         ) {
           return current
         }
 
         return nextSheet
       })
-      setDraftFields(nextSheet.fieldData)
-      setSyncLabel('Atualizado em tempo real')
+
+      setDraftFields((current) => {
+        const currentSignature = serializeFieldData(current)
+
+        if (currentSignature === nextSignature) {
+          return current
+        }
+
+        if (savingRef.current || isDirtyRef.current) {
+          return current
+        }
+
+        return nextSheet.fieldData
+      })
+
+      setSyncLabel(
+        savingRef.current || isDirtyRef.current
+          ? 'Alteracoes locais por guardar. Clica em Guardar.'
+          : 'Atualizado em tempo real',
+      )
     })
 
     return () => {
       unsubscribe()
     }
-  }, [canEdit, selectedProfile])
+  }, [selectedProfile])
 
   useEffect(() => {
     if (!isSilverWorkspace || !accessibleProfiles.length) {
