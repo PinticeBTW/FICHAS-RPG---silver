@@ -469,6 +469,36 @@ export async function saveSheetFields(profileId: string, fieldData: Record<strin
   return mapSheet(data as SheetRow)
 }
 
+async function fetchRealtimeSheetByProfileId(profileId: string) {
+  const client = ensureSupabase()
+  const { data, error } = await client
+    .from('character_sheet_forms')
+    .select('id, profile_id, template_key, field_data, updated_at')
+    .eq('profile_id', profileId)
+    .maybeSingle()
+
+  if (error || !data) {
+    return null
+  }
+
+  return mapSheet(data as SheetRow)
+}
+
+async function fetchRealtimeNpcSheetById(npcId: string) {
+  const client = ensureSupabase()
+  const { data, error } = await client
+    .from('npc_cards')
+    .select('id, display_name, field_data, updated_at')
+    .eq('id', npcId)
+    .maybeSingle()
+
+  if (error || !data) {
+    return null
+  }
+
+  return mapNpcSheet(data as NpcCardRow)
+}
+
 export async function listSheetShareViewerIds(target: Profile) {
   const client = ensureSupabase()
   const { targetKind, targetId } = resolveShareTarget(target)
@@ -519,17 +549,22 @@ export async function updateSheetShareAccess(target: Profile, viewerIds: string[
   }
 }
 
+function createRealtimeChannelId(prefix: string) {
+  const channelId =
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2)
+
+  return `${prefix}:${Date.now()}:${channelId}`
+}
+
 export function subscribeToSheet(
   profileId: string,
   onChange: (sheet: WebSheetRecord) => void,
 ) {
   const client = ensureSupabase()
-  const channelId =
-    typeof crypto !== 'undefined' && 'randomUUID' in crypto
-      ? crypto.randomUUID()
-      : Math.random().toString(36).slice(2)
   const channel = client
-    .channel(`character-sheet-form:${profileId}:${Date.now()}:${channelId}`)
+    .channel(createRealtimeChannelId(`character-sheet-form:${profileId}`))
     .on(
       'postgres_changes',
       {
@@ -538,12 +573,14 @@ export function subscribeToSheet(
         table: 'character_sheet_forms',
         filter: `profile_id=eq.${profileId}`,
       },
-      (payload) => {
-        if (payload.eventType === 'DELETE' || !payload.new) {
-          return
-        }
+      () => {
+        void fetchRealtimeSheetByProfileId(profileId).then((nextSheet) => {
+          if (!nextSheet) {
+            return
+          }
 
-        onChange(mapSheet(payload.new as SheetRow))
+          onChange(nextSheet)
+        })
       },
     )
     .subscribe()
@@ -558,12 +595,8 @@ export function subscribeToNpcSheet(
   onChange: (sheet: WebSheetRecord) => void,
 ) {
   const client = ensureSupabase()
-  const channelId =
-    typeof crypto !== 'undefined' && 'randomUUID' in crypto
-      ? crypto.randomUUID()
-      : Math.random().toString(36).slice(2)
   const channel = client
-    .channel(`npc-sheet:${npcId}:${Date.now()}:${channelId}`)
+    .channel(createRealtimeChannelId(`npc-sheet:${npcId}`))
     .on(
       'postgres_changes',
       {
@@ -573,11 +606,50 @@ export function subscribeToNpcSheet(
         filter: `id=eq.${npcId}`,
       },
       (payload) => {
-        if (payload.eventType === 'DELETE' || !payload.new) {
+        if (payload.eventType === 'DELETE') {
           return
         }
 
-        onChange(mapNpcSheet(payload.new as NpcCardRow))
+        void fetchRealtimeNpcSheetById(npcId).then((nextSheet) => {
+          if (!nextSheet) {
+            return
+          }
+
+          onChange(nextSheet)
+        })
+      },
+    )
+    .subscribe()
+
+  return () => {
+    void client.removeChannel(channel)
+  }
+}
+
+export function subscribeToSheetDirectory(onChange: () => void) {
+  const client = ensureSupabase()
+  const channel = client
+    .channel(createRealtimeChannelId('sheet-directory'))
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'profiles',
+      },
+      () => {
+        onChange()
+      },
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'npc_cards',
+      },
+      () => {
+        onChange()
       },
     )
     .subscribe()
@@ -589,12 +661,8 @@ export function subscribeToNpcSheet(
 
 export function subscribeToSheetShareAccess(onChange: () => void) {
   const client = ensureSupabase()
-  const channelId =
-    typeof crypto !== 'undefined' && 'randomUUID' in crypto
-      ? crypto.randomUUID()
-      : Math.random().toString(36).slice(2)
   const channel = client
-    .channel(`sheet-share-access:${Date.now()}:${channelId}`)
+    .channel(createRealtimeChannelId('sheet-share-access'))
     .on(
       'postgres_changes',
       {

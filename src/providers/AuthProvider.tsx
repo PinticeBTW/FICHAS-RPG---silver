@@ -23,6 +23,16 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
+type AuthProfileRealtimeRow = {
+  id: string
+  email: string | null
+  display_name: string | null
+  handle: string | null
+  role: Profile['role']
+  avatar_url: string | null
+  active_campaign_id: string | null
+}
+
 export function AuthProvider({ children }: PropsWithChildren) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [session, setSession] = useState<Session | null>(null)
@@ -93,6 +103,51 @@ export function AuthProvider({ children }: PropsWithChildren) {
       subscription.unsubscribe()
     }
   }, [])
+
+  useEffect(() => {
+    if (!supabase || !profile?.id) {
+      return
+    }
+
+    const authClient = supabase
+    const channel = authClient
+      .channel(`auth-profile:${profile.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${profile.id}`,
+        },
+        (payload) => {
+          if (payload.eventType === 'DELETE' || !payload.new) {
+            return
+          }
+
+          const nextRow = payload.new as AuthProfileRealtimeRow
+
+          setProfile((current) =>
+            current && current.id === nextRow.id
+              ? {
+                  ...current,
+                  email: nextRow.email ?? current.email,
+                  displayName: nextRow.display_name ?? current.displayName,
+                  handle: nextRow.handle ?? current.handle,
+                  role: nextRow.role ?? current.role,
+                  avatarUrl: nextRow.avatar_url ?? current.avatarUrl,
+                  activeCampaignId: nextRow.active_campaign_id ?? current.activeCampaignId,
+                }
+              : current,
+          )
+        },
+      )
+      .subscribe()
+
+    return () => {
+      void authClient.removeChannel(channel)
+    }
+  }, [profile?.id])
 
   const signIn = async (input: AuthFormInput) => {
     if (!supabase) {
