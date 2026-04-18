@@ -296,13 +296,19 @@ export async function updateProfileDisplayName(profileId: string, displayName: s
     return
   }
 
-  const { error } = await client
+  const { data, error } = await client
     .from('profiles')
     .update({ display_name: trimmed })
     .eq('id', profileId)
+    .select('id, display_name')
+    .maybeSingle()
 
   if (error) {
     throw error
+  }
+
+  if (!data) {
+    throw new Error('Nao foi possivel guardar o novo nome deste perfil no Supabase.')
   }
 }
 
@@ -314,13 +320,19 @@ export async function updateNpcCardDisplayName(npcId: string, displayName: strin
     return
   }
 
-  const { error } = await client
+  const { data, error } = await client
     .from('npc_cards')
     .update({ display_name: trimmed, updated_at: new Date().toISOString() })
     .eq('id', npcId)
+    .select('id, display_name')
+    .maybeSingle()
 
   if (error) {
     throw error
+  }
+
+  if (!data) {
+    throw new Error('Nao foi possivel guardar o novo nome desta ficha no Supabase.')
   }
 }
 

@@ -1159,6 +1159,37 @@ export function SheetWorkspacePage() {
     navigate('/', { replace: true })
   }, [hasPendingUnsavedChanges, navigate, saving, signOut])
 
+  const applyProfileDisplayName = useCallback((targetProfileId: string, nextDisplayName: string) => {
+    setProfiles((current) =>
+      current.map((entry) =>
+        entry.id === targetProfileId ? { ...entry, displayName: nextDisplayName } : entry,
+      ),
+    )
+  }, [])
+
+  const handlePlayerOwnRename = useCallback(async () => {
+    const trimmed = nameInput.trim()
+
+    if (!profile || !trimmed) {
+      return
+    }
+
+    setError(null)
+
+    try {
+      await updateDisplayName(trimmed)
+      applyProfileDisplayName(profile.id, trimmed)
+      setEditingName(false)
+      await refreshProfiles()
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : 'Nao foi possivel mudar o teu nome.',
+      )
+    }
+  }, [applyProfileDisplayName, nameInput, profile, refreshProfiles, updateDisplayName])
+
   const handleStartRename = useCallback((target: Profile) => {
     setOpenMoveDropdown(null)
     setRenamingProfileId(target.id)
@@ -1189,11 +1220,8 @@ export function SheetWorkspacePage() {
         await updateProfileDisplayName(target.id, trimmed)
       }
 
-      setProfiles((current) =>
-        current.map((entry) =>
-          entry.id === target.id ? { ...entry, displayName: trimmed } : entry,
-        ),
-      )
+      applyProfileDisplayName(target.id, trimmed)
+      await refreshProfiles()
       setRenamingProfileId(null)
       setRenamingValue('')
     } catch (caughtError) {
@@ -1201,11 +1229,11 @@ export function SheetWorkspacePage() {
         caughtError instanceof Error
           ? caughtError.message
           : 'Nao foi possivel mudar o nome desta pessoa.',
-      )
+        )
     } finally {
       setRenamingSaving(false)
     }
-  }, [profile, renamingValue, updateDisplayName])
+  }, [applyProfileDisplayName, profile, refreshProfiles, renamingValue, updateDisplayName])
 
   if (!profile) {
     return <Navigate to="/" replace />
@@ -1365,7 +1393,7 @@ export function SheetWorkspacePage() {
                         onChange={(e) => setNameInput(e.target.value)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
-                            void updateDisplayName(nameInput).then(() => setEditingName(false))
+                            void handlePlayerOwnRename()
                           }
                           if (e.key === 'Escape') setEditingName(false)
                         }}
@@ -1373,7 +1401,7 @@ export function SheetWorkspacePage() {
                       />
                       <button
                         type="button"
-                        onClick={() => void updateDisplayName(nameInput).then(() => setEditingName(false))}
+                        onClick={() => void handlePlayerOwnRename()}
                         className="signal-button px-2 py-1 text-xs"
                       >
                         <Save size={11} />
