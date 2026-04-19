@@ -115,7 +115,7 @@ export function parseSheetCyberwareCatalog(value: string | undefined): Cyberware
       ]
     })
 
-    return normalizedEntries.length ? normalizedEntries : createDefaultSheetCyberwareCatalog()
+    return normalizedEntries
   } catch {
     return createDefaultSheetCyberwareCatalog()
   }
