@@ -436,7 +436,6 @@ export function SheetWorkspacePage() {
               id: selectedProfile.id,
               label: selectedProfile.displayName,
               detail: selectedProfile.email,
-              isOwner: true,
             },
           ]
         : []

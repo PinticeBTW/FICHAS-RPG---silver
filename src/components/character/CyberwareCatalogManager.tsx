@@ -28,7 +28,6 @@ type CyberwareCatalogManagerProps = {
     id: string
     label: string
     detail: string
-    isOwner?: boolean
   }>
 }
 
@@ -58,7 +57,6 @@ function CyberwareCatalogCard({
     id: string
     label: string
     detail: string
-    isOwner?: boolean
   }>
   onChange: (patch: Partial<Cyberware>) => void
   onDelete: () => void
@@ -248,14 +246,7 @@ function CyberwareCatalogCard({
                   className="grid grid-cols-[minmax(0,1fr)_90px_110px] items-center gap-3 border-t border-white/10 px-4 py-3 first:border-t-0"
                 >
                   <div className="min-w-0">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <p className="truncate text-sm font-semibold text-white">{person.label}</p>
-                      {person.isOwner ? (
-                        <span className="shrink-0 rounded-full border border-[#f3e600]/30 bg-[#f3e600]/10 px-2 py-0.5 text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-[#f3e600]">
-                          Dono
-                        </span>
-                      ) : null}
-                    </div>
+                    <p className="truncate text-sm font-semibold text-white">{person.label}</p>
                     <p className="truncate text-xs text-stone-400">{person.detail}</p>
                   </div>
 
