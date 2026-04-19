@@ -558,11 +558,67 @@ function createRealtimeChannelId(prefix: string) {
   return `${prefix}:${Date.now()}:${channelId}`
 }
 
+function createRealtimeRefreshRunner<T>(
+  fetchLatest: () => Promise<T | null>,
+  onChange: (value: T) => void,
+) {
+  let disposed = false
+  let refreshToken = 0
+  const timeoutIds = new Set<ReturnType<typeof setTimeout>>()
+
+  const clearScheduledRefreshes = () => {
+    timeoutIds.forEach((timeoutId) => clearTimeout(timeoutId))
+    timeoutIds.clear()
+  }
+
+  const scheduleRefresh = () => {
+    refreshToken += 1
+    const nextToken = refreshToken
+
+    clearScheduledRefreshes()
+
+    ;[0, 180, 650].forEach((delay) => {
+      const timeoutId = setTimeout(() => {
+        timeoutIds.delete(timeoutId)
+
+        if (disposed || nextToken !== refreshToken) {
+          return
+        }
+
+        void fetchLatest()
+          .then((nextValue) => {
+            if (!nextValue || disposed || nextToken !== refreshToken) {
+              return
+            }
+
+            onChange(nextValue)
+          })
+          .catch(() => {})
+      }, delay)
+
+      timeoutIds.add(timeoutId)
+    })
+  }
+
+  return {
+    scheduleRefresh,
+    dispose() {
+      disposed = true
+      refreshToken += 1
+      clearScheduledRefreshes()
+    },
+  }
+}
+
 export function subscribeToSheet(
   profileId: string,
   onChange: (sheet: WebSheetRecord) => void,
 ) {
   const client = ensureSupabase()
+  const refreshRunner = createRealtimeRefreshRunner(
+    () => fetchRealtimeSheetByProfileId(profileId),
+    onChange,
+  )
   const channel = client
     .channel(createRealtimeChannelId(`character-sheet-form:${profileId}`))
     .on(
@@ -574,18 +630,13 @@ export function subscribeToSheet(
         filter: `profile_id=eq.${profileId}`,
       },
       () => {
-        void fetchRealtimeSheetByProfileId(profileId).then((nextSheet) => {
-          if (!nextSheet) {
-            return
-          }
-
-          onChange(nextSheet)
-        })
+        refreshRunner.scheduleRefresh()
       },
     )
     .subscribe()
 
   return () => {
+    refreshRunner.dispose()
     void client.removeChannel(channel)
   }
 }
@@ -595,6 +646,10 @@ export function subscribeToNpcSheet(
   onChange: (sheet: WebSheetRecord) => void,
 ) {
   const client = ensureSupabase()
+  const refreshRunner = createRealtimeRefreshRunner(
+    () => fetchRealtimeNpcSheetById(npcId),
+    onChange,
+  )
   const channel = client
     .channel(createRealtimeChannelId(`npc-sheet:${npcId}`))
     .on(
@@ -610,18 +665,13 @@ export function subscribeToNpcSheet(
           return
         }
 
-        void fetchRealtimeNpcSheetById(npcId).then((nextSheet) => {
-          if (!nextSheet) {
-            return
-          }
-
-          onChange(nextSheet)
-        })
+        refreshRunner.scheduleRefresh()
       },
     )
     .subscribe()
 
   return () => {
+    refreshRunner.dispose()
     void client.removeChannel(channel)
   }
 }
