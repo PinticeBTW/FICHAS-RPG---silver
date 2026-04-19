@@ -23,7 +23,6 @@ const cyberwareZoneOptions = cyberwareSheetZones.map((zone) => ({
 type CyberwareCatalogManagerProps = {
   fieldData: Record<string, string>
   onFieldChange: (fieldName: string, value: string) => void
-  profileName: string
   playerOptions: Array<{
     id: string
     label: string
@@ -300,7 +299,6 @@ function CyberwareCatalogCard({
 export function CyberwareCatalogManager({
   fieldData,
   onFieldChange,
-  profileName,
   playerOptions,
 }: CyberwareCatalogManagerProps) {
   const entries = parseSheetCyberwareCatalog(fieldData[CYBERWARE_CATALOG_FIELD_KEY])
@@ -346,7 +344,7 @@ export function CyberwareCatalogManager({
           <div>
             <p className="panel-title">Cyberware</p>
             <p className="mt-2 text-2xl font-semibold text-white">
-              Catalogo privado do Silver para {profileName}
+              Catalogo privado de cyberware
             </p>
             <p className="mt-2 max-w-4xl text-sm leading-7 text-stone-400">
               Aqui defines que cyberwares existem nesta ficha, em que slot entram, e se o
