@@ -4,6 +4,7 @@ import { cyberwareSheetFieldDefaults, cyberwareSheetFieldKeys } from './cyberwar
 import { pdfSheetTemplateFields } from './pdfSheetTemplate'
 
 const CURRENT_TEMPLATE_KEY = 'blank-grey-v2'
+const SHEET_RECORD_CACHE_LIMIT = 12
 
 type ProfileRow = {
   id: string
@@ -170,14 +171,43 @@ function normalizeFieldData(fieldData: Record<string, unknown> | string | null) 
   return nextFieldData
 }
 
-function mapSheet(row: SheetRow): WebSheetRecord {
+const sheetRecordCache = new Map<string, WebSheetRecord>()
+
+function cloneSheetRecord(record: WebSheetRecord): WebSheetRecord {
   return {
+    ...record,
+    fieldData: { ...record.fieldData },
+  }
+}
+
+function rememberCachedSheetRecord(record: WebSheetRecord) {
+  sheetRecordCache.delete(record.profileId)
+  sheetRecordCache.set(record.profileId, cloneSheetRecord(record))
+
+  if (sheetRecordCache.size > SHEET_RECORD_CACHE_LIMIT) {
+    const oldestKey = sheetRecordCache.keys().next().value
+
+    if (oldestKey) {
+      sheetRecordCache.delete(oldestKey)
+    }
+  }
+
+  return record
+}
+
+export function getCachedSheetRecord(profileId: string) {
+  const record = sheetRecordCache.get(profileId)
+  return record ? cloneSheetRecord(record) : null
+}
+
+function mapSheet(row: SheetRow): WebSheetRecord {
+  return rememberCachedSheetRecord({
     id: row.id,
     profileId: row.profile_id,
     templateKey: row.template_key,
     fieldData: normalizeFieldData(row.field_data),
     updatedAt: row.updated_at ?? new Date().toISOString(),
-  }
+  })
 }
 
 export const NPC_EMAIL_PREFIX = 'npc:'
@@ -209,13 +239,13 @@ function mapNpcProfile(
 }
 
 function mapNpcSheet(row: NpcCardRow): WebSheetRecord {
-  return {
+  return rememberCachedSheetRecord({
     id: row.id,
     profileId: row.id,
     templateKey: CURRENT_TEMPLATE_KEY,
     fieldData: normalizeFieldData(row.field_data),
     updatedAt: row.updated_at ?? new Date().toISOString(),
-  }
+  })
 }
 
 function resolveSheetAccessMetadata(entry: Profile, viewer: Profile) {

@@ -21,6 +21,7 @@ import {
   fetchSheetSnapshot,
   fetchNpcSheet,
   fetchOrCreateSheet,
+  getCachedSheetRecord,
   isNpcProfile,
   isSheetSharingUnavailableError,
   listSheetProfiles,
@@ -626,10 +627,19 @@ export function SheetWorkspacePage() {
     }
 
     let cancelled = false
+    const cachedSheet = getCachedSheetRecord(selectedProfile.id)
 
     const loadSheet = async () => {
-      setLoadingSheet(true)
       setError(null)
+
+      if (cachedSheet) {
+        setSheet(cachedSheet)
+        setDraftFields(cachedSheet.fieldData)
+        setSyncLabel('A atualizar ficha...')
+        setLoadingSheet(false)
+      } else {
+        setLoadingSheet(true)
+      }
 
       try {
         const nextSheet = isNpcProfile(selectedProfile)
@@ -643,6 +653,11 @@ export function SheetWorkspacePage() {
         }
 
         if (!nextSheet) {
+          if (cachedSheet) {
+            setSyncLabel('A mostrar a ultima versao guardada')
+            return
+          }
+
           setSheet(null)
           setDraftFields({})
           setSyncLabel('Ficha partilhada indisponivel')
@@ -657,6 +672,11 @@ export function SheetWorkspacePage() {
           return
         }
 
+        if (cachedSheet) {
+          setSyncLabel('A mostrar a ultima versao guardada')
+          return
+        }
+
         const message =
           caughtError instanceof Error
             ? caughtError.message
@@ -665,7 +685,7 @@ export function SheetWorkspacePage() {
         setSheet(null)
         setDraftFields({})
       } finally {
-        if (!cancelled) {
+        if (!cancelled && !cachedSheet) {
           setLoadingSheet(false)
         }
       }
