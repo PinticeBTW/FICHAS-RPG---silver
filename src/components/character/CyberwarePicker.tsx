@@ -1,5 +1,9 @@
 import { X } from 'lucide-react'
 import type { Cyberware, CyberwareGroupId } from '../../types/cyberware'
+import {
+  resolveCyberwareEquipperProfileIds,
+  resolveCyberwareViewerProfileIds,
+} from '../../lib/cyberwareCatalog'
 import { CyberwareDetails } from './CyberwareDetails'
 import { CyberwareIcon } from './CyberwareIcon'
 import type { CwColors } from './CyberwareSlot'
@@ -11,6 +15,9 @@ interface CyberwarePickerProps {
   currentCyberware: Cyberware | null
   compatibleCyberwares: Cyberware[]
   colors: CwColors
+  isGmViewer: boolean
+  canEquipCyberware: (cyberware: Cyberware) => boolean
+  canRemoveCurrentCyberware: boolean
   onClose: () => void
   onEquip: (cyberware: Cyberware) => void
   onRemove: () => void
@@ -23,6 +30,9 @@ export function CyberwarePicker({
   currentCyberware,
   compatibleCyberwares,
   colors,
+  isGmViewer,
+  canEquipCyberware,
+  canRemoveCurrentCyberware,
   onClose,
   onEquip,
   onRemove,
@@ -64,7 +74,7 @@ export function CyberwarePicker({
               emptyLabel="Este slot ainda esta vazio. Escolhe uma cyberware da lista."
             />
 
-            {currentCyberware ? (
+            {currentCyberware && canRemoveCurrentCyberware ? (
               <button
                 type="button"
                 onClick={onRemove}
@@ -83,13 +93,29 @@ export function CyberwarePicker({
             <div className="space-y-4">
               {compatibleCyberwares.map((cyberware) => {
                 const isCurrent = currentCyberware?.id === cyberware.id
+                const canEquip = canEquipCyberware(cyberware)
+                const viewerAccess = resolveCyberwareViewerProfileIds(cyberware)
+                const equipperAccess = resolveCyberwareEquipperProfileIds(cyberware)
+                const viewerLabel =
+                  viewerAccess === null
+                    ? 'Todos veem'
+                    : viewerAccess.length
+                      ? `${viewerAccess.length} veem`
+                      : 'Ninguem ve'
+                const equipperLabel =
+                  equipperAccess === null
+                    ? 'Todos equipam'
+                    : equipperAccess.length
+                      ? `${equipperAccess.length} equipam`
+                      : 'Ninguem equipa'
 
                 return (
                   <button
                     key={cyberware.id}
                     type="button"
                     onClick={() => onEquip(cyberware)}
-                    className="w-full overflow-hidden rounded-sm border bg-[#060824]/94 p-4 text-left transition hover:bg-[#0a1034]"
+                    disabled={!canEquip}
+                    className="w-full overflow-hidden rounded-sm border bg-[#060824]/94 p-4 text-left transition hover:bg-[#0a1034] disabled:cursor-not-allowed disabled:opacity-65"
                     style={{
                       borderColor: isCurrent ? colors.accent : colors.faint,
                       boxShadow: isCurrent ? `0 0 16px ${colors.dim}` : 'none',
@@ -134,13 +160,35 @@ export function CyberwarePicker({
                         >
                           Shield {cyberware.shieldValue}
                         </span>
+                        {isGmViewer ? (
+                          <>
+                            <span
+                              className="rounded-sm border px-3 py-1.5"
+                              style={{ borderColor: colors.faint, color: viewerAccess && !viewerAccess.length ? '#f5c16c' : '#9ee7b5' }}
+                            >
+                              {viewerLabel}
+                            </span>
+                            <span
+                              className="rounded-sm border px-3 py-1.5"
+                              style={{ borderColor: colors.faint, color: equipperAccess && !equipperAccess.length ? '#f5c16c' : '#9ee7b5' }}
+                            >
+                              {equipperLabel}
+                            </span>
+                          </>
+                        ) : null}
                       </div>
 
                       <span
                         className="text-[0.82rem] font-semibold uppercase tracking-[0.14em]"
                         style={{ color: isCurrent ? colors.accent : '#f8f8f4' }}
                       >
-                        {isCurrent ? 'Equipada' : currentCyberware ? 'Substituir' : 'Equipar'}
+                        {isCurrent
+                          ? 'Equipada'
+                          : !canEquip
+                            ? 'Bloqueada pelo Silver'
+                            : currentCyberware
+                              ? 'Substituir'
+                              : 'Equipar'}
                       </span>
                     </div>
                   </button>

@@ -16,6 +16,10 @@ export interface Cyberware {
   cyberCost: number
   shieldValue: number
   icon?: string
+  playerCanView?: boolean
+  playerCanEquip?: boolean
+  allowedViewerProfileIds?: string[]
+  allowedEquipperProfileIds?: string[]
 }
 
 export interface EquippedCyberwareSlotData {

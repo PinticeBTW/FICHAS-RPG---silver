@@ -1,6 +1,7 @@
 import { ChevronDown, ChevronLeft, ChevronRight, Folder, FolderOpen, GripVertical, LogOut, Pencil, Plus, RefreshCcw, Save, Search, StickyNote, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
+import { CyberwareCatalogManager } from '../components/character/CyberwareCatalogManager'
 import { PdfSheetEditor } from '../components/character/PdfSheetEditor'
 import { EmptyState } from '../components/common/EmptyState'
 import { LoadingScreen } from '../components/common/LoadingScreen'
@@ -383,6 +384,7 @@ export function SheetWorkspacePage() {
   const [savingShareAccess, setSavingShareAccess] = useState(false)
   const [shareAccessError, setShareAccessError] = useState<string | null>(null)
   const [sheetSharingUnavailable, setSheetSharingUnavailable] = useState(false)
+  const [gmWorkspaceView, setGmWorkspaceView] = useState<'sheet' | 'cyberware'>('sheet')
 
   const accessibleProfiles = useMemo(() => {
     if (!profile) {
@@ -404,6 +406,12 @@ export function SheetWorkspacePage() {
   )
 
   const canEdit = Boolean(profile && selectedProfile && (profile.role === 'gm' || selectedProfile.id === profile.id))
+  const canManageCyberwareCatalog = Boolean(
+    profile &&
+    selectedProfile &&
+    profile.role === 'gm' &&
+    selectedProfile.id !== profile.id,
+  )
   const canConfigureShareAccess = Boolean(
     profile &&
     selectedProfile &&
@@ -420,6 +428,33 @@ export function SheetWorkspacePage() {
       ),
     [profiles, selectedProfile?.id],
   )
+  const cyberwarePlayerOptions = useMemo(() => {
+    const ownerOption =
+      selectedProfile && !isNpcProfile(selectedProfile) && selectedProfile.role !== 'gm'
+        ? [
+            {
+              id: selectedProfile.id,
+              label: `${selectedProfile.displayName} (Dono)`,
+              detail: selectedProfile.email,
+            },
+          ]
+        : []
+
+    const otherOptions = profiles
+      .filter(
+        (entry) =>
+          entry.role !== 'gm' &&
+          !isNpcProfile(entry) &&
+          entry.id !== selectedProfile?.id,
+      )
+      .map((entry) => ({
+        id: entry.id,
+        label: entry.displayName,
+        detail: entry.email,
+      }))
+
+    return [...ownerOption, ...otherOptions]
+  }, [profiles, selectedProfile])
   const shareAccessDirty =
     serializeViewerIds(shareViewerIds) !== serializeViewerIds(loadedShareViewerIds)
   const normalizedProfileSearchQuery = profileSearchQuery.trim().toLowerCase()
@@ -478,6 +513,12 @@ export function SheetWorkspacePage() {
   )
   const isDirty = sheet !== null && sheetSignature !== draftSignature
   const hasPendingUnsavedChanges = canEdit && (isDirty || saving)
+  const cyberwareViewerRole: 'gm' | 'owner' | 'shared' = profile?.role === 'gm'
+    ? 'gm'
+    : isOwnSelectedProfile
+      ? 'owner'
+      : 'shared'
+  const showingCyberwareManager = canManageCyberwareCatalog && gmWorkspaceView === 'cyberware'
 
   useUnsavedChangesWarning(
     hasPendingUnsavedChanges,
@@ -505,6 +546,10 @@ export function SheetWorkspacePage() {
   useEffect(() => {
     setPlayerMessageError(null)
   }, [selectedProfile?.id])
+
+  useEffect(() => {
+    setGmWorkspaceView('sheet')
+  }, [profile?.id, selectedProfile?.id])
 
   const refreshProfiles = useCallback(async (options?: { showLoading?: boolean }) => {
     if (!profile) {
@@ -1317,6 +1362,28 @@ export function SheetWorkspacePage() {
             </div>
 
             <div className="flex flex-wrap justify-end gap-2">
+              {canManageCyberwareCatalog ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setGmWorkspaceView('sheet')}
+                    className="signal-button inline-flex items-center gap-2 px-3 py-1.5 text-xs"
+                    data-variant={gmWorkspaceView === 'sheet' ? undefined : 'ghost'}
+                  >
+                    Ficha
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setGmWorkspaceView('cyberware')}
+                    className="signal-button inline-flex items-center gap-2 px-3 py-1.5 text-xs"
+                    data-variant={gmWorkspaceView === 'cyberware' ? undefined : 'ghost'}
+                  >
+                    Cyberware
+                  </button>
+                </>
+              ) : null}
+
               <button
                 type="button"
                 onClick={() => void refreshProfiles()}
@@ -1804,18 +1871,34 @@ export function SheetWorkspacePage() {
               />
             ) : (
               <>
-                <PdfSheetEditor
-                  fieldData={draftFields}
-                  onFieldChange={(fieldName, value) => {
-                    setDraftFields((current) => ({
-                      ...current,
-                      [fieldName]: value,
-                    }))
-                  }}
-                  canEdit={canEdit}
-                />
+                {showingCyberwareManager ? (
+                  <CyberwareCatalogManager
+                    fieldData={draftFields}
+                    onFieldChange={(fieldName, value) => {
+                      setDraftFields((current) => ({
+                        ...current,
+                        [fieldName]: value,
+                      }))
+                    }}
+                    profileName={selectedProfile.displayName}
+                    playerOptions={cyberwarePlayerOptions}
+                  />
+                ) : (
+                  <>
+                    <PdfSheetEditor
+                      fieldData={draftFields}
+                      onFieldChange={(fieldName, value) => {
+                        setDraftFields((current) => ({
+                          ...current,
+                          [fieldName]: value,
+                        }))
+                      }}
+                      canEdit={canEdit}
+                      cyberwareViewerRole={cyberwareViewerRole}
+                      cyberwareViewerProfileId={profile?.id ?? null}
+                    />
 
-                {canConfigureShareAccess ? (
+                    {canConfigureShareAccess ? (
                   <section className="hud-panel rounded-[28px] p-4">
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                       <div>
@@ -1910,7 +1993,9 @@ export function SheetWorkspacePage() {
                       )}
                     </div>
                   </section>
-                ) : null}
+                    ) : null}
+                  </>
+                )}
               </>
             )
           ) : (
