@@ -434,8 +434,9 @@ export function SheetWorkspacePage() {
         ? [
             {
               id: selectedProfile.id,
-              label: `${selectedProfile.displayName} (Dono)`,
+              label: selectedProfile.displayName,
               detail: selectedProfile.email,
+              isOwner: true,
             },
           ]
         : []
