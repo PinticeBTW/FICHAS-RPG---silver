@@ -406,6 +406,8 @@ function TemplatePdfPage({
   fieldData,
   onFieldChange,
   canEdit,
+  cyberwareViewerRole,
+  cyberwareViewerProfileId,
   tone,
 }: {
   pageNumber: number
@@ -413,6 +415,8 @@ function TemplatePdfPage({
   fieldData: Record<string, string>
   onFieldChange: (fieldName: string, value: string) => void
   canEdit: boolean
+  cyberwareViewerRole: 'gm' | 'owner' | 'shared'
+  cyberwareViewerProfileId: string | null
   tone: 'blue' | 'red' | 'grey'
 }) {
   const pageSize = pdfSheetPageSizes[pageNumber - 1]
@@ -652,6 +656,8 @@ function TemplatePdfPage({
           fieldData={fieldData}
           onFieldChange={onFieldChange}
           canEdit={canEdit}
+          viewerRole={cyberwareViewerRole}
+          viewerProfileId={cyberwareViewerProfileId}
           tone={tone}
         />
       ) : null}
@@ -701,10 +707,14 @@ export function PdfSheetEditor({
   fieldData,
   onFieldChange,
   canEdit,
+  cyberwareViewerRole = 'shared',
+  cyberwareViewerProfileId = null,
 }: {
   fieldData: Record<string, string>
   onFieldChange: (fieldName: string, value: string) => void
   canEdit: boolean
+  cyberwareViewerRole?: 'gm' | 'owner' | 'shared'
+  cyberwareViewerProfileId?: string | null
 }) {
   const color = karmaToColor(fieldData['KARMA'] ?? '')
   const gender = sexoToGender(fieldData['SEXO'] ?? '')
@@ -722,6 +732,8 @@ export function PdfSheetEditor({
           fieldData={fieldData}
           onFieldChange={onFieldChange}
           canEdit={canEdit}
+          cyberwareViewerRole={cyberwareViewerRole}
+          cyberwareViewerProfileId={cyberwareViewerProfileId}
           tone={color}
         />
       ))}
@@ -770,6 +782,8 @@ export function PdfSheetPreview({
           fieldData={fieldData}
           onFieldChange={() => {}}
           canEdit={false}
+          cyberwareViewerRole="shared"
+          cyberwareViewerProfileId={null}
           tone={color}
         />
       )}
