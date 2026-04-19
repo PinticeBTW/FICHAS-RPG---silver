@@ -13,7 +13,17 @@ function isAbsoluteIconPath(value: string) {
 }
 
 export function getCyberwareIconKey(cyberware: Cyberware) {
-  return (cyberware.icon?.trim() || cyberware.id).trim()
+  if (typeof cyberware.icon === 'string') {
+    const trimmedIcon = cyberware.icon.trim()
+
+    if (!trimmedIcon) {
+      return ''
+    }
+
+    return trimmedIcon
+  }
+
+  return cyberware.id.trim()
 }
 
 export function getCyberwareIconCandidates(cyberware: Cyberware) {

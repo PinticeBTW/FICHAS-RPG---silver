@@ -376,6 +376,12 @@ export function CyberwareCatalogManager({
           />
         ))}
       </div>
+
+      {!entries.length ? (
+        <div className="hud-panel rounded-[24px] px-5 py-4 text-sm leading-7 text-stone-400">
+          Este catalogo nao tem cyberwares neste momento. Usa <span className="text-white">Adicionar cyberware</span> para criar uma nova.
+        </div>
+      ) : null}
     </section>
   )
 }
