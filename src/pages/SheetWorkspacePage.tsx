@@ -64,50 +64,6 @@ function serializeViewerIds(ids: string[]) {
   return JSON.stringify([...new Set(ids)].sort((left, right) => left.localeCompare(right)))
 }
 
-function extractLinkedSilverBoardProfileIds(pagesValue: string) {
-  if (!pagesValue.trim()) {
-    return []
-  }
-
-  try {
-    const parsed = JSON.parse(pagesValue) as unknown
-
-    if (!Array.isArray(parsed)) {
-      return []
-    }
-
-    return [
-      ...new Set(
-        parsed.flatMap((rawPage) => {
-          if (!rawPage || typeof rawPage !== 'object') {
-            return []
-          }
-
-          const page = rawPage as Record<string, unknown>
-
-          if (!Array.isArray(page.stickies)) {
-            return []
-          }
-
-          return page.stickies.flatMap((rawSticky) => {
-            if (!rawSticky || typeof rawSticky !== 'object') {
-              return []
-            }
-
-            const sticky = rawSticky as Record<string, unknown>
-
-            return typeof sticky.linkedProfileId === 'string' && sticky.linkedProfileId.trim()
-              ? [sticky.linkedProfileId.trim()]
-              : []
-          })
-        }),
-      ),
-    ]
-  } catch {
-    return []
-  }
-}
-
 function readSheetField(fieldData: Record<string, string> | undefined, ...keys: string[]) {
   if (!fieldData) {
     return ''
@@ -531,19 +487,6 @@ export function SheetWorkspacePage() {
       ) as Record<string, Record<string, string>>,
     [accessibleProfiles, boardSheetSnapshots],
   )
-  const linkedSilverBoardProfileIds = useMemo(() => {
-    if (!isSilverWorkspace) {
-      return []
-    }
-
-    const linkedIds = extractLinkedSilverBoardProfileIds(draftFields.GM_NOTE_PAGES ?? '')
-
-    if (pendingBoardProfileCard?.profileId) {
-      linkedIds.push(pendingBoardProfileCard.profileId)
-    }
-
-    return [...new Set(linkedIds)]
-  }, [draftFields.GM_NOTE_PAGES, isSilverWorkspace, pendingBoardProfileCard?.profileId])
   const playerMessageRecipients = useMemo<SilverMessageRecipientOption[]>(() => {
     const players = accessibleProfiles.filter(
       (entry) => entry.role !== 'gm' && !isNpcProfile(entry),
@@ -793,19 +736,10 @@ export function SheetWorkspacePage() {
       return
     }
 
-    const linkedProfiles = accessibleProfiles.filter((entry) =>
-      linkedSilverBoardProfileIds.includes(entry.id),
-    )
-
-    if (!linkedProfiles.length) {
-      setBoardSheetSnapshots({})
-      return
-    }
-
     let cancelled = false
 
     void Promise.all(
-      linkedProfiles.map(async (entry) => {
+      accessibleProfiles.map(async (entry) => {
         try {
           const snapshot = await fetchSheetSnapshot(entry)
           return [entry.id, snapshot] as const
@@ -822,7 +756,7 @@ export function SheetWorkspacePage() {
 
       setBoardSheetSnapshots((current) =>
         Object.fromEntries(
-          linkedProfiles.map((entry) => {
+          accessibleProfiles.map((entry) => {
             const currentSnapshot = current[entry.id]
             const fetchedSnapshot = fetchedSnapshots[entry.id] ?? null
 
@@ -845,28 +779,22 @@ export function SheetWorkspacePage() {
       )
     })
 
-    const unsubscribeCallbacks = linkedProfiles
+    const unsubscribeCallbacks = accessibleProfiles
+      .filter((entry) => !isNpcProfile(entry))
       .map((entry) =>
-        isNpcProfile(entry)
-          ? subscribeToNpcSheet(entry.id, (nextSheet) => {
-              setBoardSheetSnapshots((current) => ({
-                ...current,
-                [entry.id]: nextSheet,
-              }))
-            })
-          : subscribeToSheet(entry.id, (nextSheet) => {
-              setBoardSheetSnapshots((current) => ({
-                ...current,
-                [entry.id]: nextSheet,
-              }))
-            }),
+        subscribeToSheet(entry.id, (nextSheet) => {
+          setBoardSheetSnapshots((current) => ({
+            ...current,
+            [entry.id]: nextSheet,
+          }))
+        }),
       )
 
     return () => {
       cancelled = true
       unsubscribeCallbacks.forEach((unsubscribe) => unsubscribe())
     }
-  }, [accessibleProfiles, isSilverWorkspace, linkedSilverBoardProfileIds])
+  }, [accessibleProfiles, isSilverWorkspace])
 
   useEffect(() => {
     if (!canConfigureShareAccess || !selectedProfile) {
