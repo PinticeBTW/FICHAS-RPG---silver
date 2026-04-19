@@ -1880,7 +1880,6 @@ export function SheetWorkspacePage() {
                         [fieldName]: value,
                       }))
                     }}
-                    profileName={selectedProfile.displayName}
                     playerOptions={cyberwarePlayerOptions}
                   />
                 ) : (
