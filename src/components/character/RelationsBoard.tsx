@@ -400,6 +400,7 @@ function NpcCardView({
               <CyberField label="Tipo de Sangue" value={d.tipoSangue} editing={editing} onChange={(v) => set('tipoSangue', v)} />
               <CyberField label="Tipologia" value={d.tipologia} editing={editing} onChange={(v) => set('tipologia', v)} />
               <CyberField label="Ocupação" value={d.ocupacao} editing={editing} onChange={(v) => set('ocupacao', v)} />
+              <CyberField label="Karma" value={d.karma} editing={editing} onChange={(v) => set('karma', v)} />
             </div>
           </div>
 

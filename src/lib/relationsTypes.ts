@@ -1,17 +1,16 @@
-// ─── Types ───────────────────────────────────────────────────────────────────
-
 export interface RelationNpc {
   id: string
   groupId: string
   name: string
-  image?: string       // base64 data URL
+  image?: string
   idade?: string
   altura?: string
   sexo?: string
   tipoSangue?: string
   tipologia?: string
   ocupacao?: string
-  relacao: number      // 0–5 (status de relações)
+  karma?: string
+  relacao: number
   acercaDe?: string
 }
 
@@ -25,8 +24,6 @@ export interface RelationsData {
   npcs: RelationNpc[]
 }
 
-// ─── Defaults ────────────────────────────────────────────────────────────────
-
 export const DEFAULT_GROUPS: RelationGroup[] = [
   { id: 'noir-circuito', name: 'NOIR CIRCUITO' },
   { id: 'circuito-preto', name: 'CIRCUITO PRETO' },
@@ -38,12 +35,12 @@ export const EMPTY_RELATIONS: RelationsData = {
   npcs: [],
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
 export function parseRelationsData(raw: string | undefined): RelationsData {
   if (!raw) return EMPTY_RELATIONS
+
   try {
     const parsed = JSON.parse(raw) as unknown
+
     if (
       parsed &&
       typeof parsed === 'object' &&
@@ -55,8 +52,9 @@ export function parseRelationsData(raw: string | undefined): RelationsData {
       return parsed as RelationsData
     }
   } catch {
-    // fall through
+    return EMPTY_RELATIONS
   }
+
   return EMPTY_RELATIONS
 }
 
