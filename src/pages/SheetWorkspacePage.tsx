@@ -342,6 +342,7 @@ export function SheetWorkspacePage() {
   const [saving, setSaving] = useState(false)
   const [syncLabel, setSyncLabel] = useState('Guardar manual')
   const [error, setError] = useState<string | null>(null)
+  const sheetRef = useRef<WebSheetRecord | null>(null)
   const draftFieldsRef = useRef<Record<string, string>>({})
   const selectedProfileRef = useRef<Profile | null>(null)
   const isDirtyRef = useRef(false)
@@ -528,6 +529,10 @@ export function SheetWorkspacePage() {
   )
 
   useEffect(() => {
+    sheetRef.current = sheet
+  }, [sheet])
+
+  useEffect(() => {
     draftFieldsRef.current = draftFields
   }, [draftFields])
 
@@ -695,12 +700,14 @@ export function SheetWorkspacePage() {
 
       setDraftFields((current) => {
         const currentSignature = serializeFieldData(current)
+        const loadedSheetSignature = serializeFieldData(sheetRef.current?.fieldData ?? {})
+        const hasLocalUnsavedChanges = currentSignature !== loadedSheetSignature
 
         if (currentSignature === nextSignature) {
           return current
         }
 
-        if (savingRef.current || isDirtyRef.current) {
+        if (savingRef.current || isDirtyRef.current || hasLocalUnsavedChanges) {
           return current
         }
 
