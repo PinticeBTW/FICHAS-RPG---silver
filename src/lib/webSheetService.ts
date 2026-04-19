@@ -22,6 +22,8 @@ type SheetRow = {
   updated_at: string | null
 }
 
+type SavedSheetRow = Pick<SheetRow, 'id' | 'profile_id' | 'template_key' | 'updated_at'>
+
 type SheetShareAccessRow = {
   viewer_profile_id: string
 }
@@ -193,6 +195,8 @@ type NpcCardRow = {
   updated_at: string | null
 }
 
+type SavedNpcCardRow = Pick<NpcCardRow, 'id' | 'updated_at'>
+
 function mapNpcProfile(
   row: NpcCardRow,
   metadata?: Pick<Profile, 'sheetAccess' | 'sheetSource'>,
@@ -214,6 +218,32 @@ function mapNpcSheet(row: NpcCardRow): WebSheetRecord {
     profileId: row.id,
     templateKey: CURRENT_TEMPLATE_KEY,
     fieldData: normalizeFieldData(row.field_data),
+    updatedAt: row.updated_at ?? new Date().toISOString(),
+  }
+}
+
+function buildSavedSheetRecord(
+  row: SavedSheetRow,
+  fieldData: Record<string, string>,
+): WebSheetRecord {
+  return {
+    id: row.id,
+    profileId: row.profile_id,
+    templateKey: row.template_key,
+    fieldData,
+    updatedAt: row.updated_at ?? new Date().toISOString(),
+  }
+}
+
+function buildSavedNpcSheetRecord(
+  row: SavedNpcCardRow,
+  fieldData: Record<string, string>,
+): WebSheetRecord {
+  return {
+    id: row.id,
+    profileId: row.id,
+    templateKey: CURRENT_TEMPLATE_KEY,
+    fieldData,
     updatedAt: row.updated_at ?? new Date().toISOString(),
   }
 }
@@ -385,11 +415,11 @@ export async function saveNpcSheet(npcId: string, fieldData: Record<string, stri
     .from('npc_cards')
     .update({ field_data: normalizedFieldData, updated_at: new Date().toISOString() })
     .eq('id', npcId)
-    .select('id, display_name, field_data, updated_at')
+    .select('id, updated_at')
     .single()
 
   if (error) throw error
-  return mapNpcSheet(data as NpcCardRow)
+  return buildSavedNpcSheetRecord(data as SavedNpcCardRow, normalizedFieldData)
 }
 
 export async function fetchOrCreateSheet(profile: Profile) {
@@ -459,14 +489,14 @@ export async function saveSheetFields(profileId: string, fieldData: Record<strin
       },
       { onConflict: 'profile_id' },
     )
-    .select('id, profile_id, template_key, field_data, updated_at')
+    .select('id, profile_id, template_key, updated_at')
     .single()
 
   if (error) {
     throw error
   }
 
-  return mapSheet(data as SheetRow)
+  return buildSavedSheetRecord(data as SavedSheetRow, normalizedFieldData)
 }
 
 async function fetchRealtimeSheetByProfileId(profileId: string) {
