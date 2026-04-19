@@ -1,9 +1,10 @@
-import { ChevronDown, ImagePlus, X } from 'lucide-react'
+import { ChevronDown, ImagePlus, Pencil, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy } from 'pdfjs-dist'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { CyberwareBoard } from './CyberwareBoard'
 import { RelationsBoard } from './RelationsBoard'
+import { ImageCropDialog, readFileAsDataUrl } from '../shared/ImageCropDialog'
 import {
   DEBUG_INPUTS_ONLY,
   type SheetFieldVisualPreset,
@@ -333,22 +334,20 @@ function buildDebugInputStyle(): React.CSSProperties {
 function ImageUploadZone({
   value,
   canEdit,
+  aspectRatio,
   onChange,
 }: {
   value: string
   canEdit: boolean
+  aspectRatio: number
   onChange: (dataUrl: string) => void
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const [cropSource, setCropSource] = useState<string | null>(null)
 
-  const handleFile = (file: File) => {
-    const reader = new FileReader()
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        onChange(reader.result)
-      }
-    }
-    reader.readAsDataURL(file)
+  const handleFile = async (file: File) => {
+    const dataUrl = await readFileAsDataUrl(file)
+    setCropSource(dataUrl)
   }
 
   return (
@@ -367,14 +366,24 @@ function ImageUploadZone({
             }}
           />
           {canEdit && (
-            <button
-              type="button"
-              onClick={() => onChange('')}
-              className="absolute right-1 top-1 rounded bg-black/60 p-1 text-white opacity-0 transition hover:bg-black/80 hover:opacity-100 group-hover/img:opacity-100"
-              title="Remover foto"
-            >
-              <X size={12} />
-            </button>
+            <div className="absolute right-1 top-1 flex gap-1 opacity-0 transition group-hover/img:opacity-100">
+              <button
+                type="button"
+                onClick={() => setCropSource(value)}
+                className="rounded bg-black/60 p-1 text-white transition hover:bg-black/80"
+                title="Ajustar foto"
+              >
+                <Pencil size={12} />
+              </button>
+              <button
+                type="button"
+                onClick={() => onChange('')}
+                className="rounded bg-black/60 p-1 text-white transition hover:bg-black/80"
+                title="Remover foto"
+              >
+                <X size={12} />
+              </button>
+            </div>
           )}
         </>
       ) : canEdit ? (
@@ -393,9 +402,31 @@ function ImageUploadZone({
           type="file"
           accept="image/*"
           className="hidden"
-          onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+          onChange={(event) => {
+            const file = event.target.files?.[0]
+
+            if (file) {
+              void handleFile(file)
+            }
+
+            event.target.value = ''
+          }}
         />
       )}
+      {cropSource ? (
+        <ImageCropDialog
+          source={cropSource}
+          title="Ajustar foto"
+          description="Escolhe o enquadramento da foto antes de a guardar na ficha."
+          aspectRatio={aspectRatio}
+          outputWidth={1200}
+          onCancel={() => setCropSource(null)}
+          onConfirm={(dataUrl) => {
+            onChange(dataUrl)
+            setCropSource(null)
+          }}
+        />
+      ) : null}
     </>
   )
 }
@@ -674,6 +705,10 @@ function TemplatePdfPage({
           <ImageUploadZone
             value={fieldData[imageZone.fieldName] ?? ''}
             canEdit={canEdit}
+            aspectRatio={
+              Math.max(1, parseFloat(imageZone.absoluteStyle.width)) /
+              Math.max(1, parseFloat(imageZone.absoluteStyle.height))
+            }
             onChange={(dataUrl) => onFieldChange(imageZone.fieldName, dataUrl)}
           />
         </div>

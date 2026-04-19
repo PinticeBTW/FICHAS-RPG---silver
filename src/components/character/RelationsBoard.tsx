@@ -7,6 +7,7 @@ import {
   makeNpcId,
   makeGroupId,
 } from '../../lib/relationsTypes'
+import { ImageCropDialog, readFileAsDataUrl } from '../shared/ImageCropDialog'
 
 // ─── Tone colour system ───────────────────────────────────────────────────────
 
@@ -114,27 +115,11 @@ function PortraitUpload({
   size?: 'full' | 'thumb'
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const [cropSource, setCropSource] = useState<string | null>(null)
 
-  const handleFile = (file: File) => {
-    const img = new Image()
-    const url = URL.createObjectURL(file)
-    img.onload = () => {
-      const W = 240
-      const H = 300
-      const canvas = document.createElement('canvas')
-      canvas.width = W
-      canvas.height = H
-      const ctx = canvas.getContext('2d')!
-      const scale = Math.max(W / img.width, H / img.height)
-      const sw = W / scale
-      const sh = H / scale
-      const sx = (img.width - sw) / 2
-      const sy = (img.height - sh) / 2
-      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, W, H)
-      URL.revokeObjectURL(url)
-      onChange(canvas.toDataURL('image/jpeg', 0.85))
-    }
-    img.src = url
+  const handleFile = async (file: File) => {
+    const dataUrl = await readFileAsDataUrl(file)
+    setCropSource(dataUrl)
   }
 
   return (
@@ -143,14 +128,28 @@ function PortraitUpload({
         <>
           <img src={value} className="absolute inset-0 h-full w-full object-cover" alt="" />
           {canEdit && (
-            <button
-              type="button"
-              onClick={() => onChange('')}
-              className="absolute right-1 top-1 rounded p-1 opacity-0 transition group-hover/portrait:opacity-100"
-              style={{ background: 'rgba(0,0,0,0.7)' }}
+            <div
+              className="absolute right-1 top-1 flex gap-1 opacity-0 transition group-hover/portrait:opacity-100"
             >
-              <X size={12} color={CYAN} />
-            </button>
+              <button
+                type="button"
+                onClick={() => setCropSource(value)}
+                className="rounded p-1"
+                style={{ background: 'rgba(0,0,0,0.7)' }}
+                title="Ajustar foto"
+              >
+                <Pencil size={12} color={CYAN} />
+              </button>
+              <button
+                type="button"
+                onClick={() => onChange('')}
+                className="rounded p-1"
+                style={{ background: 'rgba(0,0,0,0.7)' }}
+                title="Remover foto"
+              >
+                <X size={12} color={CYAN} />
+              </button>
+            </div>
           )}
         </>
       ) : canEdit ? (
@@ -182,11 +181,29 @@ function PortraitUpload({
           className="hidden"
           onChange={(e) => {
             const file = e.target.files?.[0]
-            if (file) handleFile(file)
+            if (file) {
+              void handleFile(file)
+            }
             e.target.value = ''
           }}
         />
       )}
+      {cropSource ? (
+        <ImageCropDialog
+          source={cropSource}
+          title="Ajustar retrato"
+          description="Enquadra o retrato antes de o guardar no cartao da relacao."
+          aspectRatio={4 / 5}
+          outputWidth={960}
+          outputHeight={1200}
+          accentColor={CYAN}
+          onCancel={() => setCropSource(null)}
+          onConfirm={(dataUrl) => {
+            onChange(dataUrl)
+            setCropSource(null)
+          }}
+        />
+      ) : null}
     </div>
   )
 }
