@@ -21,7 +21,7 @@ function coerceCyberwareNumber(value: unknown) {
 }
 
 function coerceCyberwareText(value: unknown, fallback: string) {
-  return typeof value === 'string' && value.trim() ? value.trim() : fallback
+  return typeof value === 'string' ? value : fallback
 }
 
 function normalizeProfileIds(value: unknown) {
@@ -42,12 +42,22 @@ function normalizeProfileIds(value: unknown) {
 function normalizeCyberwareAccess(entry: Cyberware): Cyberware {
   return {
     ...entry,
-    icon: entry.icon?.trim() ? entry.icon.trim() : undefined,
+    icon: typeof entry.icon === 'string' ? entry.icon : undefined,
     playerCanView: entry.playerCanView !== false,
     playerCanEquip: entry.playerCanEquip !== false,
     allowedViewerProfileIds: normalizeProfileIds(entry.allowedViewerProfileIds),
     allowedEquipperProfileIds: normalizeProfileIds(entry.allowedEquipperProfileIds),
   }
+}
+
+export function getCyberwareDisplayName(entry: Pick<Cyberware, 'name'> | null | undefined) {
+  const trimmedName = entry?.name?.trim() ?? ''
+  return trimmedName || 'Cyberware sem nome'
+}
+
+export function getCyberwareDisplayDescription(entry: Pick<Cyberware, 'description'> | null | undefined) {
+  const trimmedDescription = entry?.description?.trim() ?? ''
+  return trimmedDescription || 'Sem descricao.'
 }
 
 export function createDefaultSheetCyberwareCatalog(): Cyberware[] {
@@ -101,9 +111,9 @@ export function parseSheetCyberwareCatalog(value: string | undefined): Cyberware
             typeof entry.id === 'string' && entry.id.trim()
               ? entry.id.trim()
               : `sheet-cyberware-${index + 1}`,
-          name: coerceCyberwareText(entry.name, 'Cyberware sem nome'),
+          name: coerceCyberwareText(entry.name, ''),
           slotType,
-          description: coerceCyberwareText(entry.description, 'Sem descricao.'),
+          description: coerceCyberwareText(entry.description, ''),
           cyberCost: coerceCyberwareNumber(entry.cyberCost),
           shieldValue: coerceCyberwareNumber(entry.shieldValue),
           icon: typeof entry.icon === 'string' ? entry.icon : '',
@@ -130,7 +140,7 @@ export function stringifySheetCyberwareCatalog(entries: Cyberware[]) {
       description: entry.description,
       cyberCost: coerceCyberwareNumber(entry.cyberCost),
       shieldValue: coerceCyberwareNumber(entry.shieldValue),
-      icon: entry.icon?.trim() ?? '',
+      icon: typeof entry.icon === 'string' ? entry.icon : '',
       playerCanView: entry.playerCanView !== false,
       playerCanEquip: entry.playerCanEquip !== false,
       allowedViewerProfileIds: normalizeProfileIds(entry.allowedViewerProfileIds),

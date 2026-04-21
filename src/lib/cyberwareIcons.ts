@@ -1,4 +1,5 @@
 import type { Cyberware } from '../types/cyberware'
+import { getCyberwareDisplayName } from './cyberwareCatalog'
 
 export const CYBERWARE_ICON_FOLDER = '/cyberware-icons'
 
@@ -49,7 +50,7 @@ export function getCyberwareIconFallbackLabel(cyberware: Cyberware) {
     return cyberware.icon.trim().slice(0, 2).toUpperCase()
   }
 
-  return cyberware.name
+  return getCyberwareDisplayName(cyberware)
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2)

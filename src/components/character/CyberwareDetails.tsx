@@ -1,4 +1,5 @@
 import type { Cyberware } from '../../types/cyberware'
+import { getCyberwareDisplayDescription, getCyberwareDisplayName } from '../../lib/cyberwareCatalog'
 import type { CwColors } from './CyberwareSlot'
 import { CyberwareIcon } from './CyberwareIcon'
 
@@ -15,6 +16,9 @@ export function CyberwareDetails({
   colors,
   emptyLabel = 'Nenhuma cyberware equipada neste slot.',
 }: CyberwareDetailsProps) {
+  const displayName = cyberware ? getCyberwareDisplayName(cyberware) : ''
+  const displayDescription = cyberware ? getCyberwareDisplayDescription(cyberware) : ''
+
   return (
     <div
       className="rounded-sm border bg-[#03031c]/95 p-4"
@@ -32,7 +36,7 @@ export function CyberwareDetails({
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="font-display text-[1.16rem] uppercase leading-[1.05] tracking-[0.08em] text-[#f8f8f4]">
-                {cyberware.name}
+                {displayName}
               </p>
               <p className="mt-1 text-[0.78rem] uppercase tracking-[0.16em]" style={{ color: colors.accent }}>
                 {cyberware.slotType}
@@ -45,7 +49,7 @@ export function CyberwareDetails({
             >
               <CyberwareIcon
                 cyberware={cyberware}
-                alt={cyberware.name}
+                alt={displayName}
                 accentColor={colors.accent}
                 glowFilter={colors.glowFilter}
                 className="h-[76%] w-[76%] object-contain"
@@ -54,7 +58,7 @@ export function CyberwareDetails({
             </div>
           </div>
 
-          <p className="text-[0.96rem] leading-[1.45] text-[#d5d7df]">{cyberware.description}</p>
+          <p className="text-[0.96rem] leading-[1.45] text-[#d5d7df]">{displayDescription}</p>
 
           <div className="flex flex-wrap gap-2 text-[0.82rem] font-semibold uppercase tracking-[0.12em]">
             <span

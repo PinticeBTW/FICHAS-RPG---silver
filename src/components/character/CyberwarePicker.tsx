@@ -1,6 +1,8 @@
 import { X } from 'lucide-react'
 import type { Cyberware, CyberwareGroupId } from '../../types/cyberware'
 import {
+  getCyberwareDisplayDescription,
+  getCyberwareDisplayName,
   resolveCyberwareEquipperProfileIds,
   resolveCyberwareViewerProfileIds,
 } from '../../lib/cyberwareCatalog'
@@ -94,6 +96,8 @@ export function CyberwarePicker({
               {compatibleCyberwares.map((cyberware) => {
                 const isCurrent = currentCyberware?.id === cyberware.id
                 const canEquip = canEquipCyberware(cyberware)
+                const displayName = getCyberwareDisplayName(cyberware)
+                const displayDescription = getCyberwareDisplayDescription(cyberware)
                 const viewerAccess = resolveCyberwareViewerProfileIds(cyberware)
                 const equipperAccess = resolveCyberwareEquipperProfileIds(cyberware)
                 const viewerLabel =
@@ -124,10 +128,10 @@ export function CyberwarePicker({
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="font-display text-[1.1rem] uppercase leading-[1.05] tracking-[0.08em] text-[#f8f8f4]">
-                          {cyberware.name}
+                          {displayName}
                         </p>
                         <p className="mt-2.5 text-[0.95rem] leading-[1.45] text-[#d5d7df]">
-                          {cyberware.description}
+                          {displayDescription}
                         </p>
                       </div>
 
@@ -137,7 +141,7 @@ export function CyberwarePicker({
                       >
                         <CyberwareIcon
                           cyberware={cyberware}
-                          alt={cyberware.name}
+                          alt={displayName}
                           accentColor={colors.accent}
                           glowFilter={colors.glowFilter}
                           className="h-[76%] w-[76%] object-contain"
