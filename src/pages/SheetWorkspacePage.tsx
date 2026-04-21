@@ -52,6 +52,7 @@ const UNSAVED_CHANGES_LEAVE_MESSAGE =
   'Tens alteracoes por guardar. Clica em Guardar antes de fechar para nao perderes o teu progresso.'
 const SAVING_LEAVE_MESSAGE =
   'Ainda estamos a guardar a ficha. Espera um momento ou guarda antes de sair.'
+const LOCAL_DRAFT_STORAGE_PREFIX = 'rpgsilver-sheet-draft:'
 
 function serializeFieldData(fieldData: Record<string, string>) {
   return JSON.stringify(
@@ -63,6 +64,66 @@ function serializeFieldData(fieldData: Record<string, string>) {
 
 function serializeViewerIds(ids: string[]) {
   return JSON.stringify([...new Set(ids)].sort((left, right) => left.localeCompare(right)))
+}
+
+function buildLocalDraftStorageKey(profileId: string) {
+  return `${LOCAL_DRAFT_STORAGE_PREFIX}${profileId}`
+}
+
+function readLocalDraft(profileId: string) {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  try {
+    const rawDraft = window.sessionStorage.getItem(buildLocalDraftStorageKey(profileId))
+
+    if (!rawDraft) {
+      return null
+    }
+
+    const parsedDraft = JSON.parse(rawDraft) as unknown
+
+    if (!parsedDraft || typeof parsedDraft !== 'object' || Array.isArray(parsedDraft)) {
+      return null
+    }
+
+    return Object.fromEntries(
+      Object.entries(parsedDraft as Record<string, unknown>).map(([fieldName, value]) => [
+        fieldName,
+        typeof value === 'string' ? value : value == null ? '' : String(value),
+      ]),
+    ) as Record<string, string>
+  } catch {
+    return null
+  }
+}
+
+function writeLocalDraft(profileId: string, fieldData: Record<string, string>) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    window.sessionStorage.setItem(
+      buildLocalDraftStorageKey(profileId),
+      JSON.stringify(fieldData),
+    )
+  } catch {
+    return
+  }
+}
+
+function clearLocalDraft(profileId: string) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    window.sessionStorage.removeItem(buildLocalDraftStorageKey(profileId))
+  } catch {
+    return
+  }
 }
 
 function readSheetField(fieldData: Record<string, string> | undefined, ...keys: string[]) {
@@ -397,6 +458,7 @@ export function SheetWorkspacePage() {
 
   const selectedProfile =
     accessibleProfiles.find((entry) => entry.id === profileId) ?? accessibleProfiles[0] ?? null
+  const selectedProfileId = selectedProfile?.id ?? null
   const isOwnSelectedProfile = Boolean(profile && selectedProfile && selectedProfile.id === profile.id)
 
   const isSilverWorkspace = Boolean(
@@ -619,7 +681,7 @@ export function SheetWorkspacePage() {
   }, [loadingProfiles, navigate, profileId, selectedProfile])
 
   useEffect(() => {
-    if (!selectedProfile) {
+    if (!selectedProfileId) {
       setSheet(null)
       setDraftFields({})
       setSyncLabel('Guardar manual')
@@ -627,26 +689,34 @@ export function SheetWorkspacePage() {
     }
 
     let cancelled = false
-    const cachedSheet = getCachedSheetRecord(selectedProfile.id)
+    const activeProfile = selectedProfileRef.current
+
+    if (!activeProfile || activeProfile.id !== selectedProfileId) {
+      return
+    }
+
+    const cachedSheet = getCachedSheetRecord(selectedProfileId)
+    const localDraft = canEdit ? readLocalDraft(selectedProfileId) : null
+    const restoredLocalDraft = localDraft ? serializeFieldData(localDraft) !== serializeFieldData(cachedSheet?.fieldData ?? {}) : false
 
     const loadSheet = async () => {
       setError(null)
 
       if (cachedSheet) {
         setSheet(cachedSheet)
-        setDraftFields(cachedSheet.fieldData)
-        setSyncLabel('A atualizar ficha...')
+        setDraftFields(localDraft ?? cachedSheet.fieldData)
+        setSyncLabel(restoredLocalDraft ? 'Rascunho local restaurado. Clica em Guardar.' : 'A atualizar ficha...')
         setLoadingSheet(false)
       } else {
         setLoadingSheet(true)
       }
 
       try {
-        const nextSheet = isNpcProfile(selectedProfile)
-          ? await fetchNpcSheet(selectedProfile.id)
+        const nextSheet = isNpcProfile(activeProfile)
+          ? await fetchNpcSheet(selectedProfileId)
           : canEdit
-            ? await fetchOrCreateSheet(selectedProfile)
-            : await fetchSheetSnapshot(selectedProfile)
+            ? await fetchOrCreateSheet(activeProfile)
+            : await fetchSheetSnapshot(activeProfile)
 
         if (cancelled) {
           return
@@ -665,8 +735,8 @@ export function SheetWorkspacePage() {
         }
 
         setSheet(nextSheet)
-        setDraftFields(nextSheet.fieldData)
-        setSyncLabel('Ficha pronta')
+        setDraftFields(localDraft ?? nextSheet.fieldData)
+        setSyncLabel(restoredLocalDraft ? 'Rascunho local restaurado. Clica em Guardar.' : 'Ficha pronta')
       } catch (caughtError) {
         if (cancelled) {
           return
@@ -696,10 +766,29 @@ export function SheetWorkspacePage() {
     return () => {
       cancelled = true
     }
-  }, [canEdit, selectedProfile])
+  }, [canEdit, selectedProfileId])
 
   useEffect(() => {
-    if (!selectedProfile) {
+    if (!canEdit || !selectedProfileId || !sheet) {
+      return
+    }
+
+    if (saving || isDirty) {
+      writeLocalDraft(selectedProfileId, draftFields)
+      return
+    }
+
+    clearLocalDraft(selectedProfileId)
+  }, [canEdit, draftFields, isDirty, saving, selectedProfileId, sheet])
+
+  useEffect(() => {
+    if (!selectedProfileId) {
+      return
+    }
+
+    const activeProfile = selectedProfileRef.current
+
+    if (!activeProfile || activeProfile.id !== selectedProfileId) {
       return
     }
 
@@ -741,14 +830,14 @@ export function SheetWorkspacePage() {
       )
     }
 
-    const unsubscribe = isNpcProfile(selectedProfile)
-      ? subscribeToNpcSheet(selectedProfile.id, handleIncomingSheet)
-      : subscribeToSheet(selectedProfile.id, handleIncomingSheet)
+    const unsubscribe = isNpcProfile(activeProfile)
+      ? subscribeToNpcSheet(selectedProfileId, handleIncomingSheet)
+      : subscribeToSheet(selectedProfileId, handleIncomingSheet)
 
     return () => {
       unsubscribe()
     }
-  }, [selectedProfile])
+  }, [selectedProfileId])
 
   useEffect(() => {
     if (!isSilverWorkspace || !accessibleProfiles.length) {
@@ -1029,6 +1118,10 @@ export function SheetWorkspacePage() {
           return current
         })
         setSyncLabel('Guardado manualmente')
+      }
+
+      if (serializeFieldData(draftFieldsRef.current) === draftSigAtSave) {
+        clearLocalDraft(saveProfileId)
       }
     } catch (caughtError) {
       const message =
