@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { getCyberwareDisplayName } from '../../lib/cyberwareCatalog'
 import { getCyberwareIconCandidates, getCyberwareIconFallbackLabel } from '../../lib/cyberwareIcons'
 import type { Cyberware } from '../../types/cyberware'
 
@@ -21,26 +22,26 @@ export function CyberwareIcon({
 }: CyberwareIconProps) {
   const candidates = useMemo(() => getCyberwareIconCandidates(cyberware), [cyberware])
   const fallbackLabel = useMemo(() => getCyberwareIconFallbackLabel(cyberware), [cyberware])
-  const [candidateIndex, setCandidateIndex] = useState(0)
-
-  useEffect(() => {
-    setCandidateIndex(0)
-  }, [candidates])
-
+  const displayName = useMemo(() => getCyberwareDisplayName(cyberware), [cyberware])
+  const candidatesKey = useMemo(() => candidates.join('|'), [candidates])
+  const [imageState, setImageState] = useState({
+    candidatesKey: '',
+    failedIndex: 0,
+  })
+  const candidateIndex = imageState.candidatesKey === candidatesKey ? imageState.failedIndex : 0
   const currentSrc = candidates[candidateIndex]
 
   if (currentSrc) {
     return (
       <img
         src={currentSrc}
-        alt={alt ?? cyberware.name}
+        alt={alt || displayName}
         className={className}
         onError={() => {
-          if (candidateIndex < candidates.length - 1) {
-            setCandidateIndex((current) => current + 1)
-          } else {
-            setCandidateIndex(candidates.length)
-          }
+          setImageState({
+            candidatesKey,
+            failedIndex: candidateIndex + 1,
+          })
         }}
       />
     )

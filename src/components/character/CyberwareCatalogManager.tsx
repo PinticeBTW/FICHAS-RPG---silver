@@ -3,6 +3,7 @@ import { CyberwareIcon } from './CyberwareIcon'
 import {
   buildSheetCyberwaresByGroup,
   createEmptySheetCyberware,
+  getCyberwareDisplayName,
   parseSheetCyberwareCatalog,
   resolveCyberwareEquipperProfileIds,
   resolveCyberwareViewerProfileIds,
@@ -61,6 +62,7 @@ function CyberwareCatalogCard({
   onDelete: () => void
 }) {
   const fileInputId = `cyberware-icon-${entry.id}`
+  const displayName = getCyberwareDisplayName(entry)
   const viewerIds = resolveCyberwareViewerProfileIds(entry) ?? playerOptions.map((option) => option.id)
   const equipperIds = resolveCyberwareEquipperProfileIds(entry) ?? playerOptions.map((option) => option.id)
 
@@ -83,7 +85,7 @@ function CyberwareCatalogCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="panel-title">Cyberware</p>
-          <p className="mt-2 truncate text-lg font-semibold text-white">{entry.name}</p>
+          <p className="mt-2 truncate text-lg font-semibold text-white">{displayName}</p>
           <p className="mt-1 text-xs uppercase tracking-[0.18em] text-stone-500">
             {cyberwareZoneOptions.find((option) => option.value === entry.slotType)?.label ?? entry.slotType}
             {' · '}
@@ -166,7 +168,7 @@ function CyberwareCatalogCard({
             <div className="flex h-24 w-24 items-center justify-center overflow-hidden border border-white/10 bg-black/25">
               <CyberwareIcon
                 cyberware={entry}
-                alt={entry.name}
+                alt={displayName}
                 accentColor="#f3e600"
                 glowFilter="drop-shadow(0 0 4px rgba(243,230,0,0.55))"
                 className="h-[82%] w-[82%] object-contain"
