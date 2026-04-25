@@ -1662,6 +1662,7 @@ export function SheetWorkspacePage() {
                 {accessibleProfiles.map((entry) => {
                   const isSelected = entry.id === selectedProfile?.id
                   const isOwnEntry = entry.id === profile.id
+                  const isDefaultExtraEntry = entry.sheetAccess === 'shared' && isNpcProfile(entry)
 
                   return (
                     <button
@@ -1676,10 +1677,14 @@ export function SheetWorkspacePage() {
                     >
                       <p className="truncate text-sm font-semibold text-white">{entry.displayName}</p>
                       <p className="mt-1 truncate text-xs text-stone-400">
-                        {isOwnEntry ? entry.email : 'Ficha partilhada pelo Silver'}
+                        {isOwnEntry
+                          ? entry.email
+                          : isDefaultExtraEntry
+                            ? `Ficha default de ${profile.displayName}`
+                            : 'Ficha partilhada pelo Silver'}
                       </p>
                       <p className="mt-2 text-[0.68rem] uppercase tracking-[0.22em] text-stone-500">
-                        {isOwnEntry ? 'Jogador' : 'Partilhada'}
+                        {isOwnEntry ? 'Jogador' : isDefaultExtraEntry ? 'Default' : 'Partilhada'}
                       </p>
                     </button>
                   )
@@ -1687,7 +1692,7 @@ export function SheetWorkspacePage() {
               </div>
             ) : null}
             {/* Player: só o seu card */}
-            {!isGm && selectedProfile && isOwnSelectedProfile && (
+            {!isGm && selectedProfile && (isOwnSelectedProfile || canEditSharedNpc) && (
               <>
                 {accessibleProfiles.length <= 1 ? (
                   <div className="border border-[#f3e600] bg-[#f3e600]/10 px-4 py-3">
@@ -1768,7 +1773,7 @@ export function SheetWorkspacePage() {
               </>
             )}
 
-            {!isGm && selectedProfile && !isOwnSelectedProfile ? (
+            {!isGm && selectedProfile && !isOwnSelectedProfile && !canEditSharedNpc ? (
               <div className="border border-sky-500/30 bg-sky-500/10 px-4 py-3">
                 <p className="truncate text-sm font-semibold text-white">{selectedProfile.displayName}</p>
                 <p className="mt-2 text-xs leading-6 text-stone-300">
