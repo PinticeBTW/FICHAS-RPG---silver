@@ -428,6 +428,7 @@ export function SheetWorkspacePage() {
   })
   const isResizingRef = useRef(false)
   const [newFichaName, setNewFichaName] = useState('')
+  const [newFichaViewerId, setNewFichaViewerId] = useState('')
   const [addingFicha, setAddingFicha] = useState(false)
   const [creatingFicha, setCreatingFicha] = useState(false)
   const [editingName, setEditingName] = useState(false)
@@ -491,6 +492,15 @@ export function SheetWorkspacePage() {
           entry.id !== selectedProfile?.id,
       ),
     [profiles, selectedProfile?.id],
+  )
+  const newFichaPlayerOptions = useMemo(
+    () =>
+      profiles.filter(
+        (entry) =>
+          entry.role !== 'gm' &&
+          !isNpcProfile(entry),
+      ),
+    [profiles],
   )
   const cyberwarePlayerOptions = useMemo(() => {
     const ownerOption =
@@ -1303,23 +1313,57 @@ export function SheetWorkspacePage() {
     document.addEventListener('mouseup', onUp)
   }, [sidebarWidth])
 
+  const handleStartCreateFicha = useCallback(() => {
+    const defaultViewer =
+      selectedProfile && selectedProfile.role !== 'gm' && !isNpcProfile(selectedProfile)
+        ? selectedProfile
+        : null
+
+    setNewFichaViewerId(defaultViewer?.id ?? '')
+    setNewFichaName(defaultViewer ? `${defaultViewer.displayName} - ficha extra` : '')
+    setAddingFicha(true)
+  }, [selectedProfile])
+
+  const handleCancelCreateFicha = useCallback(() => {
+    setAddingFicha(false)
+    setNewFichaName('')
+    setNewFichaViewerId('')
+  }, [])
+
   // Nova Ficha (NPC)
   const handleCreateFicha = useCallback(async () => {
     const name = newFichaName.trim()
     if (!name) return
+    const viewerId = newFichaViewerId.trim()
     setCreatingFicha(true)
+    let shareWarning: string | null = null
+
     try {
       const newProfile = await createNpcCard(name)
+
+      if (viewerId) {
+        try {
+          await updateSheetShareAccess(newProfile, [viewerId])
+        } catch (shareError) {
+          shareWarning =
+            shareError instanceof Error
+              ? `Ficha criada, mas nao consegui atribuir ao player: ${shareError.message}`
+              : 'Ficha criada, mas nao consegui atribuir ao player.'
+        }
+      }
+
       await refreshProfiles()
       navigate(`/app/sheets/${newProfile.id}`)
       setAddingFicha(false)
       setNewFichaName('')
+      setNewFichaViewerId('')
+      setError(shareWarning)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao criar ficha.')
     } finally {
       setCreatingFicha(false)
     }
-  }, [newFichaName, navigate, refreshProfiles])
+  }, [newFichaName, newFichaViewerId, navigate, refreshProfiles])
 
   const handleSignOut = useCallback(async () => {
     if (hasPendingUnsavedChanges) {
@@ -1673,40 +1717,58 @@ export function SheetWorkspacePage() {
             {isGm && (
               <div className="mb-3">
                 {addingFicha ? (
-                  <div className="flex items-center gap-1">
-                    <input
-                      autoFocus
-                      type="text"
-                      value={newFichaName}
-                      onChange={(e) => setNewFichaName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') void handleCreateFicha()
-                        if (e.key === 'Escape') { setAddingFicha(false); setNewFichaName('') }
-                      }}
-                      placeholder="Nome da ficha..."
-                      className="min-w-0 flex-1 border border-white/20 bg-black/40 px-2 py-1 text-xs text-white placeholder-stone-500 outline-none focus:border-[#f3e600]/50"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => void handleCreateFicha()}
-                      disabled={creatingFicha}
-                      className="signal-button px-2 py-1 text-xs"
-                    >
-                      <Plus size={12} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setAddingFicha(false); setNewFichaName('') }}
-                      className="signal-button px-2 py-1 text-xs"
-                      data-variant="ghost"
-                    >
-                      <X size={12} />
-                    </button>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-1">
+                      <input
+                        autoFocus
+                        type="text"
+                        value={newFichaName}
+                        onChange={(e) => setNewFichaName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') void handleCreateFicha()
+                          if (e.key === 'Escape') handleCancelCreateFicha()
+                        }}
+                        placeholder="Nome da ficha..."
+                        className="min-w-0 flex-1 border border-white/20 bg-black/40 px-2 py-1 text-xs text-white placeholder-stone-500 outline-none focus:border-[#f3e600]/50"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => void handleCreateFicha()}
+                        disabled={creatingFicha}
+                        className="signal-button px-2 py-1 text-xs"
+                      >
+                        <Plus size={12} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCancelCreateFicha}
+                        className="signal-button px-2 py-1 text-xs"
+                        data-variant="ghost"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+
+                    {newFichaPlayerOptions.length > 0 ? (
+                      <select
+                        value={newFichaViewerId}
+                        onChange={(event) => setNewFichaViewerId(event.target.value)}
+                        className="w-full border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-stone-200 outline-none focus:border-[#f3e600]/50"
+                        title="Atribuir ficha extra a um player"
+                      >
+                        <option value="">Sem atribuir a player</option>
+                        {newFichaPlayerOptions.map((person) => (
+                          <option key={person.id} value={person.id}>
+                            {person.displayName} - {person.email}
+                          </option>
+                        ))}
+                      </select>
+                    ) : null}
                   </div>
                 ) : (
                   <button
                     type="button"
-                    onClick={() => setAddingFicha(true)}
+                    onClick={handleStartCreateFicha}
                     className="signal-button inline-flex w-full items-center justify-center gap-1.5 px-3 py-1.5 text-xs"
                   >
                     <Plus size={12} />
