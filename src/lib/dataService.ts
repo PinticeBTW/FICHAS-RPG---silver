@@ -322,7 +322,7 @@ export async function fetchAuthProfile(userId: string) {
     () =>
       client
         .from('profiles')
-        .select('id, email, display_name, handle, role, avatar_url, active_campaign_id')
+        .select('id, email, display_name, handle, role, avatar_url')
         .eq('id', userId)
         .single(),
     { cacheMs: 10_000 },
