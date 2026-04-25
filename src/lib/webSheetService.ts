@@ -6,6 +6,7 @@ import {
   cyberwareSheetFieldKeys,
 } from './cyberwareSheetLayout'
 import { pdfSheetTemplateFields } from './pdfSheetTemplate'
+import { clearSupabaseFetchCache, logSupabaseFetch, runSupabaseFetch } from './supabaseQueries'
 
 const CURRENT_TEMPLATE_KEY = 'blank-grey-v2'
 const SHEET_RECORD_CACHE_LIMIT = 12
@@ -217,6 +218,7 @@ function normalizeFieldData(fieldData: Record<string, unknown> | string | null) 
 }
 
 const sheetRecordCache = new Map<string, WebSheetRecord>()
+const sheetRecordCacheTimes = new Map<string, number>()
 
 function cloneSheetRecord(record: WebSheetRecord): WebSheetRecord {
   return {
@@ -227,20 +229,29 @@ function cloneSheetRecord(record: WebSheetRecord): WebSheetRecord {
 
 function rememberCachedSheetRecord(record: WebSheetRecord) {
   sheetRecordCache.delete(record.profileId)
+  sheetRecordCacheTimes.delete(record.profileId)
   sheetRecordCache.set(record.profileId, cloneSheetRecord(record))
+  sheetRecordCacheTimes.set(record.profileId, Date.now())
 
   if (sheetRecordCache.size > SHEET_RECORD_CACHE_LIMIT) {
     const oldestKey = sheetRecordCache.keys().next().value
 
     if (oldestKey) {
       sheetRecordCache.delete(oldestKey)
+      sheetRecordCacheTimes.delete(oldestKey)
     }
   }
 
   return record
 }
 
-export function getCachedSheetRecord(profileId: string) {
+export function getCachedSheetRecord(profileId: string, maxAgeMs?: number) {
+  const cachedAt = sheetRecordCacheTimes.get(profileId) ?? 0
+
+  if (maxAgeMs && (!cachedAt || Date.now() - cachedAt > maxAgeMs)) {
+    return null
+  }
+
   const record = sheetRecordCache.get(profileId)
   return record ? cloneSheetRecord(record) : null
 }
@@ -415,10 +426,13 @@ function sortAccessibleProfiles(left: Profile, right: Profile) {
 }
 
 async function listNpcCards(client: ReturnType<typeof ensureSupabase>): Promise<NpcCardRow[]> {
+  logSupabaseFetch({ functionName: 'listSheetProfiles', table: 'npc_cards' })
+
   const result = await client
     .from('npc_cards')
     .select('id, display_name, owner_profile_id, updated_at')
     .order('display_name', { ascending: true })
+    .limit(500)
 
   if (!result.error) {
     return (result.data ?? []) as NpcCardRow[]
@@ -432,6 +446,7 @@ async function listNpcCards(client: ReturnType<typeof ensureSupabase>): Promise<
     .from('npc_cards')
     .select('id, display_name, updated_at')
     .order('display_name', { ascending: true })
+    .limit(500)
 
   if (fallbackResult.error) {
     throw fallbackResult.error
@@ -445,53 +460,62 @@ async function listNpcCards(client: ReturnType<typeof ensureSupabase>): Promise<
 
 export async function listSheetProfiles(viewer: Profile) {
   const client = ensureSupabase()
-  const [profilesResult, npcsResult] = await Promise.all([
-    client
-      .from('profiles')
-      .select('id, email, display_name, handle, role, avatar_url')
-      .order('display_name', { ascending: true }),
-    listNpcCards(client),
-  ])
+  return runSupabaseFetch(
+    `listSheetProfiles:${viewer.id}:${viewer.role}`,
+    { functionName: 'listSheetProfiles', table: 'profiles,npc_cards' },
+    async () => {
+      logSupabaseFetch({ functionName: 'listSheetProfiles', table: 'profiles' })
 
-  if (profilesResult.error) throw profilesResult.error
+      const [profilesResult, npcsResult] = await Promise.all([
+        client
+          .from('profiles')
+          .select('id, email, display_name, handle, role, avatar_url')
+          .order('display_name', { ascending: true })
+          .limit(500),
+        listNpcCards(client),
+      ])
 
-  const profiles = ((profilesResult.data ?? []) as ProfileRow[]).map((entry) => {
-    const baseProfile = mapProfile(entry)
-    return {
-      ...baseProfile,
-      ...resolveSheetAccessMetadata(baseProfile, viewer),
-    }
-  })
-  const profileById = new Map(profiles.map((entry) => [entry.id, entry]))
-  const ownedNpcCountByOwner = new Map<string, number>()
-  const npcs = npcsResult.map((entry) => {
-    const ownerProfile = entry.owner_profile_id
-      ? profileById.get(entry.owner_profile_id) ?? null
-      : null
-    const ownerSheetNumber = ownerProfile
-      ? (ownedNpcCountByOwner.get(ownerProfile.id) ?? 0) + 2
-      : undefined
+      if (profilesResult.error) throw profilesResult.error
 
-    if (ownerProfile) {
-      ownedNpcCountByOwner.set(
-        ownerProfile.id,
-        (ownedNpcCountByOwner.get(ownerProfile.id) ?? 0) + 1,
-      )
-    }
+      const profiles = ((profilesResult.data ?? []) as ProfileRow[]).map((entry) => {
+        const baseProfile = mapProfile(entry)
+        return {
+          ...baseProfile,
+          ...resolveSheetAccessMetadata(baseProfile, viewer),
+        }
+      })
+      const profileById = new Map(profiles.map((entry) => [entry.id, entry]))
+      const ownedNpcCountByOwner = new Map<string, number>()
+      const npcs = npcsResult.map((entry) => {
+        const ownerProfile = entry.owner_profile_id
+          ? profileById.get(entry.owner_profile_id) ?? null
+          : null
+        const ownerSheetNumber = ownerProfile
+          ? (ownedNpcCountByOwner.get(ownerProfile.id) ?? 0) + 2
+          : undefined
 
-    const baseProfile = mapNpcProfile(entry, {
-      ownerProfileId: entry.owner_profile_id ?? undefined,
-      ownerDisplayName: ownerProfile?.displayName,
-      ownerEmail: ownerProfile?.email,
-      ownerSheetNumber,
-    })
-    return {
-      ...baseProfile,
-      ...resolveNpcSheetAccessMetadata(entry, viewer),
-    }
-  })
+        if (ownerProfile) {
+          ownedNpcCountByOwner.set(
+            ownerProfile.id,
+            (ownedNpcCountByOwner.get(ownerProfile.id) ?? 0) + 1,
+          )
+        }
 
-  return [...profiles, ...npcs].sort(sortAccessibleProfiles)
+        const baseProfile = mapNpcProfile(entry, {
+          ownerProfileId: entry.owner_profile_id ?? undefined,
+          ownerDisplayName: ownerProfile?.displayName,
+          ownerEmail: ownerProfile?.email,
+          ownerSheetNumber,
+        })
+        return {
+          ...baseProfile,
+          ...resolveNpcSheetAccessMetadata(entry, viewer),
+        }
+      })
+
+      return [...profiles, ...npcs].sort(sortAccessibleProfiles)
+    },
+  )
 }
 
 export async function createNpcCard(displayName: string, ownerProfileId?: string): Promise<Profile> {
@@ -501,6 +525,9 @@ export async function createNpcCard(displayName: string, ownerProfileId?: string
     field_data: buildInitialFieldData(),
     ...(ownerProfileId ? { owner_profile_id: ownerProfileId } : {}),
   }
+
+  logSupabaseFetch({ functionName: 'createNpcCard', table: 'npc_cards' })
+
   const { data, error } = await client
     .from('npc_cards')
     .insert(insertPayload)
@@ -522,9 +549,11 @@ export async function createNpcCard(displayName: string, ownerProfileId?: string
       throw fallbackResult.error
     }
 
+    clearSupabaseFetchCache('listSheetProfiles:')
     return mapNpcProfile(fallbackResult.data as NpcCardRow)
   }
 
+  clearSupabaseFetchCache('listSheetProfiles:')
   return mapNpcProfile(data as NpcCardRow)
 }
 
@@ -535,6 +564,8 @@ export async function updateProfileDisplayName(profileId: string, displayName: s
   if (!trimmed) {
     return
   }
+
+  logSupabaseFetch({ functionName: 'updateProfileDisplayName', table: 'profiles' })
 
   const { data, error } = await client
     .from('profiles')
@@ -550,6 +581,8 @@ export async function updateProfileDisplayName(profileId: string, displayName: s
   if (!data) {
     throw new Error('Nao foi possivel guardar o novo nome deste perfil no Supabase.')
   }
+
+  clearSupabaseFetchCache('listSheetProfiles:')
 }
 
 export async function updateNpcCardDisplayName(npcId: string, displayName: string): Promise<void> {
@@ -559,6 +592,8 @@ export async function updateNpcCardDisplayName(npcId: string, displayName: strin
   if (!trimmed) {
     return
   }
+
+  logSupabaseFetch({ functionName: 'updateNpcCardDisplayName', table: 'npc_cards' })
 
   const { data, error } = await client
     .from('npc_cards')
@@ -574,53 +609,93 @@ export async function updateNpcCardDisplayName(npcId: string, displayName: strin
   if (!data) {
     throw new Error('Nao foi possivel guardar o novo nome desta ficha no Supabase.')
   }
+
+  clearSupabaseFetchCache('listSheetProfiles:')
 }
 
 export async function fetchNpcSheet(npcId: string): Promise<WebSheetRecord> {
   const client = ensureSupabase()
-  const { data, error } = await client
-    .from('npc_cards')
-    .select('id, display_name, field_data, updated_at')
-    .eq('id', npcId)
-    .single()
 
-  if (error) throw error
-  return mapNpcSheet(data as NpcCardRow)
+  return runSupabaseFetch(
+    `fetchNpcSheet:${npcId}`,
+    { functionName: 'fetchNpcSheet', table: 'npc_cards' },
+    async () => {
+      const { data, error } = await client
+        .from('npc_cards')
+        .select('id, display_name, field_data, updated_at')
+        .eq('id', npcId)
+        .single()
+
+      if (error) throw error
+      return mapNpcSheet(data as NpcCardRow)
+    },
+  )
 }
 
-export async function fetchSheetSnapshot(profile: Profile): Promise<WebSheetRecord | null> {
+type FetchSheetSnapshotOptions = {
+  preferCache?: boolean
+  cacheMaxAgeMs?: number
+}
+
+export async function fetchSheetSnapshot(
+  profile: Profile,
+  options: FetchSheetSnapshotOptions = {},
+): Promise<WebSheetRecord | null> {
   const client = ensureSupabase()
+  const cachedRecord = options.preferCache
+    ? getCachedSheetRecord(profile.id, options.cacheMaxAgeMs)
+    : null
 
-  if (isNpcProfile(profile)) {
-    const { data, error } = await client
-      .from('npc_cards')
-      .select('id, display_name, field_data, updated_at')
-      .eq('id', profile.id)
-      .maybeSingle()
-
-    if (error) throw error
-    return data ? mapNpcSheet(data as NpcCardRow) : null
+  if (cachedRecord) {
+    return cachedRecord
   }
 
-  const { data, error } = await client
-    .from('character_sheet_forms')
-    .select('id, profile_id, template_key, field_data, updated_at')
-    .eq('profile_id', profile.id)
-    .maybeSingle()
+  if (isNpcProfile(profile)) {
+    return runSupabaseFetch(
+      `fetchSheetSnapshot:npc:${profile.id}`,
+      { functionName: 'fetchSheetSnapshot', table: 'npc_cards' },
+      async () => {
+        const { data, error } = await client
+          .from('npc_cards')
+          .select('id, display_name, field_data, updated_at')
+          .eq('id', profile.id)
+          .maybeSingle()
 
-  if (error) throw error
-  return data ? mapSheet(data as SheetRow) : null
+        if (error) throw error
+        return data ? mapNpcSheet(data as NpcCardRow) : null
+      },
+    )
+  }
+
+  return runSupabaseFetch(
+    `fetchSheetSnapshot:profile:${profile.id}`,
+    { functionName: 'fetchSheetSnapshot', table: 'character_sheet_forms' },
+    async () => {
+      const { data, error } = await client
+        .from('character_sheet_forms')
+        .select('id, profile_id, template_key, field_data, updated_at')
+        .eq('profile_id', profile.id)
+        .maybeSingle()
+
+      if (error) throw error
+      return data ? mapSheet(data as SheetRow) : null
+    },
+  )
 }
 
 export async function deleteNpcCard(npcId: string): Promise<void> {
   const client = ensureSupabase()
+  logSupabaseFetch({ functionName: 'deleteNpcCard', table: 'npc_cards' })
   const { error } = await client.from('npc_cards').delete().eq('id', npcId)
   if (error) throw error
+  clearSupabaseFetchCache('listSheetProfiles:')
 }
 
 export async function saveNpcSheet(npcId: string, fieldData: Record<string, string>): Promise<WebSheetRecord> {
   const client = ensureSupabase()
   const normalizedFieldData = normalizeFieldData(fieldData)
+  logSupabaseFetch({ functionName: 'saveNpcSheet', table: 'npc_cards' })
+
   const { data, error } = await client
     .from('npc_cards')
     .update({ field_data: normalizedFieldData, updated_at: new Date().toISOString() })
@@ -638,61 +713,70 @@ export async function saveNpcSheet(npcId: string, fieldData: Record<string, stri
 
 export async function fetchOrCreateSheet(profile: Profile) {
   const client = ensureSupabase()
-  const { data, error } = await client
-    .from('character_sheet_forms')
-    .select('id, profile_id, template_key, field_data, updated_at')
-    .eq('profile_id', profile.id)
-    .maybeSingle()
 
-  if (error) {
-    throw error
-  }
-
-  if (data) {
-    const existingSheet = data as SheetRow
-
-    if (existingSheet.template_key !== CURRENT_TEMPLATE_KEY) {
-      const migratedFieldData = normalizeFieldData(existingSheet.field_data)
-      const { data: migrated, error: migrationError } = await client
+  return runSupabaseFetch(
+    `fetchOrCreateSheet:${profile.id}`,
+    { functionName: 'fetchOrCreateSheet', table: 'character_sheet_forms' },
+    async () => {
+      const { data, error } = await client
         .from('character_sheet_forms')
-        .update({
+        .select('id, profile_id, template_key, field_data, updated_at')
+        .eq('profile_id', profile.id)
+        .maybeSingle()
+
+      if (error) {
+        throw error
+      }
+
+      if (data) {
+        const existingSheet = data as SheetRow
+
+        if (existingSheet.template_key !== CURRENT_TEMPLATE_KEY) {
+          const migratedFieldData = normalizeFieldData(existingSheet.field_data)
+          const { data: migrated, error: migrationError } = await client
+            .from('character_sheet_forms')
+            .update({
+              template_key: CURRENT_TEMPLATE_KEY,
+              field_data: migratedFieldData,
+            })
+            .eq('id', existingSheet.id)
+            .select('id, profile_id, template_key, field_data, updated_at')
+            .single()
+
+          if (migrationError) {
+            throw migrationError
+          }
+
+          return mapSheet(migrated as SheetRow)
+        }
+
+        return mapSheet(data as SheetRow)
+      }
+
+      const { data: inserted, error: insertError } = await client
+        .from('character_sheet_forms')
+        .insert({
+          profile_id: profile.id,
           template_key: CURRENT_TEMPLATE_KEY,
-          field_data: migratedFieldData,
+          field_data: buildInitialFieldData(),
         })
-        .eq('id', existingSheet.id)
         .select('id, profile_id, template_key, field_data, updated_at')
         .single()
 
-      if (migrationError) {
-        throw migrationError
+      if (insertError) {
+        throw insertError
       }
 
-      return mapSheet(migrated as SheetRow)
-    }
-
-    return mapSheet(data as SheetRow)
-  }
-
-  const { data: inserted, error: insertError } = await client
-    .from('character_sheet_forms')
-    .insert({
-      profile_id: profile.id,
-      template_key: CURRENT_TEMPLATE_KEY,
-      field_data: buildInitialFieldData(),
-    })
-    .select('id, profile_id, template_key, field_data, updated_at')
-    .single()
-
-  if (insertError) {
-    throw insertError
-  }
-
-  return mapSheet(inserted as SheetRow)
+      return mapSheet(inserted as SheetRow)
+    },
+  )
 }
 
 export async function saveSheetFields(profileId: string, fieldData: Record<string, string>) {
   const client = ensureSupabase()
   const normalizedFieldData = normalizeFieldData(fieldData)
+  logSupabaseFetch({ functionName: 'saveSheetFields', table: 'character_sheet_forms' })
+
   const { data, error } = await client
     .from('character_sheet_forms')
     .upsert(
@@ -715,17 +799,23 @@ export async function saveSheetFields(profileId: string, fieldData: Record<strin
 
 export async function fetchGlobalCyberwareCatalog(): Promise<WebSheetRecord> {
   const client = ensureSupabase()
-  const { data, error } = await client
-    .from('cyberware_catalog_settings')
-    .select('id, catalog, updated_at')
-    .eq('id', GLOBAL_CYBERWARE_CATALOG_ID)
-    .maybeSingle()
+  return runSupabaseFetch(
+    `fetchGlobalCyberwareCatalog:${GLOBAL_CYBERWARE_CATALOG_ID}`,
+    { functionName: 'fetchGlobalCyberwareCatalog', table: 'cyberware_catalog_settings' },
+    async () => {
+      const { data, error } = await client
+        .from('cyberware_catalog_settings')
+        .select('id, catalog, updated_at')
+        .eq('id', GLOBAL_CYBERWARE_CATALOG_ID)
+        .maybeSingle()
 
-  if (error) {
-    throw error
-  }
+      if (error) {
+        throw error
+      }
 
-  return mapGlobalCyberwareCatalog(data as GlobalCyberwareCatalogRow | null)
+      return mapGlobalCyberwareCatalog(data as GlobalCyberwareCatalogRow | null)
+    },
+  )
 }
 
 export async function saveGlobalCyberwareCatalog(
@@ -735,6 +825,8 @@ export async function saveGlobalCyberwareCatalog(
   const normalizedFieldData = {
     [CYBERWARE_CATALOG_FIELD_KEY]: fieldData[CYBERWARE_CATALOG_FIELD_KEY] ?? '[]',
   }
+  logSupabaseFetch({ functionName: 'saveGlobalCyberwareCatalog', table: 'cyberware_catalog_settings' })
+
   const { data, error } = await client
     .from('cyberware_catalog_settings')
     .upsert(
@@ -757,32 +849,44 @@ export async function saveGlobalCyberwareCatalog(
 
 async function fetchRealtimeSheetByProfileId(profileId: string) {
   const client = ensureSupabase()
-  const { data, error } = await client
-    .from('character_sheet_forms')
-    .select('id, profile_id, template_key, field_data, updated_at')
-    .eq('profile_id', profileId)
-    .maybeSingle()
+  return runSupabaseFetch(
+    `fetchRealtimeSheetByProfileId:${profileId}`,
+    { functionName: 'fetchRealtimeSheetByProfileId', table: 'character_sheet_forms' },
+    async () => {
+      const { data, error } = await client
+        .from('character_sheet_forms')
+        .select('id, profile_id, template_key, field_data, updated_at')
+        .eq('profile_id', profileId)
+        .maybeSingle()
 
-  if (error || !data) {
-    return null
-  }
+      if (error || !data) {
+        return null
+      }
 
-  return mapSheet(data as SheetRow)
+      return mapSheet(data as SheetRow)
+    },
+  )
 }
 
 async function fetchRealtimeNpcSheetById(npcId: string) {
   const client = ensureSupabase()
-  const { data, error } = await client
-    .from('npc_cards')
-    .select('id, display_name, field_data, updated_at')
-    .eq('id', npcId)
-    .maybeSingle()
+  return runSupabaseFetch(
+    `fetchRealtimeNpcSheetById:${npcId}`,
+    { functionName: 'fetchRealtimeNpcSheetById', table: 'npc_cards' },
+    async () => {
+      const { data, error } = await client
+        .from('npc_cards')
+        .select('id, display_name, field_data, updated_at')
+        .eq('id', npcId)
+        .maybeSingle()
 
-  if (error || !data) {
-    return null
-  }
+      if (error || !data) {
+        return null
+      }
 
-  return mapNpcSheet(data as NpcCardRow)
+      return mapNpcSheet(data as NpcCardRow)
+    },
+  )
 }
 
 async function fetchRealtimeGlobalCyberwareCatalog() {
@@ -796,17 +900,24 @@ async function fetchRealtimeGlobalCyberwareCatalog() {
 export async function listSheetShareViewerIds(target: Profile) {
   const client = ensureSupabase()
   const { targetKind, targetId } = resolveShareTarget(target)
-  const { data, error } = await client
-    .from('sheet_share_access')
-    .select('viewer_profile_id')
-    .eq('target_kind', targetKind)
-    .eq('target_id', targetId)
+  return runSupabaseFetch(
+    `listSheetShareViewerIds:${targetKind}:${targetId}`,
+    { functionName: 'listSheetShareViewerIds', table: 'sheet_share_access' },
+    async () => {
+      const { data, error } = await client
+        .from('sheet_share_access')
+        .select('viewer_profile_id')
+        .eq('target_kind', targetKind)
+        .eq('target_id', targetId)
+        .limit(500)
 
-  if (error) {
-    throw error
-  }
+      if (error) {
+        throw error
+      }
 
-  return [...new Set(((data ?? []) as SheetShareAccessRow[]).map((entry) => entry.viewer_profile_id))]
+      return [...new Set(((data ?? []) as SheetShareAccessRow[]).map((entry) => entry.viewer_profile_id))]
+    },
+  )
 }
 
 export async function updateSheetShareAccess(target: Profile, viewerIds: string[]) {
@@ -815,6 +926,8 @@ export async function updateSheetShareAccess(target: Profile, viewerIds: string[
   const normalizedViewerIds = [...new Set(viewerIds)]
     .filter(Boolean)
     .filter((viewerId) => targetKind === 'npc' || viewerId !== targetId)
+
+  logSupabaseFetch({ functionName: 'updateSheetShareAccess', table: 'sheet_share_access' })
 
   const { error: deleteError } = await client
     .from('sheet_share_access')
@@ -825,6 +938,9 @@ export async function updateSheetShareAccess(target: Profile, viewerIds: string[
   if (deleteError) {
     throw deleteError
   }
+
+  clearSupabaseFetchCache(`listSheetShareViewerIds:${targetKind}:${targetId}`)
+  clearSupabaseFetchCache('listSheetProfiles:')
 
   if (!normalizedViewerIds.length) {
     return
@@ -857,49 +973,58 @@ function createRealtimeRefreshRunner<T>(
   onChange: (value: T) => void,
 ) {
   let disposed = false
-  let refreshToken = 0
-  const timeoutIds = new Set<ReturnType<typeof setTimeout>>()
-
-  const clearScheduledRefreshes = () => {
-    timeoutIds.forEach((timeoutId) => clearTimeout(timeoutId))
-    timeoutIds.clear()
-  }
+  let inFlight = false
+  let queued = false
+  let timeoutId: ReturnType<typeof setTimeout> | null = null
 
   const scheduleRefresh = () => {
-    refreshToken += 1
-    const nextToken = refreshToken
+    if (timeoutId) {
+      clearTimeout(timeoutId)
+    }
 
-    clearScheduledRefreshes()
+    timeoutId = setTimeout(() => {
+      timeoutId = null
 
-    ;[0, 180, 650].forEach((delay) => {
-      const timeoutId = setTimeout(() => {
-        timeoutIds.delete(timeoutId)
+      if (disposed) {
+        return
+      }
 
-        if (disposed || nextToken !== refreshToken) {
-          return
-        }
+      if (inFlight) {
+        queued = true
+        return
+      }
 
-        void fetchLatest()
-          .then((nextValue) => {
-            if (!nextValue || disposed || nextToken !== refreshToken) {
-              return
-            }
+      inFlight = true
+      void fetchLatest()
+        .then((nextValue) => {
+          if (!nextValue || disposed) {
+            return
+          }
 
-            onChange(nextValue)
-          })
-          .catch(() => {})
-      }, delay)
+          onChange(nextValue)
+        })
+        .catch(() => {})
+        .finally(() => {
+          inFlight = false
 
-      timeoutIds.add(timeoutId)
-    })
+          if (queued && !disposed) {
+            queued = false
+            scheduleRefresh()
+          }
+        })
+    }, 600)
   }
 
   return {
     scheduleRefresh,
     dispose() {
       disposed = true
-      refreshToken += 1
-      clearScheduledRefreshes()
+      queued = false
+
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+        timeoutId = null
+      }
     },
   }
 }
@@ -923,7 +1048,12 @@ export function subscribeToSheet(
         table: 'character_sheet_forms',
         filter: `profile_id=eq.${profileId}`,
       },
-      () => {
+      (payload) => {
+        if (payload.eventType !== 'DELETE' && payload.new) {
+          onChange(mapSheet(payload.new as SheetRow))
+          return
+        }
+
         refreshRunner.scheduleRefresh()
       },
     )
@@ -959,6 +1089,11 @@ export function subscribeToNpcSheet(
           return
         }
 
+        if (payload.new) {
+          onChange(mapNpcSheet(payload.new as NpcCardRow))
+          return
+        }
+
         refreshRunner.scheduleRefresh()
       },
     )
@@ -988,7 +1123,12 @@ export function subscribeToGlobalCyberwareCatalog(
         table: 'cyberware_catalog_settings',
         filter: `id=eq.${GLOBAL_CYBERWARE_CATALOG_ID}`,
       },
-      () => {
+      (payload) => {
+        if (payload.eventType !== 'DELETE' && payload.new) {
+          onChange(mapGlobalCyberwareCatalog(payload.new as GlobalCyberwareCatalogRow))
+          return
+        }
+
         refreshRunner.scheduleRefresh()
       },
     )
@@ -1018,7 +1158,37 @@ export function subscribeToSheetDirectory(onChange: () => void) {
     .on(
       'postgres_changes',
       {
-        event: '*',
+        event: 'INSERT',
+        schema: 'public',
+        table: 'npc_cards',
+      },
+      () => {
+        onChange()
+      },
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'npc_cards',
+      },
+      (payload) => {
+        const oldRow = payload.old as Partial<NpcCardRow>
+        const newRow = payload.new as Partial<NpcCardRow>
+
+        if (
+          oldRow.display_name !== undefined &&
+          newRow.display_name !== oldRow.display_name
+        ) {
+          onChange()
+        }
+      },
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: 'DELETE',
         schema: 'public',
         table: 'npc_cards',
       },
@@ -1059,22 +1229,31 @@ export type ProfileGroup = { id: string; name: string; profileIds: string[] }
 
 export async function loadGmGroups(profileId: string): Promise<ProfileGroup[]> {
   const client = ensureSupabase()
-  const { data, error } = await client
-    .from('gm_settings')
-    .select('groups')
-    .eq('profile_id', profileId)
-    .maybeSingle()
+  return runSupabaseFetch(
+    `loadGmGroups:${profileId}`,
+    { functionName: 'loadGmGroups', table: 'gm_settings' },
+    async () => {
+      const { data, error } = await client
+        .from('gm_settings')
+        .select('groups')
+        .eq('profile_id', profileId)
+        .maybeSingle()
 
-  if (error) throw error
-  if (!data) return []
-  return (data.groups as ProfileGroup[]) ?? []
+      if (error) throw error
+      if (!data) return []
+      return (data.groups as ProfileGroup[]) ?? []
+    },
+  )
 }
 
 export async function saveGmGroups(profileId: string, groups: ProfileGroup[]): Promise<void> {
   const client = ensureSupabase()
+  logSupabaseFetch({ functionName: 'saveGmGroups', table: 'gm_settings' })
+
   const { error } = await client
     .from('gm_settings')
     .upsert({ profile_id: profileId, groups, updated_at: new Date().toISOString() }, { onConflict: 'profile_id' })
 
   if (error) throw error
+  clearSupabaseFetchCache(`loadGmGroups:${profileId}`)
 }
