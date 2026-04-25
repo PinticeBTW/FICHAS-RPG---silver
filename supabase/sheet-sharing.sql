@@ -101,7 +101,9 @@ begin
     where schemaname = 'public'
       and tablename = 'npc_cards'
   ) then
+    execute 'grant select, insert, update, delete on public.npc_cards to authenticated';
     execute 'drop policy if exists "player_read" on public.npc_cards';
+    execute 'drop policy if exists "player_update_shared" on public.npc_cards';
     execute $policy$
       create policy "player_read" on public.npc_cards
         for select
@@ -114,6 +116,12 @@ begin
           )
           or public.has_sheet_share_access('npc', id)
         )
+    $policy$;
+    execute $policy$
+      create policy "player_update_shared" on public.npc_cards
+        for update
+        using (public.has_sheet_share_access('npc', id))
+        with check (public.has_sheet_share_access('npc', id))
     $policy$;
   end if;
 exception

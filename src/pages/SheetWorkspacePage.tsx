@@ -470,7 +470,18 @@ export function SheetWorkspacePage() {
     selectedProfile.role === 'gm',
   )
 
-  const canEdit = Boolean(profile && selectedProfile && (profile.role === 'gm' || selectedProfile.id === profile.id))
+  const canEditSharedNpc = Boolean(
+    profile &&
+    selectedProfile &&
+    profile.role !== 'gm' &&
+    selectedProfile.sheetAccess === 'shared' &&
+    isNpcProfile(selectedProfile),
+  )
+  const canEdit = Boolean(
+    profile &&
+    selectedProfile &&
+    (profile.role === 'gm' || selectedProfile.id === profile.id || canEditSharedNpc),
+  )
   const canManageCyberwareCatalog = Boolean(
     profile &&
     selectedProfile &&
@@ -1707,8 +1718,9 @@ export function SheetWorkspacePage() {
               <div className="border border-sky-500/30 bg-sky-500/10 px-4 py-3">
                 <p className="truncate text-sm font-semibold text-white">{selectedProfile.displayName}</p>
                 <p className="mt-2 text-xs leading-6 text-stone-300">
-                  Ficha partilhada pelo Silver. Esta vista aparece no teu terminal, mas fica em modo
-                  leitura.
+                  {canEdit
+                    ? 'Ficha extra partilhada pelo Silver. Podes editar e guardar no teu terminal.'
+                    : 'Ficha partilhada pelo Silver. Esta vista aparece no teu terminal, mas fica em modo leitura.'}
                 </p>
               </div>
             ) : null}
