@@ -4,9 +4,13 @@
 create table if not exists public.npc_cards (
   id uuid primary key default gen_random_uuid(),
   display_name text not null,
+  owner_profile_id uuid references public.profiles (id) on delete cascade,
   field_data jsonb not null default '{}',
   updated_at timestamptz not null default timezone('utc', now())
 );
+
+alter table public.npc_cards
+  add column if not exists owner_profile_id uuid references public.profiles (id) on delete cascade;
 
 grant select, insert, update, delete on public.npc_cards to authenticated;
 
@@ -33,7 +37,7 @@ create policy "gm_all" on public.npc_cards
     )
   );
 
--- Players so podem ler os NPCs que o Silver lhes partilhar
+-- Players so podem ler NPCs proprios ou partilhados pelo Silver
 drop policy if exists "player_read" on public.npc_cards;
 create policy "player_read" on public.npc_cards
   for select
@@ -44,8 +48,16 @@ create policy "player_read" on public.npc_cards
       where profiles.id = auth.uid()
         and profiles.role = 'gm'
     )
+    or owner_profile_id = auth.uid()
     or public.has_sheet_share_access('npc', id)
   );
+
+-- Players podem editar fichas extra que lhes pertencem
+drop policy if exists "player_update_owned" on public.npc_cards;
+create policy "player_update_owned" on public.npc_cards
+  for update
+  using (owner_profile_id = auth.uid())
+  with check (owner_profile_id = auth.uid());
 
 -- Players podem editar fichas extra que lhes foram partilhadas
 drop policy if exists "player_update_shared" on public.npc_cards;

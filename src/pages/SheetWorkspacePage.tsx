@@ -159,10 +159,10 @@ function getSaveErrorMessage(error: unknown) {
 function buildSaveErrorMessage(error: unknown, profileToSave: Profile) {
   const rawMessage = getSaveErrorMessage(error)
 
-  if (isNpcProfile(profileToSave) && profileToSave.sheetAccess === 'shared') {
+  if (isNpcProfile(profileToSave)) {
     return [
       rawMessage || 'O Supabase recusou guardar esta ficha extra.',
-      'Falta ativar a policy de edicao: corre supabase/allow-shared-npc-edits.sql no Supabase SQL Editor.',
+      'Falta ativar o dono/policy desta ficha: corre supabase/own-extra-player-sheets.sql no Supabase SQL Editor.',
     ].join(' ')
   }
 
@@ -219,6 +219,7 @@ function resolveDefaultAccessibleProfile(viewer: Profile | null, entries: Profil
   }
 
   return (
+    entries.find((entry) => entry.sheetAccess === 'owner' && isNpcProfile(entry)) ??
     entries.find((entry) => entry.sheetAccess === 'shared' && isNpcProfile(entry)) ??
     entries[0] ??
     null
@@ -526,17 +527,17 @@ export function SheetWorkspacePage() {
     selectedProfile.role === 'gm',
   )
 
-  const canEditSharedNpc = Boolean(
+  const canEditPlayerNpcSheet = Boolean(
     profile &&
     selectedProfile &&
     profile.role !== 'gm' &&
-    selectedProfile.sheetAccess === 'shared' &&
+    (selectedProfile.sheetAccess === 'owner' || selectedProfile.sheetAccess === 'shared') &&
     isNpcProfile(selectedProfile),
   )
   const canEdit = Boolean(
     profile &&
     selectedProfile &&
-    (profile.role === 'gm' || selectedProfile.id === profile.id || canEditSharedNpc),
+    (profile.role === 'gm' || selectedProfile.id === profile.id || canEditPlayerNpcSheet),
   )
   const canManageCyberwareCatalog = Boolean(
     profile &&
@@ -1402,7 +1403,7 @@ export function SheetWorkspacePage() {
     let shareWarning: string | null = null
 
     try {
-      const newProfile = await createNpcCard(name)
+      const newProfile = await createNpcCard(name, viewerId || undefined)
 
       if (viewerId) {
         try {
@@ -1662,7 +1663,10 @@ export function SheetWorkspacePage() {
                 {accessibleProfiles.map((entry) => {
                   const isSelected = entry.id === selectedProfile?.id
                   const isOwnEntry = entry.id === profile.id
-                  const isDefaultExtraEntry = entry.sheetAccess === 'shared' && isNpcProfile(entry)
+                  const isDefaultExtraEntry = isNpcProfile(entry) && (
+                    entry.sheetAccess === 'owner' ||
+                    entry.sheetAccess === 'shared'
+                  )
 
                   return (
                     <button
@@ -1692,7 +1696,7 @@ export function SheetWorkspacePage() {
               </div>
             ) : null}
             {/* Player: só o seu card */}
-            {!isGm && selectedProfile && (isOwnSelectedProfile || canEditSharedNpc) && (
+            {!isGm && selectedProfile && (isOwnSelectedProfile || canEditPlayerNpcSheet) && (
               <>
                 {accessibleProfiles.length <= 1 ? (
                   <div className="border border-[#f3e600] bg-[#f3e600]/10 px-4 py-3">
@@ -1773,7 +1777,7 @@ export function SheetWorkspacePage() {
               </>
             )}
 
-            {!isGm && selectedProfile && !isOwnSelectedProfile && !canEditSharedNpc ? (
+            {!isGm && selectedProfile && !isOwnSelectedProfile && !canEditPlayerNpcSheet ? (
               <div className="border border-sky-500/30 bg-sky-500/10 px-4 py-3">
                 <p className="truncate text-sm font-semibold text-white">{selectedProfile.displayName}</p>
                 <p className="mt-2 text-xs leading-6 text-stone-300">
