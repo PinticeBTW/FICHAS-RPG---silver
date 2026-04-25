@@ -12,6 +12,8 @@ import {
 import { removeCyberwareFromEquippedFieldData } from '../../lib/cyberwareState'
 import {
   CYBERWARE_CATALOG_FIELD_KEY,
+  CYBERWARE_CYBER_MAX_FIELD_KEY,
+  CYBERWARE_SHIELD_MAX_FIELD_KEY,
   cyberwareSheetZones,
 } from '../../lib/cyberwareSheetLayout'
 import type { Cyberware, CyberwareGroupId } from '../../types/cyberware'
@@ -329,6 +331,16 @@ export function CyberwareCatalogManager({
     saveEntries([...entries, createEmptySheetCyberware()])
   }
 
+  const handleClearCatalog = () => {
+    onFieldChange(CYBERWARE_CATALOG_FIELD_KEY, '[]')
+    onFieldChange(CYBERWARE_CYBER_MAX_FIELD_KEY, '')
+    onFieldChange(CYBERWARE_SHIELD_MAX_FIELD_KEY, '')
+
+    for (const zone of cyberwareSheetZones) {
+      onFieldChange(zone.fieldKey, '[]')
+    }
+  }
+
   const handleDeleteEntry = (entryId: string) => {
     saveEntries(entries.filter((entry) => entry.id !== entryId))
 
@@ -355,14 +367,28 @@ export function CyberwareCatalogManager({
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={handleAddEntry}
-            className="signal-button inline-flex items-center justify-center gap-2 px-4 py-2 text-sm"
-          >
-            <Plus size={15} />
-            Adicionar cyberware
-          </button>
+          <div className="flex flex-wrap gap-2">
+            {entries.length ? (
+              <button
+                type="button"
+                onClick={handleClearCatalog}
+                className="signal-button inline-flex items-center justify-center gap-2 px-4 py-2 text-sm"
+                data-tone="danger"
+              >
+                <Trash2 size={15} />
+                Limpar tudo
+              </button>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={handleAddEntry}
+              className="signal-button inline-flex items-center justify-center gap-2 px-4 py-2 text-sm"
+            >
+              <Plus size={15} />
+              Adicionar cyberware
+            </button>
+          </div>
         </div>
       </section>
 
