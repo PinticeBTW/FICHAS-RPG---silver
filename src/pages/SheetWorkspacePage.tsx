@@ -967,15 +967,16 @@ export function SheetWorkspacePage() {
     })
 
     const unsubscribeCallbacks = accessibleProfiles
-      .filter((entry) => !isNpcProfile(entry))
-      .map((entry) =>
-        subscribeToSheet(entry.id, (nextSheet) => {
+      .map((entry) => {
+        const subscribe = isNpcProfile(entry) ? subscribeToNpcSheet : subscribeToSheet
+
+        return subscribe(entry.id, (nextSheet) => {
           setBoardSheetSnapshots((current) => ({
             ...current,
             [entry.id]: nextSheet,
           }))
-        }),
-      )
+        })
+      })
 
     return () => {
       cancelled = true
