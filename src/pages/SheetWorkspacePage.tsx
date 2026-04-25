@@ -60,6 +60,7 @@ const SAVING_LEAVE_MESSAGE =
 const LOCAL_DRAFT_STORAGE_PREFIX = 'rpgsilver-sheet-draft:'
 const GLOBAL_CYBERWARE_SETUP_MESSAGE =
   'Falta ativar o catalogo global de cyberware: corre supabase/global-cyberware-catalog.sql no Supabase SQL Editor.'
+const SAVE_QUEUE_DELAY_MS = 1000
 
 function serializeFieldData(fieldData: Record<string, string>) {
   return JSON.stringify(
@@ -1443,7 +1444,10 @@ export function SheetWorkspacePage() {
 
     try {
       const savedSheet = isNpcProfile(profileToSave)
-        ? await saveNpcSheet(profileToSave.id, draftToSave)
+        ? await saveNpcSheet(profileToSave.id, draftToSave, {
+            previousFieldData: sheetRef.current?.fieldData ?? null,
+            currentUpdatedAt: sheetRef.current?.updatedAt ?? null,
+          })
         : await saveSheetFields(profileToSave.id, draftToSave)
       const optimisticSavedSheet = {
         ...savedSheet,
@@ -1477,7 +1481,7 @@ export function SheetWorkspacePage() {
         queuedSaveRef.current = false
         window.setTimeout(() => {
           void handleSave()
-        }, 0)
+        }, SAVE_QUEUE_DELAY_MS)
       }
     }
   }, [])

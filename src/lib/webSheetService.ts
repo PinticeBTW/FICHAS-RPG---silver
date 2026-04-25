@@ -43,6 +43,7 @@ type GlobalCyberwareCatalogRow = {
 }
 
 type SavedGlobalCyberwareCatalogRow = Pick<GlobalCyberwareCatalogRow, 'id' | 'updated_at'>
+type SavedNpcCardRow = Pick<NpcCardRow, 'id' | 'updated_at'>
 
 type SheetProfileMetadata = Partial<
   Pick<
@@ -217,6 +218,65 @@ function normalizeFieldData(fieldData: Record<string, unknown> | string | null) 
   return nextFieldData
 }
 
+function buildFieldDataPatch(
+  nextFieldData: Record<string, string>,
+  previousFieldData?: Record<string, string> | null,
+) {
+  if (!previousFieldData) {
+    return null
+  }
+
+  const normalizedPrevious = normalizeFieldData(previousFieldData)
+  const patch: Record<string, string> = {}
+  const removedKeys: string[] = []
+
+  for (const [key, value] of Object.entries(nextFieldData)) {
+    if (normalizedPrevious[key] !== value) {
+      patch[key] = value
+    }
+  }
+
+  for (const key of Object.keys(normalizedPrevious)) {
+    if (!(key in nextFieldData)) {
+      removedKeys.push(key)
+    }
+  }
+
+  return {
+    patch,
+    removedKeys,
+    changedKeys: [...Object.keys(patch), ...removedKeys.map((key) => `-${key}`)],
+  }
+}
+
+function getJsonSizeKb(value: unknown) {
+  try {
+    const json = JSON.stringify(value)
+    return Number((new Blob([json]).size / 1024).toFixed(2))
+  } catch {
+    return 0
+  }
+}
+
+function logNpcSave(message: string, value: unknown) {
+  if (!import.meta.env.DEV) {
+    return
+  }
+
+  console.debug(`[NPC_SAVE] ${message}`, value)
+}
+
+function isNpcPatchFunctionUnavailableError(error: unknown) {
+  const text = sheetSharingErrorText(error)
+
+  return (
+    text.includes('patch_npc_card_field_data') ||
+    text.includes('pgrst202') ||
+    text.includes('42883') ||
+    text.includes('could not find the function')
+  )
+}
+
 const sheetRecordCache = new Map<string, WebSheetRecord>()
 const sheetRecordCacheTimes = new Map<string, number>()
 
@@ -319,7 +379,7 @@ function mapNpcSheet(row: NpcCardRow): WebSheetRecord {
   })
 }
 
-function mapSavedNpcSheet(row: Pick<NpcCardRow, 'id' | 'updated_at'>, fieldData: Record<string, string>): WebSheetRecord {
+function mapSavedNpcSheet(row: SavedNpcCardRow, fieldData: Record<string, string>): WebSheetRecord {
   return rememberCachedSheetRecord({
     id: row.id,
     profileId: row.id,
@@ -691,24 +751,103 @@ export async function deleteNpcCard(npcId: string): Promise<void> {
   clearSupabaseFetchCache('listSheetProfiles:')
 }
 
-export async function saveNpcSheet(npcId: string, fieldData: Record<string, string>): Promise<WebSheetRecord> {
-  const client = ensureSupabase()
-  const normalizedFieldData = normalizeFieldData(fieldData)
-  logSupabaseFetch({ functionName: 'saveNpcSheet', table: 'npc_cards' })
+type SaveNpcSheetOptions = {
+  previousFieldData?: Record<string, string> | null
+  currentUpdatedAt?: string | null
+}
 
+async function saveNpcSheetFullPayload(
+  npcId: string,
+  normalizedFieldData: Record<string, string>,
+): Promise<SavedNpcCardRow> {
+  const client = ensureSupabase()
+  const payload = {
+    field_data: normalizedFieldData,
+    updated_at: new Date().toISOString(),
+  }
+
+  logNpcSave('payload size:', `${getJsonSizeKb(payload)} KB`)
+  logNpcSave('fields:', Object.keys(payload))
+
+  const startedAt = performance.now()
   const { data, error } = await client
     .from('npc_cards')
-    .update({ field_data: normalizedFieldData, updated_at: new Date().toISOString() })
+    .update(payload)
     .eq('id', npcId)
     .select('id, updated_at')
     .maybeSingle()
+
+  logNpcSave('duration:', `${Math.round(performance.now() - startedAt)} ms`)
 
   if (error) throw error
   if (!data) {
     throw new Error('O Supabase bloqueou a gravacao desta ficha extra.')
   }
 
-  return mapSavedNpcSheet(data as Pick<NpcCardRow, 'id' | 'updated_at'>, normalizedFieldData)
+  return data as SavedNpcCardRow
+}
+
+async function saveNpcSheetPatchPayload(
+  npcId: string,
+  patch: Record<string, string>,
+  removedKeys: string[],
+): Promise<SavedNpcCardRow> {
+  const client = ensureSupabase()
+  const payload = {
+    p_npc_id: npcId,
+    p_field_patch: patch,
+    p_removed_keys: removedKeys,
+  }
+
+  logNpcSave('payload size:', `${getJsonSizeKb(payload)} KB`)
+  logNpcSave('fields:', Object.keys(patch).concat(removedKeys.map((key) => `-${key}`)))
+
+  const startedAt = performance.now()
+  const { data, error } = await client
+    .rpc('patch_npc_card_field_data', payload)
+    .maybeSingle()
+
+  logNpcSave('duration:', `${Math.round(performance.now() - startedAt)} ms`)
+
+  if (error) throw error
+  if (!data) {
+    throw new Error('O Supabase bloqueou a gravacao desta ficha extra.')
+  }
+
+  return data as SavedNpcCardRow
+}
+
+export async function saveNpcSheet(
+  npcId: string,
+  fieldData: Record<string, string>,
+  options: SaveNpcSheetOptions = {},
+): Promise<WebSheetRecord> {
+  const normalizedFieldData = normalizeFieldData(fieldData)
+  const fieldPatch = buildFieldDataPatch(normalizedFieldData, options.previousFieldData)
+  logSupabaseFetch({ functionName: 'saveNpcSheet', table: 'npc_cards' })
+
+  if (fieldPatch && !fieldPatch.changedKeys.length) {
+    return mapSavedNpcSheet(
+      { id: npcId, updated_at: options.currentUpdatedAt ?? new Date().toISOString() },
+      normalizedFieldData,
+    )
+  }
+
+  if (fieldPatch) {
+    try {
+      const savedPatch = await saveNpcSheetPatchPayload(npcId, fieldPatch.patch, fieldPatch.removedKeys)
+      return mapSavedNpcSheet(savedPatch, normalizedFieldData)
+    } catch (error) {
+      if (!isNpcPatchFunctionUnavailableError(error)) {
+        throw error
+      }
+
+      logNpcSave('patch fallback:', 'patch_npc_card_field_data unavailable; using full field_data update')
+    }
+  }
+
+  const savedFull = await saveNpcSheetFullPayload(npcId, normalizedFieldData)
+  return mapSavedNpcSheet(savedFull, normalizedFieldData)
 }
 
 export async function fetchOrCreateSheet(profile: Profile) {
@@ -769,6 +908,7 @@ export async function fetchOrCreateSheet(profile: Profile) {
 
       return mapSheet(inserted as SheetRow)
     },
+    { maxRetries: 0 },
   )
 }
 

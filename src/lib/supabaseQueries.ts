@@ -5,10 +5,77 @@ type SupabaseFetchMeta = {
 
 type SupabaseFetchOptions = {
   cacheMs?: number
+  maxRetries?: number
+  retryDelayMs?: number
 }
 
 const inFlightFetches = new Map<string, Promise<unknown>>()
 const memoryCache = new Map<string, { expiresAt: number; value: unknown }>()
+
+function delay(ms: number) {
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, ms)
+  })
+}
+
+function extractStatus(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return null
+  }
+
+  const candidate = error as {
+    status?: number
+    statusCode?: number
+    code?: string
+    message?: string
+  }
+
+  if (typeof candidate.status === 'number') {
+    return candidate.status
+  }
+
+  if (typeof candidate.statusCode === 'number') {
+    return candidate.statusCode
+  }
+
+  if (typeof candidate.code === 'string' && /^\d{3}$/.test(candidate.code)) {
+    return Number(candidate.code)
+  }
+
+  if (typeof candidate.message === 'string') {
+    const match = candidate.message.match(/\b(5\d\d)\b/)
+    if (match) {
+      return Number(match[1])
+    }
+  }
+
+  return null
+}
+
+function isTransientSupabaseError(error: unknown) {
+  const status = extractStatus(error)
+
+  if (status && [408, 425, 429, 500, 502, 503, 504, 521, 522, 524].includes(status)) {
+    return true
+  }
+
+  const message =
+    error instanceof Error
+      ? error.message.toLowerCase()
+      : typeof error === 'string'
+        ? error.toLowerCase()
+        : ''
+
+  return (
+    message.includes('failed to fetch') ||
+    message.includes('fetch failed') ||
+    message.includes('network') ||
+    message.includes('service unavailable') ||
+    message.includes('temporarily unavailable') ||
+    message.includes('timeout') ||
+    message.includes('cors')
+  )
+}
 
 export function logSupabaseFetch({ functionName, table }: SupabaseFetchMeta) {
   if (!import.meta.env.DEV) {
@@ -43,17 +110,44 @@ export async function runSupabaseFetch<T>(
 
   logSupabaseFetch(meta)
 
-  const promise = Promise.resolve(fetcher())
-    .then((value) => {
-      if (options.cacheMs && options.cacheMs > 0) {
-        memoryCache.set(key, {
-          expiresAt: Date.now() + options.cacheMs,
-          value,
-        })
-      }
+  const maxRetries = Math.max(0, options.maxRetries ?? 2)
+  const baseRetryDelayMs = Math.max(100, options.retryDelayMs ?? 450)
 
-      return value
-    })
+  const promise = (async () => {
+    let attempt = 0
+
+    while (true) {
+      try {
+        const value = await Promise.resolve(fetcher())
+
+        if (options.cacheMs && options.cacheMs > 0) {
+          memoryCache.set(key, {
+            expiresAt: Date.now() + options.cacheMs,
+            value,
+          })
+        }
+
+        return value
+      } catch (error) {
+        if (!isTransientSupabaseError(error) || attempt >= maxRetries) {
+          throw error
+        }
+
+        const waitMs = baseRetryDelayMs * Math.pow(2, attempt)
+        if (import.meta.env.DEV) {
+          console.debug('[SUPABASE_FETCH] retry', {
+            functionName: meta.functionName,
+            table: meta.table,
+            attempt: attempt + 1,
+            waitMs,
+          })
+        }
+
+        attempt += 1
+        await delay(waitMs)
+      }
+    }
+  })()
     .finally(() => {
       inFlightFetches.delete(key)
     })
