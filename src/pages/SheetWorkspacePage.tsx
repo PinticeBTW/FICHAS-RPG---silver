@@ -213,6 +213,18 @@ function buildBoardProfileSummary(
   }
 }
 
+function resolveDefaultAccessibleProfile(viewer: Profile | null, entries: Profile[]) {
+  if (!viewer || viewer.role === 'gm') {
+    return entries[0] ?? null
+  }
+
+  return (
+    entries.find((entry) => entry.sheetAccess === 'shared' && isNpcProfile(entry)) ??
+    entries[0] ??
+    null
+  )
+}
+
 function ProfileCard({
   entry,
   selected,
@@ -501,7 +513,8 @@ export function SheetWorkspacePage() {
   }, [profile, profiles])
 
   const selectedProfile =
-    accessibleProfiles.find((entry) => entry.id === profileId) ?? accessibleProfiles[0] ?? null
+    accessibleProfiles.find((entry) => entry.id === profileId) ??
+    resolveDefaultAccessibleProfile(profile, accessibleProfiles)
   const selectedProfileId = selectedProfile?.id ?? null
   const isOwnSelectedProfile = Boolean(profile && selectedProfile && selectedProfile.id === profile.id)
 
