@@ -23,6 +23,7 @@ import {
   fetchNpcSheet,
   fetchOrCreateSheet,
   getCachedSheetRecord,
+  isGlobalCyberwareCatalogUnavailableError,
   isNpcProfile,
   isSheetSharingUnavailableError,
   listSheetProfiles,
@@ -57,6 +58,8 @@ const UNSAVED_CHANGES_LEAVE_MESSAGE =
 const SAVING_LEAVE_MESSAGE =
   'Ainda estamos a guardar a ficha. Espera um momento ou guarda antes de sair.'
 const LOCAL_DRAFT_STORAGE_PREFIX = 'rpgsilver-sheet-draft:'
+const GLOBAL_CYBERWARE_SETUP_MESSAGE =
+  'Falta ativar o catalogo global de cyberware: corre supabase/global-cyberware-catalog.sql no Supabase SQL Editor.'
 
 function serializeFieldData(fieldData: Record<string, string>) {
   return JSON.stringify(
@@ -72,6 +75,18 @@ function serializeViewerIds(ids: string[]) {
 
 function buildLocalDraftStorageKey(profileId: string) {
   return `${LOCAL_DRAFT_STORAGE_PREFIX}${profileId}`
+}
+
+function buildEmptyGlobalCyberwareCatalogRecord(): WebSheetRecord {
+  return {
+    id: 'global',
+    profileId: 'global',
+    templateKey: 'global-cyberware-v1',
+    fieldData: {
+      [CYBERWARE_CATALOG_FIELD_KEY]: '[]',
+    },
+    updatedAt: new Date().toISOString(),
+  }
 }
 
 function readLocalDraft(profileId: string) {
@@ -816,10 +831,15 @@ export function SheetWorkspacePage() {
           return
         }
 
+        const fallbackCatalog = buildEmptyGlobalCyberwareCatalogRecord()
+        setGlobalCyberwareCatalog(fallbackCatalog)
+        setGlobalCyberwareDraftFields(fallbackCatalog.fieldData)
         setError(
-          caughtError instanceof Error
-            ? caughtError.message
-            : 'Nao foi possivel carregar o catalogo global de cyberware.',
+          isGlobalCyberwareCatalogUnavailableError(caughtError)
+            ? GLOBAL_CYBERWARE_SETUP_MESSAGE
+            : caughtError instanceof Error
+              ? caughtError.message
+              : 'Nao foi possivel carregar o catalogo global de cyberware.',
         )
       } finally {
         if (!cancelled) {
@@ -1358,9 +1378,11 @@ export function SheetWorkspacePage() {
       setSyncLabel('Catalogo guardado')
     } catch (caughtError) {
       setError(
-        caughtError instanceof Error
-          ? caughtError.message
-          : 'Nao foi possivel guardar o catalogo global de cyberware.',
+        isGlobalCyberwareCatalogUnavailableError(caughtError)
+          ? GLOBAL_CYBERWARE_SETUP_MESSAGE
+          : caughtError instanceof Error
+            ? caughtError.message
+            : 'Nao foi possivel guardar o catalogo global de cyberware.',
       )
       setSyncLabel('Falha ao guardar')
     } finally {

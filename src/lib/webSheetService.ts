@@ -100,6 +100,19 @@ export function isSheetSharingUnavailableError(error: unknown) {
   )
 }
 
+export function isGlobalCyberwareCatalogUnavailableError(error: unknown) {
+  const text = sheetSharingErrorText(error)
+
+  return (
+    text.includes('cyberware_catalog_settings') ||
+    text.includes('42p01') ||
+    text.includes('42501') ||
+    text.includes('pgrst205') ||
+    text.includes('permission denied') ||
+    text.includes('row-level security')
+  )
+}
+
 function mapProfile(
   row: ProfileRow,
   metadata?: SheetProfileMetadata,
