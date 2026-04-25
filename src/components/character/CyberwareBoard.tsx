@@ -65,6 +65,7 @@ export function CyberwareBoard({
   const colors = CW_COLORS[tone]
   const [selectedSlot, setSelectedSlot] = useState<SelectedSlot>(null)
   const isGmViewer = viewerRole === 'gm'
+  const isOwnerViewer = viewerRole === 'owner'
 
   const sheetCyberwareCatalog = useMemo(
     () => parseSheetCyberwareCatalog(fieldData[CYBERWARE_CATALOG_FIELD_KEY]),
@@ -89,17 +90,6 @@ export function CyberwareBoard({
     [],
   )
 
-  const selectedZone = selectedSlot ? zoneById[selectedSlot.groupId] : null
-  const selectedEquippedCyberware =
-    selectedSlot ? equippedCyberware[selectedSlot.groupId][selectedSlot.slotIndex] : null
-  const selectedCyberware =
-    selectedSlot && selectedEquippedCyberware && !isGmViewer && !canProfileViewCyberware(selectedEquippedCyberware, viewerProfileId)
-      ? createHiddenCyberwarePlaceholder(selectedSlot.groupId)
-      : selectedEquippedCyberware
-  const compatibleCyberwares = selectedSlot
-    ? cyberwaresByGroup[selectedSlot.groupId].filter((entry) => isGmViewer || canProfileViewCyberware(entry, viewerProfileId))
-    : []
-
   const canOpenSlot = (groupId: keyof typeof cyberwaresByGroup, slotIndex: number) => {
     if (!canEdit) {
       return false
@@ -109,7 +99,7 @@ export function CyberwareBoard({
       return true
     }
 
-    if (viewerRole !== 'owner') {
+    if (!isOwnerViewer) {
       return false
     }
 
@@ -119,15 +109,30 @@ export function CyberwareBoard({
       return canProfileViewCyberware(currentCyberware, viewerProfileId)
     }
 
-    return cyberwaresByGroup[groupId].some((entry) => canProfileViewCyberware(entry, viewerProfileId))
+    return cyberwaresByGroup[groupId].some((entry) => canProfileEquipCyberware(entry, viewerProfileId))
   }
 
+  const activeSelectedSlot =
+    selectedSlot && canOpenSlot(selectedSlot.groupId, selectedSlot.slotIndex)
+      ? selectedSlot
+      : null
+  const selectedZone = activeSelectedSlot ? zoneById[activeSelectedSlot.groupId] : null
+  const selectedEquippedCyberware =
+    activeSelectedSlot ? equippedCyberware[activeSelectedSlot.groupId][activeSelectedSlot.slotIndex] : null
+  const selectedCyberware =
+    activeSelectedSlot && selectedEquippedCyberware && !isGmViewer && !canProfileViewCyberware(selectedEquippedCyberware, viewerProfileId)
+      ? createHiddenCyberwarePlaceholder(activeSelectedSlot.groupId)
+      : selectedEquippedCyberware
+  const compatibleCyberwares = activeSelectedSlot
+    ? cyberwaresByGroup[activeSelectedSlot.groupId].filter((entry) => isGmViewer || canProfileViewCyberware(entry, viewerProfileId))
+    : []
+
   const handleEquipCyberware = (cyberwareId: string) => {
-    if (!selectedSlot || !selectedZone) {
+    if (!activeSelectedSlot || !selectedZone) {
       return
     }
 
-    const targetCyberware = cyberwaresByGroup[selectedSlot.groupId].find((entry) => entry.id === cyberwareId)
+    const targetCyberware = cyberwaresByGroup[activeSelectedSlot.groupId].find((entry) => entry.id === cyberwareId)
 
     if (!targetCyberware) {
       return
@@ -138,25 +143,25 @@ export function CyberwareBoard({
     }
 
     const nextSlots = normalizeCyberwareSheetSlots(fieldData[selectedZone.fieldKey], selectedZone.maxSlots)
-    const updatedSlots = updateEquippedCyberwareSlots(nextSlots, selectedSlot.slotIndex, cyberwareId)
+    const updatedSlots = updateEquippedCyberwareSlots(nextSlots, activeSelectedSlot.slotIndex, cyberwareId)
 
     onFieldChange(selectedZone.fieldKey, stringifyCyberwareSheetSlots(updatedSlots))
     setSelectedSlot(null)
   }
 
   const handleRemoveCyberware = () => {
-    if (!selectedSlot || !selectedZone) {
+    if (!activeSelectedSlot || !selectedZone) {
       return
     }
 
-    const currentCyberware = equippedCyberware[selectedSlot.groupId][selectedSlot.slotIndex]
+    const currentCyberware = equippedCyberware[activeSelectedSlot.groupId][activeSelectedSlot.slotIndex]
 
     if (!isGmViewer && !canProfileEquipCyberware(currentCyberware, viewerProfileId)) {
       return
     }
 
     const nextSlots = normalizeCyberwareSheetSlots(fieldData[selectedZone.fieldKey], selectedZone.maxSlots)
-    const updatedSlots = updateEquippedCyberwareSlots(nextSlots, selectedSlot.slotIndex, null)
+    const updatedSlots = updateEquippedCyberwareSlots(nextSlots, activeSelectedSlot.slotIndex, null)
 
     onFieldChange(selectedZone.fieldKey, stringifyCyberwareSheetSlots(updatedSlots))
   }
@@ -186,7 +191,7 @@ export function CyberwareBoard({
           >
             <CyberwareSlot
               cyberware={displayedCyberware}
-              selected={selectedSlot?.groupId === zone.id && selectedSlot.slotIndex === slotIndex}
+              selected={activeSelectedSlot?.groupId === zone.id && activeSelectedSlot.slotIndex === slotIndex}
               canEdit={slotCanOpen}
               colors={colors}
               onClick={slotCanOpen ? () => setSelectedSlot({ groupId: zone.id, slotIndex }) : undefined}
@@ -207,11 +212,11 @@ export function CyberwareBoard({
         onShieldMaxChange={(value) => onFieldChange(CYBERWARE_SHIELD_MAX_FIELD_KEY, value)}
       />
 
-      {selectedSlot && selectedZone ? (
+      {activeSelectedSlot && selectedZone ? (
         <CyberwarePicker
-          groupId={selectedSlot.groupId}
+          groupId={activeSelectedSlot.groupId}
           groupLabel={selectedZone.label}
-          slotIndex={selectedSlot.slotIndex}
+          slotIndex={activeSelectedSlot.slotIndex}
           currentCyberware={selectedCyberware}
           compatibleCyberwares={compatibleCyberwares}
           colors={colors}
