@@ -1032,11 +1032,12 @@ export function SheetWorkspacePage() {
       if (cachedSheet) {
         setSheet(cachedSheet)
         setDraftFields(localDraft ?? cachedSheet.fieldData)
-        setSyncLabel(restoredLocalDraft ? 'Rascunho local restaurado. Clica em Guardar.' : 'A atualizar ficha...')
+        setSyncLabel(restoredLocalDraft ? 'Rascunho local restaurado. Clica em Guardar.' : 'Ficha pronta')
         setLoadingSheet(false)
-      } else {
-        setLoadingSheet(true)
+        return
       }
+
+      setLoadingSheet(true)
 
       try {
         const nextSheet = isNpcProfile(activeProfile)
@@ -1191,7 +1192,6 @@ export function SheetWorkspacePage() {
         try {
           const snapshot = await fetchSheetSnapshot(entry, {
             preferCache: true,
-            cacheMaxAgeMs: 30_000,
           })
           return [entry.id, snapshot] as const
         } catch {
