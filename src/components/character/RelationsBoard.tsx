@@ -7,7 +7,8 @@ import {
   makeNpcId,
   makeGroupId,
 } from '../../lib/relationsTypes'
-import { ImageCropDialog, readFileAsDataUrl } from '../shared/ImageCropDialog'
+import { ImageCropDialog } from '../shared/ImageCropDialog'
+import { readFileAsDataUrl } from '../shared/imageFile'
 
 // ─── Tone colour system ───────────────────────────────────────────────────────
 

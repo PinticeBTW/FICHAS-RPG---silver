@@ -219,7 +219,7 @@ export function isNpcProfile(profile: Profile) {
 type NpcCardRow = {
   id: string
   display_name: string
-  field_data: Record<string, unknown> | string | null
+  field_data?: Record<string, unknown> | string | null
   owner_profile_id?: string | null
   updated_at: string | null
 }
@@ -244,7 +244,7 @@ function mapNpcSheet(row: NpcCardRow): WebSheetRecord {
     id: row.id,
     profileId: row.id,
     templateKey: CURRENT_TEMPLATE_KEY,
-    fieldData: normalizeFieldData(row.field_data),
+    fieldData: normalizeFieldData(row.field_data ?? null),
     updatedAt: row.updated_at ?? new Date().toISOString(),
   })
 }
@@ -291,7 +291,7 @@ function sortAccessibleProfiles(left: Profile, right: Profile) {
 async function listNpcCards(client: ReturnType<typeof ensureSupabase>): Promise<NpcCardRow[]> {
   const result = await client
     .from('npc_cards')
-    .select('id, display_name, field_data, owner_profile_id, updated_at')
+    .select('id, display_name, owner_profile_id, updated_at')
     .order('display_name', { ascending: true })
 
   if (!result.error) {
@@ -304,7 +304,7 @@ async function listNpcCards(client: ReturnType<typeof ensureSupabase>): Promise<
 
   const fallbackResult = await client
     .from('npc_cards')
-    .select('id, display_name, field_data, updated_at')
+    .select('id, display_name, updated_at')
     .order('display_name', { ascending: true })
 
   if (fallbackResult.error) {
