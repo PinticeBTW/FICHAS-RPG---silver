@@ -25,6 +25,10 @@ export interface Profile {
   activeCampaignId?: string
   sheetAccess?: 'owner' | 'shared'
   sheetSource?: 'profile' | 'npc'
+  ownerProfileId?: string
+  ownerDisplayName?: string
+  ownerEmail?: string
+  ownerSheetNumber?: number
 }
 
 export interface CharacterStats {

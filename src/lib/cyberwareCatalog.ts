@@ -1,4 +1,3 @@
-import { cyberwareCatalog } from '../data/cyberwares'
 import type { Cyberware, CyberwareGroupId } from '../types/cyberware'
 import { cyberwareSheetZones } from './cyberwareSheetLayout'
 
@@ -60,16 +59,6 @@ export function getCyberwareDisplayDescription(entry: Pick<Cyberware, 'descripti
   return trimmedDescription || 'Sem descricao.'
 }
 
-export function createDefaultSheetCyberwareCatalog(): Cyberware[] {
-  return cyberwareCatalog.map((entry) =>
-    normalizeCyberwareAccess({
-      ...entry,
-      playerCanView: true,
-      playerCanEquip: true,
-    }),
-  )
-}
-
 export function createEmptySheetCyberware(slotType: CyberwareGroupId = 'cortex'): Cyberware {
   return {
     id: crypto.randomUUID(),
@@ -86,14 +75,14 @@ export function createEmptySheetCyberware(slotType: CyberwareGroupId = 'cortex')
 
 export function parseSheetCyberwareCatalog(value: string | undefined): Cyberware[] {
   if (!value?.trim()) {
-    return createDefaultSheetCyberwareCatalog()
+    return []
   }
 
   try {
     const parsed = JSON.parse(value) as unknown
 
     if (!Array.isArray(parsed)) {
-      return createDefaultSheetCyberwareCatalog()
+      return []
     }
 
     const normalizedEntries = parsed.flatMap((rawEntry, index) => {
@@ -127,7 +116,7 @@ export function parseSheetCyberwareCatalog(value: string | undefined): Cyberware
 
     return normalizedEntries
   } catch {
-    return createDefaultSheetCyberwareCatalog()
+    return []
   }
 }
 

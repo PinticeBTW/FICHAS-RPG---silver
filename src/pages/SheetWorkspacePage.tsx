@@ -185,16 +185,45 @@ function readSheetField(fieldData: Record<string, string> | undefined, ...keys: 
   return ''
 }
 
+function isPlayerOwnedNpcProfile(profile: Profile) {
+  return isNpcProfile(profile) && Boolean(profile.ownerProfileId)
+}
+
+function getOwnedNpcSheetLabel(profile: Profile) {
+  return profile.ownerSheetNumber ? `Personagem ${profile.ownerSheetNumber}` : 'Personagem'
+}
+
+function getProfileTypeLabel(profile: Profile) {
+  if (profile.role === 'gm') {
+    return 'GM'
+  }
+
+  if (isPlayerOwnedNpcProfile(profile)) {
+    return getOwnedNpcSheetLabel(profile)
+  }
+
+  return isNpcProfile(profile) ? 'NPC' : 'Jogador'
+}
+
+function getProfileSecondaryLine(profile: Profile) {
+  if (isPlayerOwnedNpcProfile(profile)) {
+    const ownerLabel = profile.ownerDisplayName || profile.ownerEmail
+    return ownerLabel ? `Personagem de ${ownerLabel}` : 'Personagem de player'
+  }
+
+  if (profile.sheetAccess === 'shared') {
+    return 'Ficha partilhada pelo Silver'
+  }
+
+  return isNpcProfile(profile) ? 'NPC' : profile.email
+}
+
 function buildBoardProfileSummary(
   profile: Profile,
   sheet: WebSheetRecord | null | undefined,
 ): SilverBoardProfileSummary {
   const fieldData = sheet?.fieldData
-  const subtitle = isNpcProfile(profile)
-    ? 'NPC'
-    : profile.role === 'gm'
-      ? 'GM'
-      : 'Jogador'
+  const subtitle = getProfileTypeLabel(profile)
 
   return {
     profileId: profile.id,
@@ -268,18 +297,8 @@ function ProfileCard({
   const isNpc = entry.email.startsWith('npc:')
   const assignedGroupIds = new Set(groups.filter((g) => g.profileIds.includes(entry.id)).map((g) => g.id))
   const isInAnyGroup = assignedGroupIds.size > 0
-  const accessLabel =
-    entry.role === 'gm'
-      ? 'GM'
-      : isNpc
-        ? 'NPC'
-        : 'Jogador'
-  const secondaryLine =
-    entry.sheetAccess === 'shared'
-      ? 'Ficha partilhada pelo Silver'
-      : isNpc
-        ? 'NPC'
-        : entry.email
+  const accessLabel = getProfileTypeLabel(entry)
+  const secondaryLine = getProfileSecondaryLine(entry)
 
   return (
     <div className="group/card relative">
@@ -1664,10 +1683,13 @@ export function SheetWorkspacePage() {
                 {accessibleProfiles.map((entry) => {
                   const isSelected = entry.id === selectedProfile?.id
                   const isOwnEntry = entry.id === profile.id
-                  const isDefaultExtraEntry = isNpcProfile(entry) && (
+                  const isAccessibleNpcEntry = isNpcProfile(entry) && (
                     entry.sheetAccess === 'owner' ||
                     entry.sheetAccess === 'shared'
                   )
+                  const isOwnedExtraEntry =
+                    isPlayerOwnedNpcProfile(entry) && entry.ownerProfileId === profile.id
+                  const extraSheetLabel = getOwnedNpcSheetLabel(entry)
 
                   return (
                     <button
@@ -1684,12 +1706,20 @@ export function SheetWorkspacePage() {
                       <p className="mt-1 truncate text-xs text-stone-400">
                         {isOwnEntry
                           ? entry.email
-                          : isDefaultExtraEntry
-                            ? `Ficha default de ${profile.displayName}`
+                          : isOwnedExtraEntry
+                            ? `${extraSheetLabel} de ${profile.displayName}`
+                            : isAccessibleNpcEntry
+                              ? getProfileSecondaryLine(entry)
                             : 'Ficha partilhada pelo Silver'}
                       </p>
                       <p className="mt-2 text-[0.68rem] uppercase tracking-[0.22em] text-stone-500">
-                        {isOwnEntry ? 'Jogador' : isDefaultExtraEntry ? 'Default' : 'Partilhada'}
+                        {isOwnEntry
+                          ? 'Jogador'
+                          : isOwnedExtraEntry
+                            ? extraSheetLabel
+                            : isAccessibleNpcEntry
+                              ? getProfileTypeLabel(entry)
+                              : 'Partilhada'}
                       </p>
                     </button>
                   )

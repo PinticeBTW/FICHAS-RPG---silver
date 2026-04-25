@@ -135,7 +135,7 @@ export const cyberwareSheetFieldDefaults = {
   ...Object.fromEntries(cyberwareZoneFieldKeys.map((key) => [key, '[]'])),
   [CYBERWARE_CYBER_MAX_FIELD_KEY]: '',
   [CYBERWARE_SHIELD_MAX_FIELD_KEY]: '',
-  [CYBERWARE_CATALOG_FIELD_KEY]: '',
+  [CYBERWARE_CATALOG_FIELD_KEY]: '[]',
 } as Record<string, string>
 
 export const cyberwareSheetMeters: CyberwareSheetMeterDefinition = {

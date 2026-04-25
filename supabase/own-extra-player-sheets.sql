@@ -38,17 +38,7 @@ set
   owner_profile_id = target_player.id,
   updated_at = timezone('utc', now())
 from target_player
-where lower(card.display_name) = lower('Adrian ALTARA')
-  and (
-    card.owner_profile_id = target_player.id
-    or exists (
-      select 1
-      from public.sheet_share_access as access_entry
-      where access_entry.target_kind = 'npc'
-        and access_entry.target_id = card.id
-        and access_entry.viewer_profile_id = target_player.id
-    )
-  );
+where lower(card.display_name) = lower('Adrian ALTARA');
 
 do $$
 begin

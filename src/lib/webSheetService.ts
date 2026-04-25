@@ -27,6 +27,18 @@ type SheetShareAccessRow = {
   viewer_profile_id: string
 }
 
+type SheetProfileMetadata = Partial<
+  Pick<
+    Profile,
+    | 'sheetAccess'
+    | 'sheetSource'
+    | 'ownerProfileId'
+    | 'ownerDisplayName'
+    | 'ownerEmail'
+    | 'ownerSheetNumber'
+  >
+>
+
 function ensureSupabase() {
   if (!supabase) {
     throw new Error(SUPABASE_CONFIG_ERROR)
@@ -74,7 +86,7 @@ export function isSheetSharingUnavailableError(error: unknown) {
 
 function mapProfile(
   row: ProfileRow,
-  metadata?: Pick<Profile, 'sheetAccess' | 'sheetSource'>,
+  metadata?: SheetProfileMetadata,
 ): Profile {
   return {
     id: row.id,
@@ -85,6 +97,10 @@ function mapProfile(
     avatarUrl: row.avatar_url ?? undefined,
     sheetAccess: metadata?.sheetAccess,
     sheetSource: metadata?.sheetSource,
+    ownerProfileId: metadata?.ownerProfileId,
+    ownerDisplayName: metadata?.ownerDisplayName,
+    ownerEmail: metadata?.ownerEmail,
+    ownerSheetNumber: metadata?.ownerSheetNumber,
   }
 }
 
@@ -226,7 +242,7 @@ type NpcCardRow = {
 
 function mapNpcProfile(
   row: NpcCardRow,
-  metadata?: Pick<Profile, 'sheetAccess' | 'sheetSource'>,
+  metadata?: SheetProfileMetadata,
 ): Profile {
   return {
     id: row.id,
@@ -236,6 +252,10 @@ function mapNpcProfile(
     role: 'player',
     sheetAccess: metadata?.sheetAccess,
     sheetSource: metadata?.sheetSource,
+    ownerProfileId: metadata?.ownerProfileId ?? row.owner_profile_id ?? undefined,
+    ownerDisplayName: metadata?.ownerDisplayName,
+    ownerEmail: metadata?.ownerEmail,
+    ownerSheetNumber: metadata?.ownerSheetNumber,
   }
 }
 
@@ -336,8 +356,29 @@ export async function listSheetProfiles(viewer: Profile) {
       ...resolveSheetAccessMetadata(baseProfile, viewer),
     }
   })
+  const profileById = new Map(profiles.map((entry) => [entry.id, entry]))
+  const ownedNpcCountByOwner = new Map<string, number>()
   const npcs = npcsResult.map((entry) => {
-    const baseProfile = mapNpcProfile(entry)
+    const ownerProfile = entry.owner_profile_id
+      ? profileById.get(entry.owner_profile_id) ?? null
+      : null
+    const ownerSheetNumber = ownerProfile
+      ? (ownedNpcCountByOwner.get(ownerProfile.id) ?? 0) + 2
+      : undefined
+
+    if (ownerProfile) {
+      ownedNpcCountByOwner.set(
+        ownerProfile.id,
+        (ownedNpcCountByOwner.get(ownerProfile.id) ?? 0) + 1,
+      )
+    }
+
+    const baseProfile = mapNpcProfile(entry, {
+      ownerProfileId: entry.owner_profile_id ?? undefined,
+      ownerDisplayName: ownerProfile?.displayName,
+      ownerEmail: ownerProfile?.email,
+      ownerSheetNumber,
+    })
     return {
       ...baseProfile,
       ...resolveNpcSheetAccessMetadata(entry, viewer),
