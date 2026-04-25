@@ -537,6 +537,12 @@ export function SheetWorkspacePage() {
     resolveDefaultAccessibleProfile(profile, accessibleProfiles)
   const selectedProfileId = selectedProfile?.id ?? null
   const isOwnSelectedProfile = Boolean(profile && selectedProfile && selectedProfile.id === profile.id)
+  const isOwnerOfSelectedNpcProfile = Boolean(
+    profile &&
+    selectedProfile &&
+    isNpcProfile(selectedProfile) &&
+    selectedProfile.ownerProfileId === profile.id,
+  )
 
   const isSilverWorkspace = Boolean(
     profile &&
@@ -600,12 +606,26 @@ export function SheetWorkspacePage() {
             },
           ]
         : []
+    const npcOwnerOption =
+      selectedProfile && isNpcProfile(selectedProfile) && selectedProfile.ownerProfileId
+        ? profiles
+            .filter((entry) => entry.id === selectedProfile.ownerProfileId)
+            .map((entry) => ({
+              id: entry.id,
+              label: `${entry.displayName} (dono)`,
+              detail: entry.email,
+            }))
+        : []
+    const leadingPlayerIds = new Set(
+      [...ownerOption, ...npcOwnerOption].map((entry) => entry.id),
+    )
 
     const otherOptions = profiles
       .filter(
         (entry) =>
           entry.role !== 'gm' &&
           !isNpcProfile(entry) &&
+          !leadingPlayerIds.has(entry.id) &&
           entry.id !== selectedProfile?.id,
       )
       .map((entry) => ({
@@ -614,7 +634,7 @@ export function SheetWorkspacePage() {
         detail: entry.email,
       }))
 
-    return [...ownerOption, ...otherOptions]
+    return [...ownerOption, ...npcOwnerOption, ...otherOptions]
   }, [profiles, selectedProfile])
   const shareAccessDirty =
     serializeViewerIds(shareViewerIds) !== serializeViewerIds(loadedShareViewerIds)
@@ -676,7 +696,7 @@ export function SheetWorkspacePage() {
   const hasPendingUnsavedChanges = canEdit && (isDirty || saving)
   const cyberwareViewerRole: 'gm' | 'owner' | 'shared' = profile?.role === 'gm'
     ? 'gm'
-    : isOwnSelectedProfile
+    : isOwnSelectedProfile || isOwnerOfSelectedNpcProfile
       ? 'owner'
       : 'shared'
   const showingCyberwareManager = canManageCyberwareCatalog && gmWorkspaceView === 'cyberware'
