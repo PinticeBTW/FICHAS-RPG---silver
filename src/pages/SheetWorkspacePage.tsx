@@ -73,6 +73,16 @@ function serializeViewerIds(ids: string[]) {
   return JSON.stringify([...new Set(ids)].sort((left, right) => left.localeCompare(right)))
 }
 
+function serializeGroups(groups: ProfileGroup[]) {
+  return JSON.stringify(
+    groups.map((group) => ({
+      id: group.id,
+      name: group.name,
+      profileIds: [...new Set(group.profileIds)].sort((left, right) => left.localeCompare(right)),
+    })),
+  )
+}
+
 function buildLocalDraftStorageKey(profileId: string) {
   return `${LOCAL_DRAFT_STORAGE_PREFIX}${profileId}`
 }
@@ -86,6 +96,50 @@ function buildEmptyGlobalCyberwareCatalogRecord(): WebSheetRecord {
       [CYBERWARE_CATALOG_FIELD_KEY]: '[]',
     },
     updatedAt: new Date().toISOString(),
+  }
+}
+
+function extractBoardSheetProfileIds(pagesValue: string) {
+  if (!pagesValue.trim()) {
+    return []
+  }
+
+  try {
+    const parsed = JSON.parse(pagesValue) as unknown
+
+    if (!Array.isArray(parsed)) {
+      return []
+    }
+
+    const profileIds = new Set<string>()
+
+    for (const page of parsed) {
+      if (!page || typeof page !== 'object' || Array.isArray(page)) {
+        continue
+      }
+
+      const stickies = (page as { stickies?: unknown }).stickies
+
+      if (!Array.isArray(stickies)) {
+        continue
+      }
+
+      for (const sticky of stickies) {
+        if (!sticky || typeof sticky !== 'object' || Array.isArray(sticky)) {
+          continue
+        }
+
+        const entry = sticky as { kind?: unknown; linkedProfileId?: unknown }
+
+        if (entry.kind === 'sheet' && typeof entry.linkedProfileId === 'string') {
+          profileIds.add(entry.linkedProfileId)
+        }
+      }
+    }
+
+    return [...profileIds].sort((left, right) => left.localeCompare(right))
+  } catch {
+    return []
   }
 }
 
@@ -508,6 +562,8 @@ export function SheetWorkspacePage() {
   const { profileId } = useParams()
   const navigate = useNavigate()
   const { profile, signOut, updateDisplayName } = useAuth()
+  const authProfileId = profile?.id ?? null
+  const authProfileRole = profile?.role ?? null
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [sheet, setSheet] = useState<WebSheetRecord | null>(null)
   const [draftFields, setDraftFields] = useState<Record<string, string>>({})
@@ -522,12 +578,18 @@ export function SheetWorkspacePage() {
   const [error, setError] = useState<string | null>(null)
   const sheetRef = useRef<WebSheetRecord | null>(null)
   const draftFieldsRef = useRef<Record<string, string>>({})
+  const profileRef = useRef<Profile | null>(null)
   const selectedProfileRef = useRef<Profile | null>(null)
+  const accessibleProfilesRef = useRef<Profile[]>([])
   const isDirtyRef = useRef(false)
   const savingRef = useRef(false)
+  const isGlobalCyberwareDirtyRef = useRef(false)
+  const savingGlobalCyberwareCatalogRef = useRef(false)
   const queuedSaveRef = useRef(false)
+  const directoryRefreshTimerRef = useRef<number | null>(null)
   const [groups, setGroups] = useState<ProfileGroup[]>([])
   const groupsLoadedRef = useRef(false)
+  const groupsLastSavedSignatureRef = useRef('')
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   const [newGroupName, setNewGroupName] = useState('')
   const [addingGroup, setAddingGroup] = useState(false)
@@ -567,11 +629,23 @@ export function SheetWorkspacePage() {
   const [gmWorkspaceView, setGmWorkspaceView] = useState<'sheet' | 'cyberware'>('sheet')
 
   const accessibleProfiles = useMemo(() => {
-    if (!profile) {
+    if (!authProfileId) {
       return []
     }
     return profiles
-  }, [profile, profiles])
+  }, [authProfileId, profiles])
+  const accessibleProfileIdsSignature = useMemo(
+    () =>
+      accessibleProfiles
+        .map((entry) => entry.id)
+        .sort((left, right) => left.localeCompare(right))
+        .join('|'),
+    [accessibleProfiles],
+  )
+  const boardLinkedProfileIdSignature = useMemo(
+    () => extractBoardSheetProfileIds(draftFields.GM_NOTE_PAGES ?? '').join('|'),
+    [draftFields.GM_NOTE_PAGES],
+  )
 
   const selectedProfile =
     accessibleProfiles.find((entry) => entry.id === profileId) ??
@@ -749,8 +823,16 @@ export function SheetWorkspacePage() {
   }, [draftFields])
 
   useEffect(() => {
+    profileRef.current = profile
+  }, [profile])
+
+  useEffect(() => {
     selectedProfileRef.current = selectedProfile
   }, [selectedProfile])
+
+  useEffect(() => {
+    accessibleProfilesRef.current = accessibleProfiles
+  }, [accessibleProfiles])
 
   useEffect(() => {
     isDirtyRef.current = isDirty
@@ -761,15 +843,25 @@ export function SheetWorkspacePage() {
   }, [saving])
 
   useEffect(() => {
+    isGlobalCyberwareDirtyRef.current = isGlobalCyberwareDirty
+  }, [isGlobalCyberwareDirty])
+
+  useEffect(() => {
+    savingGlobalCyberwareCatalogRef.current = savingGlobalCyberwareCatalog
+  }, [savingGlobalCyberwareCatalog])
+
+  useEffect(() => {
     setPlayerMessageError(null)
   }, [selectedProfile?.id])
 
   useEffect(() => {
     setGmWorkspaceView('sheet')
-  }, [profile?.id])
+  }, [authProfileId])
 
   const refreshProfiles = useCallback(async (options?: { showLoading?: boolean }) => {
-    if (!profile) {
+    const activeProfile = profileRef.current
+
+    if (!activeProfile) {
       return
     }
 
@@ -782,7 +874,7 @@ export function SheetWorkspacePage() {
     setError(null)
 
     try {
-      const nextProfiles = await listSheetProfiles(profile)
+      const nextProfiles = await listSheetProfiles(activeProfile)
       setProfiles(nextProfiles)
     } catch (caughtError) {
       const message =
@@ -795,18 +887,35 @@ export function SheetWorkspacePage() {
         setLoadingProfiles(false)
       }
     }
-  }, [profile])
+  }, [])
+
+  const scheduleProfilesRefresh = useCallback(() => {
+    if (directoryRefreshTimerRef.current) {
+      window.clearTimeout(directoryRefreshTimerRef.current)
+    }
+
+    directoryRefreshTimerRef.current = window.setTimeout(() => {
+      directoryRefreshTimerRef.current = null
+      void refreshProfiles({ showLoading: false })
+    }, 1500)
+  }, [refreshProfiles])
+
+  useEffect(() => () => {
+    if (directoryRefreshTimerRef.current) {
+      window.clearTimeout(directoryRefreshTimerRef.current)
+    }
+  }, [])
 
   useEffect(() => {
-    if (!profile) {
+    if (!authProfileId) {
       return
     }
 
     void refreshProfiles()
-  }, [profile, refreshProfiles])
+  }, [authProfileId, refreshProfiles])
 
   useEffect(() => {
-    if (!profile) {
+    if (!authProfileId) {
       setGlobalCyberwareCatalog(null)
       setGlobalCyberwareDraftFields({})
       return
@@ -853,42 +962,43 @@ export function SheetWorkspacePage() {
     return () => {
       cancelled = true
     }
-  }, [profile])
+  }, [authProfileId])
 
   useEffect(() => {
-    if (!profile) {
+    if (!authProfileId) {
       return
     }
 
-    const unsubscribeDirectory = subscribeToSheetDirectory(() => {
-      void refreshProfiles({ showLoading: false })
-    })
-    const unsubscribeShareAccess = subscribeToSheetShareAccess(() => {
-      void refreshProfiles({ showLoading: false })
-    })
+    const unsubscribeDirectory = subscribeToSheetDirectory(scheduleProfilesRefresh)
+    const unsubscribeShareAccess = subscribeToSheetShareAccess(scheduleProfilesRefresh)
 
     return () => {
+      if (directoryRefreshTimerRef.current) {
+        window.clearTimeout(directoryRefreshTimerRef.current)
+        directoryRefreshTimerRef.current = null
+      }
+
       unsubscribeDirectory()
       unsubscribeShareAccess()
     }
-  }, [profile, refreshProfiles])
+  }, [authProfileId, scheduleProfilesRefresh])
 
   useEffect(() => {
-    if (!profile) {
+    if (!authProfileId) {
       return
     }
 
     return subscribeToGlobalCyberwareCatalog((nextCatalog) => {
       setGlobalCyberwareCatalog(nextCatalog)
       setGlobalCyberwareDraftFields((current) => {
-        if (savingGlobalCyberwareCatalog || isGlobalCyberwareDirty) {
+        if (savingGlobalCyberwareCatalogRef.current || isGlobalCyberwareDirtyRef.current) {
           return current
         }
 
         return nextCatalog.fieldData
       })
     })
-  }, [isGlobalCyberwareDirty, profile, savingGlobalCyberwareCatalog])
+  }, [authProfileId])
 
   useEffect(() => {
     if (!loadingProfiles && selectedProfile && selectedProfile.id !== profileId) {
@@ -1056,7 +1166,19 @@ export function SheetWorkspacePage() {
   }, [selectedProfileId])
 
   useEffect(() => {
-    if (!isSilverWorkspace || !accessibleProfiles.length) {
+    if (!isSilverWorkspace || !boardLinkedProfileIdSignature) {
+      setBoardSheetSnapshots({})
+      return
+    }
+
+    const linkedProfileIds = boardLinkedProfileIdSignature.split('|').filter(Boolean)
+    const linkedProfiles = linkedProfileIds
+      .map((profileId) =>
+        accessibleProfilesRef.current.find((entry) => entry.id === profileId) ?? null,
+      )
+      .filter((entry): entry is Profile => Boolean(entry))
+
+    if (!linkedProfiles.length) {
       setBoardSheetSnapshots({})
       return
     }
@@ -1064,9 +1186,12 @@ export function SheetWorkspacePage() {
     let cancelled = false
 
     void Promise.all(
-      accessibleProfiles.map(async (entry) => {
+      linkedProfiles.map(async (entry) => {
         try {
-          const snapshot = await fetchSheetSnapshot(entry)
+          const snapshot = await fetchSheetSnapshot(entry, {
+            preferCache: true,
+            cacheMaxAgeMs: 30_000,
+          })
           return [entry.id, snapshot] as const
         } catch {
           return [entry.id, null] as const
@@ -1081,20 +1206,20 @@ export function SheetWorkspacePage() {
 
       setBoardSheetSnapshots((current) =>
         Object.fromEntries(
-          accessibleProfiles.map((entry) => {
-            const currentSnapshot = current[entry.id]
-            const fetchedSnapshot = fetchedSnapshots[entry.id] ?? null
+          linkedProfileIds.map((profileId) => {
+            const currentSnapshot = current[profileId]
+            const fetchedSnapshot = fetchedSnapshots[profileId] ?? null
 
             if (!currentSnapshot) {
-              return [entry.id, fetchedSnapshot]
+              return [profileId, fetchedSnapshot]
             }
 
             if (!fetchedSnapshot) {
-              return [entry.id, currentSnapshot]
+              return [profileId, currentSnapshot]
             }
 
             return [
-              entry.id,
+              profileId,
               fetchedSnapshot.updatedAt >= currentSnapshot.updatedAt
                 ? fetchedSnapshot
                 : currentSnapshot,
@@ -1104,26 +1229,27 @@ export function SheetWorkspacePage() {
       )
     })
 
-    const unsubscribeCallbacks = accessibleProfiles
-      .map((entry) => {
-        const subscribe = isNpcProfile(entry) ? subscribeToNpcSheet : subscribeToSheet
+    const unsubscribeCallbacks = linkedProfiles.map((entry) => {
+      const subscribe = isNpcProfile(entry) ? subscribeToNpcSheet : subscribeToSheet
 
-        return subscribe(entry.id, (nextSheet) => {
-          setBoardSheetSnapshots((current) => ({
-            ...current,
-            [entry.id]: nextSheet,
-          }))
-        })
+      return subscribe(entry.id, (nextSheet) => {
+        setBoardSheetSnapshots((current) => ({
+          ...current,
+          [entry.id]: nextSheet,
+        }))
       })
+    })
 
     return () => {
       cancelled = true
       unsubscribeCallbacks.forEach((unsubscribe) => unsubscribe())
     }
-  }, [accessibleProfiles, isSilverWorkspace])
+  }, [accessibleProfileIdsSignature, boardLinkedProfileIdSignature, isSilverWorkspace])
 
   useEffect(() => {
-    if (!canConfigureShareAccess || !selectedProfile) {
+    const targetProfile = selectedProfileRef.current
+
+    if (!canConfigureShareAccess || !targetProfile) {
       setShareViewerIds([])
       setLoadedShareViewerIds([])
       setLoadingShareAccess(false)
@@ -1139,7 +1265,7 @@ export function SheetWorkspacePage() {
       setShareAccessError(null)
 
       try {
-        const nextViewerIds = await listSheetShareViewerIds(selectedProfile)
+        const nextViewerIds = await listSheetShareViewerIds(targetProfile)
 
         if (cancelled) {
           return
@@ -1177,7 +1303,7 @@ export function SheetWorkspacePage() {
     return () => {
       cancelled = true
     }
-  }, [canConfigureShareAccess, selectedProfile])
+  }, [canConfigureShareAccess, selectedProfile?.email, selectedProfile?.id])
 
   const queueBoardProfileCard = useCallback((profileId: string) => {
     setPendingBoardProfileCard({
@@ -1413,19 +1539,36 @@ export function SheetWorkspacePage() {
 
   // Carregar grupos do Supabase quando o GM entra
   useEffect(() => {
-    if (!profile || profile.role !== 'gm') return
+    if (!authProfileId || authProfileRole !== 'gm') return
     groupsLoadedRef.current = false
-    void loadGmGroups(profile.id).then((loaded) => {
+    void loadGmGroups(authProfileId).then((loaded) => {
+      groupsLastSavedSignatureRef.current = serializeGroups(loaded)
       setGroups(loaded)
       groupsLoadedRef.current = true
     }).catch(() => { groupsLoadedRef.current = true })
-  }, [profile])
+  }, [authProfileId, authProfileRole])
 
   // Guardar grupos no Supabase apenas após o carregamento inicial
   useEffect(() => {
-    if (!profile || profile.role !== 'gm' || !groupsLoadedRef.current) return
-    void saveGmGroups(profile.id, groups).catch(() => {})
-  }, [groups, profile])
+    if (!authProfileId || authProfileRole !== 'gm' || !groupsLoadedRef.current) return
+    const nextSignature = serializeGroups(groups)
+
+    if (nextSignature === groupsLastSavedSignatureRef.current) {
+      return
+    }
+
+    const timer = window.setTimeout(() => {
+      void saveGmGroups(authProfileId, groups)
+        .then(() => {
+          groupsLastSavedSignatureRef.current = nextSignature
+        })
+        .catch(() => {})
+    }, 2000)
+
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [groups, authProfileId, authProfileRole])
 
   useEffect(() => {
     if (!openMoveDropdown) return

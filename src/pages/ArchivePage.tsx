@@ -1,5 +1,5 @@
 import { FileText, RefreshCcw, Upload } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { EmptyState } from '../components/common/EmptyState'
 import { LoadingScreen } from '../components/common/LoadingScreen'
 import { useAuth } from '../hooks/useAuth'
@@ -52,6 +52,7 @@ export function ArchivePage() {
   const [opening, setOpening] = useState(false)
   const [savingAccess, setSavingAccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const selectedPathRef = useRef<string | null>(null)
 
   const selectedFile = useMemo(
     () => files.find((entry) => entry.path === selectedPath) ?? null,
@@ -101,7 +102,7 @@ export function ArchivePage() {
 
       const target =
         nextFiles.find((entry) => entry.path === nextSelectedPath) ??
-        nextFiles.find((entry) => entry.path === selectedPath) ??
+        nextFiles.find((entry) => entry.path === selectedPathRef.current) ??
         nextFiles[0] ??
         null
 
@@ -126,7 +127,11 @@ export function ArchivePage() {
     } finally {
       setLoading(false)
     }
-  }, [profile?.role, selectedPath])
+  }, [profile?.role])
+
+  useEffect(() => {
+    selectedPathRef.current = selectedPath
+  }, [selectedPath])
 
   useEffect(() => {
     void refreshFiles()

@@ -12,6 +12,7 @@ import type {
 } from '../types/domain'
 import { alignmentFromKarma, createActivityDetail } from './utils'
 import { supabase, SUPABASE_CONFIG_ERROR } from './supabase'
+import { logSupabaseFetch, runSupabaseFetch } from './supabaseQueries'
 
 type CollectionItem = SkillItem | AbilityItem | InventoryItem | CyberwareItem
 type LiveProfileRow = {
@@ -314,7 +315,18 @@ export async function fetchAuthProfile(userId: string) {
     return null
   }
 
-  const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single()
+  const client = supabase
+  const { data, error } = await runSupabaseFetch(
+    `fetchAuthProfile:${userId}`,
+    { functionName: 'fetchAuthProfile', table: 'profiles' },
+    () =>
+      client
+        .from('profiles')
+        .select('id, email, display_name, handle, role, avatar_url, active_campaign_id')
+        .eq('id', userId)
+        .single(),
+    { cacheMs: 10_000 },
+  )
 
   if (error) {
     throw error
@@ -328,107 +340,116 @@ export async function fetchCampaignBundle(profile: Profile): Promise<CampaignBun
     throw new Error(SUPABASE_CONFIG_ERROR)
   }
 
-  const membershipQuery = await supabase
-    .from('campaign_members')
-    .select(
-      `
-        campaign_id,
-        role,
-        campaign:campaigns (
-          id,
-          name,
-          code_name,
-          description,
-          timeline,
-          season
-        )
-      `,
-    )
-    .eq('profile_id', profile.id)
-    .eq('status', 'active')
-    .limit(1)
-    .maybeSingle()
-
-  if (membershipQuery.error) {
-    throw membershipQuery.error
-  }
-
-  if (!membershipQuery.data) {
-    return {
-      campaign: null,
-      profiles: [profile],
-      characters: [],
-      activity: [],
-    }
-  }
-
-  const campaignRow = membershipQuery.data as MembershipRow
-  const campaign = unwrapOne(campaignRow.campaign)
-  const isGm = profile.role === 'gm' || campaignRow.role === 'gm'
-  const charactersQuery = supabase!
-    .from('characters')
-    .select(characterSelect)
-    .eq('campaign_id', campaignRow.campaign_id)
-    .order('updated_at', { ascending: false })
-
-  if (!isGm) {
-    charactersQuery.eq('owner_profile_id', profile.id)
-  }
-
-  const [{ data: characterRows, error: characterError }, { data: memberRows, error: memberError }] =
-    await Promise.all([
-      charactersQuery,
-      supabase!
+  const client = supabase
+  return runSupabaseFetch(
+    `fetchCampaignBundle:${profile.id}:${profile.role}`,
+    { functionName: 'fetchCampaignBundle', table: 'campaign_members,characters,profiles' },
+    async () => {
+      const membershipQuery = await client
         .from('campaign_members')
         .select(
           `
+            campaign_id,
             role,
-            profile:profiles (
+            campaign:campaigns (
               id,
-              email,
-              display_name,
-              handle,
-              role,
-              avatar_url
+              name,
+              code_name,
+              description,
+              timeline,
+              season
             )
           `,
         )
+        .eq('profile_id', profile.id)
+        .eq('status', 'active')
+        .limit(1)
+        .maybeSingle()
+
+      if (membershipQuery.error) {
+        throw membershipQuery.error
+      }
+
+      if (!membershipQuery.data) {
+        return {
+          campaign: null,
+          profiles: [profile],
+          characters: [],
+          activity: [],
+        }
+      }
+
+      const campaignRow = membershipQuery.data as MembershipRow
+      const campaign = unwrapOne(campaignRow.campaign)
+      const isGm = profile.role === 'gm' || campaignRow.role === 'gm'
+      const charactersQuery = client
+        .from('characters')
+        .select(characterSelect)
         .eq('campaign_id', campaignRow.campaign_id)
-        .eq('status', 'active'),
-    ])
+        .order('updated_at', { ascending: false })
+        .limit(100)
 
-  if (characterError) {
-    throw characterError
-  }
+      if (!isGm) {
+        charactersQuery.eq('owner_profile_id', profile.id)
+      }
 
-  if (memberError) {
-    throw memberError
-  }
+      const [{ data: characterRows, error: characterError }, { data: memberRows, error: memberError }] =
+        await Promise.all([
+          charactersQuery,
+          client
+            .from('campaign_members')
+            .select(
+              `
+                role,
+                profile:profiles (
+                  id,
+                  email,
+                  display_name,
+                  handle,
+                  role,
+                  avatar_url
+                )
+              `,
+            )
+            .eq('campaign_id', campaignRow.campaign_id)
+            .eq('status', 'active')
+            .limit(500),
+        ])
 
-  const characters = ((characterRows ?? []) as LiveCharacterRow[]).map(mapCharacter)
+      if (characterError) {
+        throw characterError
+      }
 
-  return {
-    campaign: {
-      id: campaign?.id ?? campaignRow.campaign_id,
-      name: campaign?.name ?? 'Campanha',
-      codeName: campaign?.code_name ?? 'GRID',
-      description: campaign?.description ?? '',
-      timeline: campaign?.timeline ?? '',
-      season: campaign?.season ?? '',
+      if (memberError) {
+        throw memberError
+      }
+
+      const characters = ((characterRows ?? []) as LiveCharacterRow[]).map(mapCharacter)
+
+      return {
+        campaign: {
+          id: campaign?.id ?? campaignRow.campaign_id,
+          name: campaign?.name ?? 'Campanha',
+          codeName: campaign?.code_name ?? 'GRID',
+          description: campaign?.description ?? '',
+          timeline: campaign?.timeline ?? '',
+          season: campaign?.season ?? '',
+        },
+        profiles: ((memberRows ?? []) as CampaignMemberRow[])
+          .map((entry) => unwrapOne(entry.profile))
+          .filter(Boolean)
+          .map((entry) => mapProfile(entry as LiveProfileRow)),
+        characters,
+        activity: characters.slice(0, 8).map((character) =>
+          createActivityDetail(
+            `${character.alias} atualizada`,
+            `${character.ownerName} mexeu em ${character.statusLabel.toLowerCase()}.`,
+            character.alignment,
+          ),
+        ),
+      }
     },
-    profiles: ((memberRows ?? []) as CampaignMemberRow[])
-      .map((entry) => unwrapOne(entry.profile))
-      .filter(Boolean)
-      .map((entry) => mapProfile(entry as LiveProfileRow)),
-    characters,
-    activity: characters.slice(0, 8).map((character) =>
-      createActivityDetail(
-        `${character.alias} atualizada`,
-        `${character.ownerName} mexeu em ${character.statusLabel.toLowerCase()}.`,
-        character.alignment,
-      ),
-    ),
-  }
+  )
 }
 
 export async function saveCharacterBasics(
@@ -450,6 +471,8 @@ export async function saveCharacterBasics(
   if (!supabase) {
     throw new Error(SUPABASE_CONFIG_ERROR)
   }
+
+  logSupabaseFetch({ functionName: 'saveCharacterBasics', table: 'characters' })
 
   const { error } = await supabase
     .from('characters')
@@ -474,6 +497,8 @@ export async function saveCharacterStats(characterId: string, payload: Character
   if (!supabase) {
     throw new Error(SUPABASE_CONFIG_ERROR)
   }
+
+  logSupabaseFetch({ functionName: 'saveCharacterStats', table: 'character_stats' })
 
   const { error } = await supabase.from('character_stats').upsert(
     {
@@ -507,6 +532,8 @@ export async function saveCharacterNotes(characterId: string, payload: Character
   if (!supabase) {
     throw new Error(SUPABASE_CONFIG_ERROR)
   }
+
+  logSupabaseFetch({ functionName: 'saveCharacterNotes', table: 'character_notes' })
 
   const { error } = await supabase.from('character_notes').upsert(
     {
@@ -597,6 +624,8 @@ export async function saveCollectionItem(
     }
   }
 
+  logSupabaseFetch({ functionName: 'saveCollectionItem', table: tableMap[kind] })
+
   const { error } = await supabase.from(tableMap[kind]).upsert(basePayload)
 
   if (error) {
@@ -619,6 +648,8 @@ export async function deleteCollectionItem(
     inventory: 'character_inventory',
     cyberware: 'character_cyberware',
   } as const
+
+  logSupabaseFetch({ functionName: 'deleteCollectionItem', table: tableMap[kind] })
 
   const { error } = await supabase.from(tableMap[kind]).delete().eq('id', itemId)
 

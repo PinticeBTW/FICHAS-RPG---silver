@@ -9,6 +9,7 @@ import type { Session } from '@supabase/supabase-js'
 import type { AuthFormInput, Profile } from '../types/domain'
 import { fetchAuthProfile } from '../lib/dataService'
 import { isSupabaseEnabled, supabase, SUPABASE_CONFIG_ERROR } from '../lib/supabase'
+import { logSupabaseFetch } from '../lib/supabaseQueries'
 
 interface AuthContextValue {
   profile: Profile | null
@@ -196,6 +197,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     const trimmed = name.trim()
     if (!trimmed) return
+
+    logSupabaseFetch({ functionName: 'updateDisplayName', table: 'profiles' })
 
     const { data, error } = await supabase
       .from('profiles')

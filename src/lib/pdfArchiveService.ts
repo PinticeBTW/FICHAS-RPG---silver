@@ -1,5 +1,6 @@
 import type { PdfArchiveFile, PdfArchiveViewer } from '../types/domain'
 import { supabase, SUPABASE_CONFIG_ERROR } from './supabase'
+import { logSupabaseFetch, runSupabaseFetch } from './supabaseQueries'
 
 const PDF_BUCKET = 'campaign-pdfs'
 const PDF_FOLDER = 'imports'
@@ -89,69 +90,79 @@ function mapPdfDocument(row: PdfDocumentRow, viewers: PdfArchiveViewer[]): PdfAr
 
 export async function listPdfArchiveFiles(includeAccess = false): Promise<PdfArchiveFile[]> {
   const client = ensureSupabase()
-  const { data, error } = await client
-    .from('pdf_documents')
-    .select(
-      `
-        id,
-        storage_path,
-        file_name,
-        display_name,
-        file_size,
-        created_at,
-        updated_at
-      `,
-    )
-    .order('display_name', { ascending: true })
-
-  if (error) {
-    throw error
-  }
-
-  const documents = (data ?? []) as PdfDocumentRow[]
-
-  if (!includeAccess || !documents.length) {
-    return documents.map((entry) => mapPdfDocument(entry, []))
-  }
-
-  const { data: accessData, error: accessError } = await client
-    .from('pdf_document_access')
-    .select(
-      `
-        document_id,
-        profile:profiles (
-          id,
-          email,
-          display_name,
-          handle,
-          role
+  return runSupabaseFetch(
+    `listPdfArchiveFiles:${includeAccess ? 'with-access' : 'plain'}`,
+    { functionName: 'listPdfArchiveFiles', table: 'pdf_documents,pdf_document_access' },
+    async () => {
+      const { data, error } = await client
+        .from('pdf_documents')
+        .select(
+          `
+            id,
+            storage_path,
+            file_name,
+            display_name,
+            file_size,
+            created_at,
+            updated_at
+          `,
         )
-      `,
-    )
-    .in(
-      'document_id',
-      documents.map((entry) => entry.id),
-    )
+        .order('display_name', { ascending: true })
+        .limit(500)
 
-  if (accessError) {
-    throw accessError
-  }
+      if (error) {
+        throw error
+      }
 
-  const viewerMap = new Map<string, PdfArchiveViewer[]>()
+      const documents = (data ?? []) as PdfDocumentRow[]
 
-  for (const accessEntry of (accessData ?? []) as unknown as PdfDocumentAccessRow[]) {
-    const profile = unwrapProfile(accessEntry.profile)
+      if (!includeAccess || !documents.length) {
+        return documents.map((entry) => mapPdfDocument(entry, []))
+      }
 
-    if (!profile) {
-      continue
-    }
+      logSupabaseFetch({ functionName: 'listPdfArchiveFiles', table: 'pdf_document_access' })
 
-    const currentViewers = viewerMap.get(accessEntry.document_id) ?? []
-    currentViewers.push(mapViewer(profile))
-    viewerMap.set(accessEntry.document_id, currentViewers)
-  }
+      const { data: accessData, error: accessError } = await client
+        .from('pdf_document_access')
+        .select(
+          `
+            document_id,
+            profile:profiles (
+              id,
+              email,
+              display_name,
+              handle,
+              role
+            )
+          `,
+        )
+        .in(
+          'document_id',
+          documents.map((entry) => entry.id),
+        )
+        .limit(1000)
 
-  return documents.map((entry) => mapPdfDocument(entry, viewerMap.get(entry.id) ?? []))
+      if (accessError) {
+        throw accessError
+      }
+
+      const viewerMap = new Map<string, PdfArchiveViewer[]>()
+
+      for (const accessEntry of (accessData ?? []) as unknown as PdfDocumentAccessRow[]) {
+        const profile = unwrapProfile(accessEntry.profile)
+
+        if (!profile) {
+          continue
+        }
+
+        const currentViewers = viewerMap.get(accessEntry.document_id) ?? []
+        currentViewers.push(mapViewer(profile))
+        viewerMap.set(accessEntry.document_id, currentViewers)
+      }
+
+      return documents.map((entry) => mapPdfDocument(entry, viewerMap.get(entry.id) ?? []))
+    },
+  )
 }
 
 export async function createPdfArchiveViewUrl(path: string) {
@@ -201,6 +212,8 @@ export async function uploadPdfArchiveFiles(files: File[]) {
     return
   }
 
+  logSupabaseFetch({ functionName: 'uploadPdfArchiveFiles', table: 'pdf_documents' })
+
   const { error } = await client.from('pdf_documents').upsert(uploadedRows, {
     onConflict: 'storage_path',
   })
@@ -238,6 +251,8 @@ export async function syncPdfArchiveDocuments() {
     return
   }
 
+  logSupabaseFetch({ functionName: 'syncPdfArchiveDocuments', table: 'pdf_documents' })
+
   const { error: upsertError } = await client.from('pdf_documents').upsert(rows, {
     onConflict: 'storage_path',
   })
@@ -249,32 +264,41 @@ export async function syncPdfArchiveDocuments() {
 
 export async function listArchiveProfiles() {
   const client = ensureSupabase()
-  const { data, error } = await client
-    .from('profiles')
-    .select('id, email, display_name, handle, role')
-    .order('display_name', { ascending: true })
+  return runSupabaseFetch(
+    'listArchiveProfiles',
+    { functionName: 'listArchiveProfiles', table: 'profiles' },
+    async () => {
+      const { data, error } = await client
+        .from('profiles')
+        .select('id, email, display_name, handle, role')
+        .order('display_name', { ascending: true })
+        .limit(500)
 
-  if (error) {
-    throw error
-  }
+      if (error) {
+        throw error
+      }
 
-  return ((data ?? []) as Array<{
-    id: string
-    email: string
-    display_name: string
-    handle: string
-    role: PdfArchiveViewer['role']
-  }>).map((entry) => ({
-    id: entry.id,
-    email: entry.email,
-    displayName: entry.display_name,
-    handle: entry.handle,
-    role: entry.role,
-  }))
+      return ((data ?? []) as Array<{
+        id: string
+        email: string
+        display_name: string
+        handle: string
+        role: PdfArchiveViewer['role']
+      }>).map((entry) => ({
+        id: entry.id,
+        email: entry.email,
+        displayName: entry.display_name,
+        handle: entry.handle,
+        role: entry.role,
+      }))
+    },
+  )
 }
 
 export async function updatePdfArchiveAccess(documentId: string, viewerIds: string[]) {
   const client = ensureSupabase()
+
+  logSupabaseFetch({ functionName: 'updatePdfArchiveAccess', table: 'pdf_document_access' })
 
   const { error: deleteError } = await client
     .from('pdf_document_access')
