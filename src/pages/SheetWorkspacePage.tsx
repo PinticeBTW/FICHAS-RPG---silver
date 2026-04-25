@@ -1637,7 +1637,8 @@ export function SheetWorkspacePage() {
             {/* Player: só o seu card */}
             {!isGm && selectedProfile && isOwnSelectedProfile && (
               <>
-                <div className="border border-[#f3e600] bg-[#f3e600]/10 px-4 py-3">
+                {accessibleProfiles.length <= 1 ? (
+                  <div className="border border-[#f3e600] bg-[#f3e600]/10 px-4 py-3">
                   {editingName ? (
                     <div className="flex items-center gap-1">
                       <input
@@ -1681,7 +1682,8 @@ export function SheetWorkspacePage() {
                   )}
                   <p className="mt-2 truncate text-xs text-stone-400">{selectedProfile.email}</p>
                   <p className="mt-1 text-[0.68rem] uppercase tracking-[0.22em] text-stone-500">Jogador</p>
-                </div>
+                  </div>
+                ) : null}
 
                 <PlayerNotebookPanel
                   value={draftFields.PLAYER_NOTES ?? ''}
