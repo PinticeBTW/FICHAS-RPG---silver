@@ -220,6 +220,7 @@ type NpcCardRow = {
   id: string
   display_name: string
   field_data: Record<string, unknown> | string | null
+  owner_profile_id?: string | null
   updated_at: string | null
 }
 
@@ -257,6 +258,21 @@ function resolveSheetAccessMetadata(entry: Profile, viewer: Profile) {
   } as const
 }
 
+function resolveNpcSheetAccessMetadata(entry: NpcCardRow, viewer: Profile) {
+  return {
+    sheetAccess:
+      viewer.role !== 'gm' && entry.owner_profile_id !== viewer.id
+        ? 'shared'
+        : 'owner',
+    sheetSource: 'npc',
+  } as const
+}
+
+function isNpcOwnerColumnUnavailableError(error: unknown) {
+  const text = sheetSharingErrorText(error)
+  return text.includes('owner_profile_id') || text.includes('pgrst204')
+}
+
 function resolveShareTarget(entry: Profile) {
   return {
     targetKind: isNpcProfile(entry) ? 'npc' : 'profile',
@@ -272,6 +288,35 @@ function sortAccessibleProfiles(left: Profile, right: Profile) {
   return left.displayName.localeCompare(right.displayName)
 }
 
+async function listNpcCards(client: ReturnType<typeof ensureSupabase>): Promise<NpcCardRow[]> {
+  const result = await client
+    .from('npc_cards')
+    .select('id, display_name, field_data, owner_profile_id, updated_at')
+    .order('display_name', { ascending: true })
+
+  if (!result.error) {
+    return (result.data ?? []) as NpcCardRow[]
+  }
+
+  if (!isNpcOwnerColumnUnavailableError(result.error)) {
+    throw result.error
+  }
+
+  const fallbackResult = await client
+    .from('npc_cards')
+    .select('id, display_name, field_data, updated_at')
+    .order('display_name', { ascending: true })
+
+  if (fallbackResult.error) {
+    throw fallbackResult.error
+  }
+
+  return ((fallbackResult.data ?? []) as NpcCardRow[]).map((entry) => ({
+    ...entry,
+    owner_profile_id: null,
+  }))
+}
+
 export async function listSheetProfiles(viewer: Profile) {
   const client = ensureSupabase()
   const [profilesResult, npcsResult] = await Promise.all([
@@ -279,14 +324,10 @@ export async function listSheetProfiles(viewer: Profile) {
       .from('profiles')
       .select('id, email, display_name, handle, role, avatar_url')
       .order('display_name', { ascending: true }),
-    client
-      .from('npc_cards')
-      .select('id, display_name, field_data, updated_at')
-      .order('display_name', { ascending: true }),
+    listNpcCards(client),
   ])
 
   if (profilesResult.error) throw profilesResult.error
-  if (npcsResult.error) throw npcsResult.error
 
   const profiles = ((profilesResult.data ?? []) as ProfileRow[]).map((entry) => {
     const baseProfile = mapProfile(entry)
@@ -295,26 +336,48 @@ export async function listSheetProfiles(viewer: Profile) {
       ...resolveSheetAccessMetadata(baseProfile, viewer),
     }
   })
-  const npcs = ((npcsResult.data ?? []) as NpcCardRow[]).map((entry) => {
+  const npcs = npcsResult.map((entry) => {
     const baseProfile = mapNpcProfile(entry)
     return {
       ...baseProfile,
-      ...resolveSheetAccessMetadata(baseProfile, viewer),
+      ...resolveNpcSheetAccessMetadata(entry, viewer),
     }
   })
 
   return [...profiles, ...npcs].sort(sortAccessibleProfiles)
 }
 
-export async function createNpcCard(displayName: string): Promise<Profile> {
+export async function createNpcCard(displayName: string, ownerProfileId?: string): Promise<Profile> {
   const client = ensureSupabase()
+  const insertPayload = {
+    display_name: displayName,
+    field_data: buildInitialFieldData(),
+    ...(ownerProfileId ? { owner_profile_id: ownerProfileId } : {}),
+  }
   const { data, error } = await client
     .from('npc_cards')
-    .insert({ display_name: displayName, field_data: buildInitialFieldData() })
-    .select('id, display_name, field_data, updated_at')
+    .insert(insertPayload)
+    .select('id, display_name, field_data, owner_profile_id, updated_at')
     .single()
 
-  if (error) throw error
+  if (error) {
+    if (!ownerProfileId || !isNpcOwnerColumnUnavailableError(error)) {
+      throw error
+    }
+
+    const fallbackResult = await client
+      .from('npc_cards')
+      .insert({ display_name: displayName, field_data: buildInitialFieldData() })
+      .select('id, display_name, field_data, updated_at')
+      .single()
+
+    if (fallbackResult.error) {
+      throw fallbackResult.error
+    }
+
+    return mapNpcProfile(fallbackResult.data as NpcCardRow)
+  }
+
   return mapNpcProfile(data as NpcCardRow)
 }
 
@@ -416,9 +479,13 @@ export async function saveNpcSheet(npcId: string, fieldData: Record<string, stri
     .update({ field_data: normalizedFieldData, updated_at: new Date().toISOString() })
     .eq('id', npcId)
     .select('id, display_name, field_data, updated_at')
-    .single()
+    .maybeSingle()
 
   if (error) throw error
+  if (!data) {
+    throw new Error('O Supabase bloqueou a gravacao desta ficha extra.')
+  }
+
   return mapNpcSheet(data as NpcCardRow)
 }
 

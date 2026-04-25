@@ -101,8 +101,10 @@ begin
     where schemaname = 'public'
       and tablename = 'npc_cards'
   ) then
+    execute 'alter table public.npc_cards add column if not exists owner_profile_id uuid references public.profiles (id) on delete cascade';
     execute 'grant select, insert, update, delete on public.npc_cards to authenticated';
     execute 'drop policy if exists "player_read" on public.npc_cards';
+    execute 'drop policy if exists "player_update_owned" on public.npc_cards';
     execute 'drop policy if exists "player_update_shared" on public.npc_cards';
     execute $policy$
       create policy "player_read" on public.npc_cards
@@ -114,8 +116,15 @@ begin
             where profiles.id = auth.uid()
               and profiles.role = 'gm'
           )
+          or owner_profile_id = auth.uid()
           or public.has_sheet_share_access('npc', id)
         )
+    $policy$;
+    execute $policy$
+      create policy "player_update_owned" on public.npc_cards
+        for update
+        using (owner_profile_id = auth.uid())
+        with check (owner_profile_id = auth.uid())
     $policy$;
     execute $policy$
       create policy "player_update_shared" on public.npc_cards
