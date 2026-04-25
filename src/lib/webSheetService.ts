@@ -1,10 +1,16 @@
 import type { Profile, WebSheetRecord } from '../types/domain'
 import { supabase, SUPABASE_CONFIG_ERROR } from './supabase'
-import { cyberwareSheetFieldDefaults, cyberwareSheetFieldKeys } from './cyberwareSheetLayout'
+import {
+  CYBERWARE_CATALOG_FIELD_KEY,
+  cyberwareSheetFieldDefaults,
+  cyberwareSheetFieldKeys,
+} from './cyberwareSheetLayout'
 import { pdfSheetTemplateFields } from './pdfSheetTemplate'
 
 const CURRENT_TEMPLATE_KEY = 'blank-grey-v2'
 const SHEET_RECORD_CACHE_LIMIT = 12
+const GLOBAL_CYBERWARE_CATALOG_ID = 'global'
+const GLOBAL_CYBERWARE_TEMPLATE_KEY = 'global-cyberware-v1'
 
 type ProfileRow = {
   id: string
@@ -28,6 +34,14 @@ type SavedSheetRow = Omit<SheetRow, 'field_data'>
 type SheetShareAccessRow = {
   viewer_profile_id: string
 }
+
+type GlobalCyberwareCatalogRow = {
+  id: string
+  catalog: unknown
+  updated_at: string | null
+}
+
+type SavedGlobalCyberwareCatalogRow = Pick<GlobalCyberwareCatalogRow, 'id' | 'updated_at'>
 
 type SheetProfileMetadata = Partial<
   Pick<
@@ -289,6 +303,63 @@ function mapSavedNpcSheet(row: Pick<NpcCardRow, 'id' | 'updated_at'>, fieldData:
     fieldData,
     updatedAt: row.updated_at ?? new Date().toISOString(),
   })
+}
+
+function stringifyGlobalCyberwareCatalog(catalog: unknown) {
+  if (Array.isArray(catalog)) {
+    return JSON.stringify(catalog)
+  }
+
+  if (typeof catalog === 'string') {
+    try {
+      const parsed = JSON.parse(catalog) as unknown
+      return Array.isArray(parsed) ? JSON.stringify(parsed) : '[]'
+    } catch {
+      return '[]'
+    }
+  }
+
+  return '[]'
+}
+
+function parseGlobalCyberwareCatalogValue(value: string | undefined) {
+  if (!value?.trim()) {
+    return []
+  }
+
+  try {
+    const parsed = JSON.parse(value) as unknown
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function mapGlobalCyberwareCatalog(row?: GlobalCyberwareCatalogRow | null): WebSheetRecord {
+  return {
+    id: row?.id ?? GLOBAL_CYBERWARE_CATALOG_ID,
+    profileId: GLOBAL_CYBERWARE_CATALOG_ID,
+    templateKey: GLOBAL_CYBERWARE_TEMPLATE_KEY,
+    fieldData: {
+      [CYBERWARE_CATALOG_FIELD_KEY]: stringifyGlobalCyberwareCatalog(row?.catalog ?? []),
+    },
+    updatedAt: row?.updated_at ?? new Date().toISOString(),
+  }
+}
+
+function mapSavedGlobalCyberwareCatalog(
+  row: SavedGlobalCyberwareCatalogRow,
+  fieldData: Record<string, string>,
+): WebSheetRecord {
+  return {
+    id: row.id,
+    profileId: GLOBAL_CYBERWARE_CATALOG_ID,
+    templateKey: GLOBAL_CYBERWARE_TEMPLATE_KEY,
+    fieldData: {
+      [CYBERWARE_CATALOG_FIELD_KEY]: fieldData[CYBERWARE_CATALOG_FIELD_KEY] ?? '[]',
+    },
+    updatedAt: row.updated_at ?? new Date().toISOString(),
+  }
 }
 
 function resolveSheetAccessMetadata(entry: Profile, viewer: Profile) {
@@ -629,6 +700,48 @@ export async function saveSheetFields(profileId: string, fieldData: Record<strin
   return mapSavedSheet(data as SavedSheetRow, normalizedFieldData)
 }
 
+export async function fetchGlobalCyberwareCatalog(): Promise<WebSheetRecord> {
+  const client = ensureSupabase()
+  const { data, error } = await client
+    .from('cyberware_catalog_settings')
+    .select('id, catalog, updated_at')
+    .eq('id', GLOBAL_CYBERWARE_CATALOG_ID)
+    .maybeSingle()
+
+  if (error) {
+    throw error
+  }
+
+  return mapGlobalCyberwareCatalog(data as GlobalCyberwareCatalogRow | null)
+}
+
+export async function saveGlobalCyberwareCatalog(
+  fieldData: Record<string, string>,
+): Promise<WebSheetRecord> {
+  const client = ensureSupabase()
+  const normalizedFieldData = {
+    [CYBERWARE_CATALOG_FIELD_KEY]: fieldData[CYBERWARE_CATALOG_FIELD_KEY] ?? '[]',
+  }
+  const { data, error } = await client
+    .from('cyberware_catalog_settings')
+    .upsert(
+      {
+        id: GLOBAL_CYBERWARE_CATALOG_ID,
+        catalog: parseGlobalCyberwareCatalogValue(normalizedFieldData[CYBERWARE_CATALOG_FIELD_KEY]),
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'id' },
+    )
+    .select('id, updated_at')
+    .single()
+
+  if (error) {
+    throw error
+  }
+
+  return mapSavedGlobalCyberwareCatalog(data as SavedGlobalCyberwareCatalogRow, normalizedFieldData)
+}
+
 async function fetchRealtimeSheetByProfileId(profileId: string) {
   const client = ensureSupabase()
   const { data, error } = await client
@@ -657,6 +770,14 @@ async function fetchRealtimeNpcSheetById(npcId: string) {
   }
 
   return mapNpcSheet(data as NpcCardRow)
+}
+
+async function fetchRealtimeGlobalCyberwareCatalog() {
+  try {
+    return await fetchGlobalCyberwareCatalog()
+  } catch {
+    return null
+  }
 }
 
 export async function listSheetShareViewerIds(target: Profile) {
@@ -825,6 +946,36 @@ export function subscribeToNpcSheet(
           return
         }
 
+        refreshRunner.scheduleRefresh()
+      },
+    )
+    .subscribe()
+
+  return () => {
+    refreshRunner.dispose()
+    void client.removeChannel(channel)
+  }
+}
+
+export function subscribeToGlobalCyberwareCatalog(
+  onChange: (catalog: WebSheetRecord) => void,
+) {
+  const client = ensureSupabase()
+  const refreshRunner = createRealtimeRefreshRunner(
+    fetchRealtimeGlobalCyberwareCatalog,
+    onChange,
+  )
+  const channel = client
+    .channel(createRealtimeChannelId('global-cyberware-catalog'))
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'cyberware_catalog_settings',
+        filter: `id=eq.${GLOBAL_CYBERWARE_CATALOG_ID}`,
+      },
+      () => {
         refreshRunner.scheduleRefresh()
       },
     )

@@ -12,8 +12,6 @@ import {
 import { removeCyberwareFromEquippedFieldData } from '../../lib/cyberwareState'
 import {
   CYBERWARE_CATALOG_FIELD_KEY,
-  CYBERWARE_CYBER_MAX_FIELD_KEY,
-  CYBERWARE_SHIELD_MAX_FIELD_KEY,
   cyberwareSheetZones,
 } from '../../lib/cyberwareSheetLayout'
 import type { Cyberware, CyberwareGroupId } from '../../types/cyberware'
@@ -333,12 +331,6 @@ export function CyberwareCatalogManager({
 
   const handleClearCatalog = () => {
     onFieldChange(CYBERWARE_CATALOG_FIELD_KEY, '[]')
-    onFieldChange(CYBERWARE_CYBER_MAX_FIELD_KEY, '')
-    onFieldChange(CYBERWARE_SHIELD_MAX_FIELD_KEY, '')
-
-    for (const zone of cyberwareSheetZones) {
-      onFieldChange(zone.fieldKey, '[]')
-    }
   }
 
   const handleDeleteEntry = (entryId: string) => {
