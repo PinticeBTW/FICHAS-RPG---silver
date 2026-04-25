@@ -12,6 +12,7 @@ const CURRENT_TEMPLATE_KEY = 'blank-grey-v2'
 const SHEET_RECORD_CACHE_LIMIT = 12
 const GLOBAL_CYBERWARE_CATALOG_ID = 'global'
 const GLOBAL_CYBERWARE_TEMPLATE_KEY = 'global-cyberware-v1'
+const RECENT_LOCAL_NPC_WRITE_TTL_MS = 15_000
 
 type ProfileRow = {
   id: string
@@ -279,6 +280,63 @@ function isNpcPatchFunctionUnavailableError(error: unknown) {
 
 const sheetRecordCache = new Map<string, WebSheetRecord>()
 const sheetRecordCacheTimes = new Map<string, number>()
+const recentLocalNpcWrites = new Map<string, Map<string, number>>()
+
+function rememberRecentLocalNpcWrite(npcId: string, updatedAt: string | null | undefined) {
+  if (!updatedAt) {
+    return
+  }
+
+  const now = Date.now()
+  const writes = recentLocalNpcWrites.get(npcId) ?? new Map<string, number>()
+  writes.set(updatedAt, now)
+
+  for (const [writtenAt, recordedAt] of writes.entries()) {
+    if (now - recordedAt > RECENT_LOCAL_NPC_WRITE_TTL_MS) {
+      writes.delete(writtenAt)
+    }
+  }
+
+  recentLocalNpcWrites.set(npcId, writes)
+}
+
+function shouldSkipNpcPartialRefresh(
+  npcId: string,
+  updatedAt: string | null | undefined,
+) {
+  if (!updatedAt) {
+    return false
+  }
+
+  const writes = recentLocalNpcWrites.get(npcId)
+
+  if (!writes) {
+    return false
+  }
+
+  const now = Date.now()
+
+  for (const [writtenAt, recordedAt] of writes.entries()) {
+    if (now - recordedAt > RECENT_LOCAL_NPC_WRITE_TTL_MS) {
+      writes.delete(writtenAt)
+    }
+  }
+
+  const matchedAt = writes.get(updatedAt)
+
+  if (!matchedAt) {
+    if (!writes.size) {
+      recentLocalNpcWrites.delete(npcId)
+    }
+    return false
+  }
+
+  writes.delete(updatedAt)
+  if (!writes.size) {
+    recentLocalNpcWrites.delete(npcId)
+  }
+  return true
+}
 
 function cloneSheetRecord(record: WebSheetRecord): WebSheetRecord {
   return {
@@ -380,12 +438,15 @@ function mapNpcSheet(row: NpcCardRow): WebSheetRecord {
 }
 
 function mapSavedNpcSheet(row: SavedNpcCardRow, fieldData: Record<string, string>): WebSheetRecord {
+  const updatedAt = row.updated_at ?? new Date().toISOString()
+  rememberRecentLocalNpcWrite(row.id, updatedAt)
+
   return rememberCachedSheetRecord({
     id: row.id,
     profileId: row.id,
     templateKey: CURRENT_TEMPLATE_KEY,
     fieldData,
-    updatedAt: row.updated_at ?? new Date().toISOString(),
+    updatedAt,
   })
 }
 
@@ -591,7 +652,7 @@ export async function createNpcCard(displayName: string, ownerProfileId?: string
   const { data, error } = await client
     .from('npc_cards')
     .insert(insertPayload)
-    .select('id, display_name, field_data, owner_profile_id, updated_at')
+    .select('id, display_name, owner_profile_id, updated_at')
     .single()
 
   if (error) {
@@ -602,7 +663,7 @@ export async function createNpcCard(displayName: string, ownerProfileId?: string
     const fallbackResult = await client
       .from('npc_cards')
       .insert({ display_name: displayName, field_data: buildInitialFieldData() })
-      .select('id, display_name, field_data, updated_at')
+      .select('id, display_name, updated_at')
       .single()
 
     if (fallbackResult.error) {
@@ -1242,6 +1303,10 @@ export function subscribeToNpcSheet(
           // Avoid replacing the current sheet with blanks when the payload is partial.
           if (typeof nextRow.field_data !== 'undefined') {
             onChange(mapNpcSheet(nextRow as NpcCardRow))
+            return
+          }
+
+          if (shouldSkipNpcPartialRefresh(npcId, nextRow.updated_at)) {
             return
           }
         }
