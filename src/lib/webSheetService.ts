@@ -23,6 +23,8 @@ type SheetRow = {
   updated_at: string | null
 }
 
+type SavedSheetRow = Omit<SheetRow, 'field_data'>
+
 type SheetShareAccessRow = {
   viewer_profile_id: string
 }
@@ -226,6 +228,16 @@ function mapSheet(row: SheetRow): WebSheetRecord {
   })
 }
 
+function mapSavedSheet(row: SavedSheetRow, fieldData: Record<string, string>): WebSheetRecord {
+  return rememberCachedSheetRecord({
+    id: row.id,
+    profileId: row.profile_id,
+    templateKey: row.template_key,
+    fieldData,
+    updatedAt: row.updated_at ?? new Date().toISOString(),
+  })
+}
+
 export const NPC_EMAIL_PREFIX = 'npc:'
 
 export function isNpcProfile(profile: Profile) {
@@ -265,6 +277,16 @@ function mapNpcSheet(row: NpcCardRow): WebSheetRecord {
     profileId: row.id,
     templateKey: CURRENT_TEMPLATE_KEY,
     fieldData: normalizeFieldData(row.field_data ?? null),
+    updatedAt: row.updated_at ?? new Date().toISOString(),
+  })
+}
+
+function mapSavedNpcSheet(row: Pick<NpcCardRow, 'id' | 'updated_at'>, fieldData: Record<string, string>): WebSheetRecord {
+  return rememberCachedSheetRecord({
+    id: row.id,
+    profileId: row.id,
+    templateKey: CURRENT_TEMPLATE_KEY,
+    fieldData,
     updatedAt: row.updated_at ?? new Date().toISOString(),
   })
 }
@@ -519,7 +541,7 @@ export async function saveNpcSheet(npcId: string, fieldData: Record<string, stri
     .from('npc_cards')
     .update({ field_data: normalizedFieldData, updated_at: new Date().toISOString() })
     .eq('id', npcId)
-    .select('id, display_name, field_data, updated_at')
+    .select('id, updated_at')
     .maybeSingle()
 
   if (error) throw error
@@ -527,7 +549,7 @@ export async function saveNpcSheet(npcId: string, fieldData: Record<string, stri
     throw new Error('O Supabase bloqueou a gravacao desta ficha extra.')
   }
 
-  return mapNpcSheet(data as NpcCardRow)
+  return mapSavedNpcSheet(data as Pick<NpcCardRow, 'id' | 'updated_at'>, normalizedFieldData)
 }
 
 export async function fetchOrCreateSheet(profile: Profile) {
@@ -597,14 +619,14 @@ export async function saveSheetFields(profileId: string, fieldData: Record<strin
       },
       { onConflict: 'profile_id' },
     )
-    .select('id, profile_id, template_key, field_data, updated_at')
+    .select('id, profile_id, template_key, updated_at')
     .single()
 
   if (error) {
     throw error
   }
 
-  return mapSheet(data as SheetRow)
+  return mapSavedSheet(data as SavedSheetRow, normalizedFieldData)
 }
 
 async function fetchRealtimeSheetByProfileId(profileId: string) {

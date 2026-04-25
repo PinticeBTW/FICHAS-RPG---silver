@@ -158,8 +158,26 @@ function getSaveErrorMessage(error: unknown) {
 
 function buildSaveErrorMessage(error: unknown, profileToSave: Profile) {
   const rawMessage = getSaveErrorMessage(error)
+  const normalizedMessage = rawMessage.toLowerCase()
+
+  if (normalizedMessage.includes('57014') || normalizedMessage.includes('statement timeout')) {
+    return [
+      rawMessage || 'O Supabase demorou demasiado a guardar esta ficha.',
+      'Tenta guardar outra vez. Se voltar a acontecer, remove logos/imagens muito pesadas desta ficha.',
+    ].join(' ')
+  }
 
   if (isNpcProfile(profileToSave)) {
+    const looksLikePolicyError =
+      normalizedMessage.includes('row-level security') ||
+      normalizedMessage.includes('permission denied') ||
+      normalizedMessage.includes('owner_profile_id') ||
+      normalizedMessage.includes('42501')
+
+    if (!looksLikePolicyError) {
+      return rawMessage || 'O Supabase recusou guardar esta ficha extra.'
+    }
+
     return [
       rawMessage || 'O Supabase recusou guardar esta ficha extra.',
       'Falta ativar o dono/policy desta ficha: corre supabase/own-extra-player-sheets.sql no Supabase SQL Editor.',
