@@ -126,6 +126,49 @@ function clearLocalDraft(profileId: string) {
   }
 }
 
+function getSaveErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message) {
+    return error.message
+  }
+
+  if (typeof error === 'string') {
+    return error
+  }
+
+  if (error && typeof error === 'object') {
+    const candidate = error as {
+      code?: string
+      message?: string
+      details?: string
+      hint?: string
+    }
+
+    return [
+      candidate.code,
+      candidate.message,
+      candidate.details,
+      candidate.hint,
+    ]
+      .filter(Boolean)
+      .join(' ')
+  }
+
+  return ''
+}
+
+function buildSaveErrorMessage(error: unknown, profileToSave: Profile) {
+  const rawMessage = getSaveErrorMessage(error)
+
+  if (isNpcProfile(profileToSave) && profileToSave.sheetAccess === 'shared') {
+    return [
+      rawMessage || 'O Supabase recusou guardar esta ficha extra.',
+      'Falta ativar a policy de edicao: corre supabase/allow-shared-npc-edits.sql no Supabase SQL Editor.',
+    ].join(' ')
+  }
+
+  return rawMessage || 'Nao foi possivel guardar a ficha.'
+}
+
 function readSheetField(fieldData: Record<string, string> | undefined, ...keys: string[]) {
   if (!fieldData) {
     return ''
@@ -1145,11 +1188,7 @@ export function SheetWorkspacePage() {
         clearLocalDraft(saveProfileId)
       }
     } catch (caughtError) {
-      const message =
-        caughtError instanceof Error
-          ? caughtError.message
-          : 'Nao foi possivel guardar a ficha.'
-      setError(message)
+      setError(buildSaveErrorMessage(caughtError, profileToSave))
       setSyncLabel('Falha ao guardar')
     } finally {
       savingRef.current = false
