@@ -8,6 +8,8 @@ create table if not exists public.npc_cards (
   updated_at timestamptz not null default timezone('utc', now())
 );
 
+grant select, insert, update, delete on public.npc_cards to authenticated;
+
 -- So o GM (role = 'gm') pode criar/editar/apagar NPCs
 alter table public.npc_cards enable row level security;
 
@@ -44,6 +46,13 @@ create policy "player_read" on public.npc_cards
     )
     or public.has_sheet_share_access('npc', id)
   );
+
+-- Players podem editar fichas extra que lhes foram partilhadas
+drop policy if exists "player_update_shared" on public.npc_cards;
+create policy "player_update_shared" on public.npc_cards
+  for update
+  using (public.has_sheet_share_access('npc', id))
+  with check (public.has_sheet_share_access('npc', id));
 
 do $$
 begin
