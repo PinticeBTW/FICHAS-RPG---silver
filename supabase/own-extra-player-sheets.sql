@@ -49,3 +49,18 @@ where lower(card.display_name) = lower('Adrian ALTARA')
         and access_entry.viewer_profile_id = target_player.id
     )
   );
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'npc_cards'
+  ) then
+    alter publication supabase_realtime add table public.npc_cards;
+  end if;
+exception
+  when duplicate_object then null;
+end $$;
