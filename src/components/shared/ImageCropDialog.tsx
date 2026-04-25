@@ -12,22 +12,6 @@ function clampOffset(offset: { x: number; y: number }, maxX: number, maxY: numbe
   }
 }
 
-export function readFileAsDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        resolve(reader.result)
-        return
-      }
-
-      reject(new Error('Nao foi possivel ler a imagem selecionada.'))
-    }
-    reader.onerror = () => reject(reader.error ?? new Error('Falha a ler a imagem.'))
-    reader.readAsDataURL(file)
-  })
-}
-
 interface ImageCropDialogProps {
   source: string
   title?: string
@@ -94,10 +78,10 @@ export function ImageCropDialog({
   const displayedHeight = naturalSize.height * coverScale * zoom
   const maxOffsetX = Math.max(0, (displayedWidth - previewSize.width) / 2)
   const maxOffsetY = Math.max(0, (displayedHeight - previewSize.height) / 2)
-
-  useEffect(() => {
-    setOffset((current) => clampOffset(current, maxOffsetX, maxOffsetY))
-  }, [maxOffsetX, maxOffsetY])
+  const clampedOffset = useMemo(
+    () => clampOffset(offset, maxOffsetX, maxOffsetY),
+    [maxOffsetX, maxOffsetY, offset],
+  )
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -130,8 +114,8 @@ export function ImageCropDialog({
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
-      startOffsetX: offset.x,
-      startOffsetY: offset.y,
+      startOffsetX: clampedOffset.x,
+      startOffsetY: clampedOffset.y,
     }
     setIsDragging(true)
   }
@@ -183,8 +167,8 @@ export function ImageCropDialog({
     const scaleToNatural = naturalSize.width / displayedWidth
     const sourceWidth = previewSize.width * scaleToNatural
     const sourceHeight = previewSize.height * scaleToNatural
-    const unclampedX = ((displayedWidth - previewSize.width) / 2 - offset.x) * scaleToNatural
-    const unclampedY = ((displayedHeight - previewSize.height) / 2 - offset.y) * scaleToNatural
+    const unclampedX = ((displayedWidth - previewSize.width) / 2 - clampedOffset.x) * scaleToNatural
+    const unclampedY = ((displayedHeight - previewSize.height) / 2 - clampedOffset.y) * scaleToNatural
     const sourceX = clamp(unclampedX, 0, Math.max(0, naturalSize.width - sourceWidth))
     const sourceY = clamp(unclampedY, 0, Math.max(0, naturalSize.height - sourceHeight))
 
@@ -200,7 +184,7 @@ export function ImageCropDialog({
       canvas.height,
     )
 
-    onConfirm(canvas.toDataURL('image/jpeg', 0.9))
+    onConfirm(canvas.toDataURL('image/jpeg', 0.72))
   }
 
   return (
@@ -261,7 +245,7 @@ export function ImageCropDialog({
                     width: `${displayedWidth}px`,
                     height: `${displayedHeight}px`,
                     maxWidth: 'none',
-                    transform: `translate(calc(-50% + ${offset.x}px), calc(-50% + ${offset.y}px))`,
+                    transform: `translate(calc(-50% + ${clampedOffset.x}px), calc(-50% + ${clampedOffset.y}px))`,
                   }}
                 />
 

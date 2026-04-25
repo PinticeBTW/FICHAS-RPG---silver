@@ -4,7 +4,8 @@ import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy } from 'pdfjs-d
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { CyberwareBoard } from './CyberwareBoard'
 import { RelationsBoard } from './RelationsBoard'
-import { ImageCropDialog, readFileAsDataUrl } from '../shared/ImageCropDialog'
+import { ImageCropDialog } from '../shared/ImageCropDialog'
+import { readFileAsDataUrl } from '../shared/imageFile'
 import {
   DEBUG_INPUTS_ONLY,
   type SheetFieldVisualPreset,
@@ -419,7 +420,7 @@ function ImageUploadZone({
           title="Ajustar foto"
           description="Escolhe o enquadramento da foto antes de a guardar na ficha."
           aspectRatio={aspectRatio}
-          outputWidth={1200}
+          outputWidth={720}
           onCancel={() => setCropSource(null)}
           onConfirm={(dataUrl) => {
             onChange(dataUrl)
