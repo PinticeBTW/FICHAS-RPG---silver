@@ -18,6 +18,7 @@ import { formatTimestamp } from '../lib/utils'
 import {
   createNpcCard,
   deleteNpcCard,
+  fetchGlobalCyberwareCatalog,
   fetchSheetSnapshot,
   fetchNpcSheet,
   fetchOrCreateSheet,
@@ -28,8 +29,10 @@ import {
   listSheetShareViewerIds,
   loadGmGroups,
   saveGmGroups,
+  saveGlobalCyberwareCatalog,
   saveNpcSheet,
   saveSheetFields,
+  subscribeToGlobalCyberwareCatalog,
   subscribeToNpcSheet,
   subscribeToSheetDirectory,
   subscribeToSheet,
@@ -39,6 +42,7 @@ import {
   updateSheetShareAccess,
   type ProfileGroup,
 } from '../lib/webSheetService'
+import { CYBERWARE_CATALOG_FIELD_KEY } from '../lib/cyberwareSheetLayout'
 import {
   PLAYER_MESSAGES_FIELD_KEY,
   buildPlayerInboxMessage,
@@ -492,9 +496,13 @@ export function SheetWorkspacePage() {
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [sheet, setSheet] = useState<WebSheetRecord | null>(null)
   const [draftFields, setDraftFields] = useState<Record<string, string>>({})
+  const [globalCyberwareCatalog, setGlobalCyberwareCatalog] = useState<WebSheetRecord | null>(null)
+  const [globalCyberwareDraftFields, setGlobalCyberwareDraftFields] = useState<Record<string, string>>({})
   const [loadingProfiles, setLoadingProfiles] = useState(true)
   const [loadingSheet, setLoadingSheet] = useState(false)
+  const [loadingGlobalCyberwareCatalog, setLoadingGlobalCyberwareCatalog] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [savingGlobalCyberwareCatalog, setSavingGlobalCyberwareCatalog] = useState(false)
   const [syncLabel, setSyncLabel] = useState('Guardar manual')
   const [error, setError] = useState<string | null>(null)
   const sheetRef = useRef<WebSheetRecord | null>(null)
@@ -582,12 +590,7 @@ export function SheetWorkspacePage() {
     selectedProfile &&
     (profile.role === 'gm' || selectedProfile.id === profile.id || canEditPlayerNpcSheet),
   )
-  const canManageCyberwareCatalog = Boolean(
-    profile &&
-    selectedProfile &&
-    profile.role === 'gm' &&
-    selectedProfile.id !== profile.id,
-  )
+  const canManageCyberwareCatalog = profile?.role === 'gm'
   const canConfigureShareAccess = Boolean(
     profile &&
     selectedProfile &&
@@ -614,46 +617,18 @@ export function SheetWorkspacePage() {
     [profiles],
   )
   const cyberwarePlayerOptions = useMemo(() => {
-    const ownerOption =
-      selectedProfile && !isNpcProfile(selectedProfile) && selectedProfile.role !== 'gm'
-        ? [
-            {
-              id: selectedProfile.id,
-              label: selectedProfile.displayName,
-              detail: selectedProfile.email,
-            },
-          ]
-        : []
-    const npcOwnerOption =
-      selectedProfile && isNpcProfile(selectedProfile) && selectedProfile.ownerProfileId
-        ? profiles
-            .filter((entry) => entry.id === selectedProfile.ownerProfileId)
-            .map((entry) => ({
-              id: entry.id,
-              label: `${entry.displayName} (dono)`,
-              detail: entry.email,
-            }))
-        : []
-    const leadingPlayerIds = new Set(
-      [...ownerOption, ...npcOwnerOption].map((entry) => entry.id),
-    )
-
-    const otherOptions = profiles
+    return profiles
       .filter(
         (entry) =>
           entry.role !== 'gm' &&
-          !isNpcProfile(entry) &&
-          !leadingPlayerIds.has(entry.id) &&
-          entry.id !== selectedProfile?.id,
+          !isNpcProfile(entry),
       )
       .map((entry) => ({
         id: entry.id,
         label: entry.displayName,
         detail: entry.email,
       }))
-
-    return [...ownerOption, ...npcOwnerOption, ...otherOptions]
-  }, [profiles, selectedProfile])
+  }, [profiles])
   const shareAccessDirty =
     serializeViewerIds(shareViewerIds) !== serializeViewerIds(loadedShareViewerIds)
   const normalizedProfileSearchQuery = profileSearchQuery.trim().toLowerCase()
@@ -710,18 +685,42 @@ export function SheetWorkspacePage() {
     () => serializeFieldData(draftFields),
     [draftFields],
   )
+  const globalCyberwareCatalogSignature = useMemo(
+    () => serializeFieldData(globalCyberwareCatalog?.fieldData ?? {}),
+    [globalCyberwareCatalog],
+  )
+  const globalCyberwareDraftSignature = useMemo(
+    () => serializeFieldData(globalCyberwareDraftFields),
+    [globalCyberwareDraftFields],
+  )
   const isDirty = sheet !== null && sheetSignature !== draftSignature
-  const hasPendingUnsavedChanges = canEdit && (isDirty || saving)
+  const isGlobalCyberwareDirty =
+    globalCyberwareCatalog !== null &&
+    globalCyberwareCatalogSignature !== globalCyberwareDraftSignature
+  const hasPendingUnsavedChanges =
+    (canEdit && (isDirty || saving)) ||
+    (canManageCyberwareCatalog && (isGlobalCyberwareDirty || savingGlobalCyberwareCatalog))
   const cyberwareViewerRole: 'gm' | 'owner' | 'shared' = profile?.role === 'gm'
     ? 'gm'
     : isOwnSelectedProfile || isOwnerOfSelectedNpcProfile
       ? 'owner'
       : 'shared'
   const showingCyberwareManager = canManageCyberwareCatalog && gmWorkspaceView === 'cyberware'
+  const globalCyberwareCatalogValue =
+    globalCyberwareDraftFields[CYBERWARE_CATALOG_FIELD_KEY] ??
+    globalCyberwareCatalog?.fieldData[CYBERWARE_CATALOG_FIELD_KEY] ??
+    '[]'
+  const sheetEditorFieldData = useMemo(
+    () => ({
+      ...draftFields,
+      [CYBERWARE_CATALOG_FIELD_KEY]: globalCyberwareCatalogValue,
+    }),
+    [draftFields, globalCyberwareCatalogValue],
+  )
 
   useUnsavedChangesWarning(
     hasPendingUnsavedChanges,
-    saving
+    saving || savingGlobalCyberwareCatalog
       ? SAVING_LEAVE_MESSAGE
       : UNSAVED_CHANGES_LEAVE_MESSAGE,
   )
@@ -752,7 +751,7 @@ export function SheetWorkspacePage() {
 
   useEffect(() => {
     setGmWorkspaceView('sheet')
-  }, [profile?.id, selectedProfile?.id])
+  }, [profile?.id])
 
   const refreshProfiles = useCallback(async (options?: { showLoading?: boolean }) => {
     if (!profile) {
@@ -793,6 +792,51 @@ export function SheetWorkspacePage() {
 
   useEffect(() => {
     if (!profile) {
+      setGlobalCyberwareCatalog(null)
+      setGlobalCyberwareDraftFields({})
+      return
+    }
+
+    let cancelled = false
+
+    const loadGlobalCyberwareCatalog = async () => {
+      setLoadingGlobalCyberwareCatalog(true)
+
+      try {
+        const nextCatalog = await fetchGlobalCyberwareCatalog()
+
+        if (cancelled) {
+          return
+        }
+
+        setGlobalCyberwareCatalog(nextCatalog)
+        setGlobalCyberwareDraftFields(nextCatalog.fieldData)
+      } catch (caughtError) {
+        if (cancelled) {
+          return
+        }
+
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : 'Nao foi possivel carregar o catalogo global de cyberware.',
+        )
+      } finally {
+        if (!cancelled) {
+          setLoadingGlobalCyberwareCatalog(false)
+        }
+      }
+    }
+
+    void loadGlobalCyberwareCatalog()
+
+    return () => {
+      cancelled = true
+    }
+  }, [profile])
+
+  useEffect(() => {
+    if (!profile) {
       return
     }
 
@@ -808,6 +852,23 @@ export function SheetWorkspacePage() {
       unsubscribeShareAccess()
     }
   }, [profile, refreshProfiles])
+
+  useEffect(() => {
+    if (!profile) {
+      return
+    }
+
+    return subscribeToGlobalCyberwareCatalog((nextCatalog) => {
+      setGlobalCyberwareCatalog(nextCatalog)
+      setGlobalCyberwareDraftFields((current) => {
+        if (savingGlobalCyberwareCatalog || isGlobalCyberwareDirty) {
+          return current
+        }
+
+        return nextCatalog.fieldData
+      })
+    })
+  }, [isGlobalCyberwareDirty, profile, savingGlobalCyberwareCatalog])
 
   useEffect(() => {
     if (!loadingProfiles && selectedProfile && selectedProfile.id !== profileId) {
@@ -1275,6 +1336,43 @@ export function SheetWorkspacePage() {
     }
   }, [])
 
+  const handleSaveGlobalCyberwareCatalog = useCallback(async () => {
+    if (!canManageCyberwareCatalog || savingGlobalCyberwareCatalog) {
+      return
+    }
+
+    if (!isGlobalCyberwareDirty) {
+      setSyncLabel('Sem alteracoes por guardar')
+      return
+    }
+
+    setSavingGlobalCyberwareCatalog(true)
+    setSyncLabel('A guardar catalogo...')
+    setError(null)
+
+    try {
+      const savedCatalog = await saveGlobalCyberwareCatalog(globalCyberwareDraftFields)
+
+      setGlobalCyberwareCatalog(savedCatalog)
+      setGlobalCyberwareDraftFields(savedCatalog.fieldData)
+      setSyncLabel('Catalogo guardado')
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : 'Nao foi possivel guardar o catalogo global de cyberware.',
+      )
+      setSyncLabel('Falha ao guardar')
+    } finally {
+      setSavingGlobalCyberwareCatalog(false)
+    }
+  }, [
+    canManageCyberwareCatalog,
+    globalCyberwareDraftFields,
+    isGlobalCyberwareDirty,
+    savingGlobalCyberwareCatalog,
+  ])
+
   useEffect(() => {
     if (!canEdit || !selectedProfile || !sheet || !isDirty || saving) {
       return
@@ -1282,6 +1380,14 @@ export function SheetWorkspacePage() {
 
     setSyncLabel('Alteracoes por guardar. Clica em Guardar.')
   }, [canEdit, isDirty, saving, selectedProfile, sheet])
+
+  useEffect(() => {
+    if (!showingCyberwareManager || !isGlobalCyberwareDirty || savingGlobalCyberwareCatalog) {
+      return
+    }
+
+    setSyncLabel('Catalogo com alteracoes. Clica em Guardar.')
+  }, [isGlobalCyberwareDirty, savingGlobalCyberwareCatalog, showingCyberwareManager])
 
   // Carregar grupos do Supabase quando o GM entra
   useEffect(() => {
@@ -1595,6 +1701,10 @@ export function SheetWorkspacePage() {
     )
   }
 
+  const activeSaving = showingCyberwareManager ? savingGlobalCyberwareCatalog : saving
+  const activeSaveDisabled = activeSaving || (showingCyberwareManager ? !isGlobalCyberwareDirty : !isDirty)
+  const activeUpdatedAt = showingCyberwareManager ? globalCyberwareCatalog?.updatedAt : sheet?.updatedAt
+
   return (
     <main className={isSilverWorkspace ? 'w-full min-w-0' : 'mx-auto w-full min-w-0 max-w-[2800px]'}>
       {error ? (
@@ -1618,11 +1728,11 @@ export function SheetWorkspacePage() {
           {/* Estado da ficha + Sair — topo */}
           <div className="border border-white/10 bg-black/25 px-4 py-3">
             <p className="panel-title">Estado da ficha</p>
-            <p className="mt-3 text-sm text-stone-200">{saving ? 'A guardar...' : syncLabel}</p>
+            <p className="mt-3 text-sm text-stone-200">{activeSaving ? 'A guardar...' : syncLabel}</p>
             <p className="mt-2 text-xs text-stone-500">
               Ultima gravacao:{' '}
               <span className="text-stone-300">
-                {sheet ? formatTimestamp(sheet.updatedAt) : 'por criar'}
+                {activeUpdatedAt ? formatTimestamp(activeUpdatedAt) : 'por criar'}
               </span>
             </p>
           </div>
@@ -1684,12 +1794,18 @@ export function SheetWorkspacePage() {
               {canEdit ? (
                 <button
                   type="button"
-                  onClick={() => void handleSave()}
+                  onClick={() => {
+                    if (showingCyberwareManager) {
+                      void handleSaveGlobalCyberwareCatalog()
+                    } else {
+                      void handleSave()
+                    }
+                  }}
                   className="signal-button inline-flex items-center gap-2 px-3 py-1.5 text-xs"
-                  disabled={saving || !isDirty}
+                  disabled={activeSaveDisabled}
                 >
                   <Save size={14} />
-                  {saving ? 'A guardar...' : 'Guardar'}
+                  {activeSaving ? 'A guardar...' : 'Guardar'}
                 </button>
               ) : null}
             </div>
@@ -2156,7 +2272,22 @@ export function SheetWorkspacePage() {
             </span>
           </button>
 
-          {loadingSheet || !selectedProfile ? (
+          {showingCyberwareManager ? (
+            loadingGlobalCyberwareCatalog ? (
+              <LoadingScreen label="A abrir catalogo de cyberware..." />
+            ) : (
+              <CyberwareCatalogManager
+                fieldData={globalCyberwareDraftFields}
+                onFieldChange={(fieldName, value) => {
+                  setGlobalCyberwareDraftFields((current) => ({
+                    ...current,
+                    [fieldName]: value,
+                  }))
+                }}
+                playerOptions={cyberwarePlayerOptions}
+              />
+            )
+          ) : loadingSheet || !selectedProfile ? (
             <LoadingScreen label="A abrir a ficha..." />
           ) : sheet ? (
             isSilverWorkspace ? (
@@ -2197,21 +2328,8 @@ export function SheetWorkspacePage() {
               />
             ) : (
               <>
-                {showingCyberwareManager ? (
-                  <CyberwareCatalogManager
-                    fieldData={draftFields}
-                    onFieldChange={(fieldName, value) => {
-                      setDraftFields((current) => ({
-                        ...current,
-                        [fieldName]: value,
-                      }))
-                    }}
-                    playerOptions={cyberwarePlayerOptions}
-                  />
-                ) : (
-                  <>
-                    <PdfSheetEditor
-                      fieldData={draftFields}
+                <PdfSheetEditor
+                  fieldData={sheetEditorFieldData}
                       onFieldChange={(fieldName, value) => {
                         setDraftFields((current) => ({
                           ...current,
@@ -2319,8 +2437,6 @@ export function SheetWorkspacePage() {
                     </div>
                   </section>
                     ) : null}
-                  </>
-                )}
               </>
             )
           ) : (
