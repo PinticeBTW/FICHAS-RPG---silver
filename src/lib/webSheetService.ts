@@ -1190,8 +1190,14 @@ export function subscribeToSheet(
       },
       (payload) => {
         if (payload.eventType !== 'DELETE' && payload.new) {
-          onChange(mapSheet(payload.new as SheetRow))
-          return
+          const nextRow = payload.new as Partial<SheetRow>
+
+          // Some realtime UPDATE payloads may omit heavy columns like field_data.
+          // Avoid replacing the current sheet with blanks when the payload is partial.
+          if (typeof nextRow.field_data !== 'undefined') {
+            onChange(mapSheet(nextRow as SheetRow))
+            return
+          }
         }
 
         refreshRunner.scheduleRefresh()
@@ -1230,8 +1236,14 @@ export function subscribeToNpcSheet(
         }
 
         if (payload.new) {
-          onChange(mapNpcSheet(payload.new as NpcCardRow))
-          return
+          const nextRow = payload.new as Partial<NpcCardRow>
+
+          // Some realtime UPDATE payloads may omit heavy columns like field_data.
+          // Avoid replacing the current sheet with blanks when the payload is partial.
+          if (typeof nextRow.field_data !== 'undefined') {
+            onChange(mapNpcSheet(nextRow as NpcCardRow))
+            return
+          }
         }
 
         refreshRunner.scheduleRefresh()
@@ -1265,8 +1277,12 @@ export function subscribeToGlobalCyberwareCatalog(
       },
       (payload) => {
         if (payload.eventType !== 'DELETE' && payload.new) {
-          onChange(mapGlobalCyberwareCatalog(payload.new as GlobalCyberwareCatalogRow))
-          return
+          const nextRow = payload.new as Partial<GlobalCyberwareCatalogRow>
+
+          if (typeof nextRow.catalog !== 'undefined') {
+            onChange(mapGlobalCyberwareCatalog(nextRow as GlobalCyberwareCatalogRow))
+            return
+          }
         }
 
         refreshRunner.scheduleRefresh()
