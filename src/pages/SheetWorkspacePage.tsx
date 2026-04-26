@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { CyberwareCatalogManager } from '../components/character/CyberwareCatalogManager'
 import { PdfSheetEditor } from '../components/character/PdfSheetEditor'
+import { RelationsBoard } from '../components/character/RelationsBoard'
 import { EmptyState } from '../components/common/EmptyState'
 import { LoadingScreen } from '../components/common/LoadingScreen'
 import { PlayerInboxPanel } from '../components/notes/PlayerMessagesPanel'
@@ -51,6 +52,7 @@ import {
   serializePlayerInboxMessages,
   type SilverMessageRecipientOption,
 } from '../lib/playerInbox'
+import { parseRelationsData, stringifyRelationsData } from '../lib/relationsTypes'
 import type { Profile, WebSheetRecord } from '../types/domain'
 
 const UNSAVED_CHANGES_LEAVE_MESSAGE =
@@ -62,6 +64,7 @@ const GLOBAL_CYBERWARE_SETUP_MESSAGE =
   'Falta ativar o catalogo global de cyberware: corre supabase/global-cyberware-catalog.sql no Supabase SQL Editor.'
 const SAVE_QUEUE_DELAY_MS = 1000
 const KARMA_FIELD_ALIASES = ['KARMA', 'Karma', 'karma', 'K4rma', 'K4RMA'] as const
+const RELATIONS_FIELD_KEY = 'RELATIONS_DATA'
 
 function serializeFieldData(fieldData: Record<string, string>) {
   return JSON.stringify(
@@ -280,6 +283,21 @@ function readSheetField(fieldData: Record<string, string> | undefined, ...keys: 
 
 function isKarmaFieldAlias(fieldName: string) {
   return KARMA_FIELD_ALIASES.includes(fieldName as (typeof KARMA_FIELD_ALIASES)[number])
+}
+
+function resolveKarmaTone(fieldData: Record<string, string>) {
+  const raw = readSheetField(fieldData, ...KARMA_FIELD_ALIASES)
+  const compact = raw.normalize('NFKC').trim().replace(/\s+/g, '')
+
+  if (!compact) {
+    return 'grey' as const
+  }
+
+  if (/[+\uFF0B\uFE62]/u.test(compact)) {
+    return 'blue' as const
+  }
+
+  return 'red' as const
 }
 
 function isPlayerOwnedNpcProfile(profile: Profile) {
@@ -805,12 +823,20 @@ export function SheetWorkspacePage() {
     globalCyberwareDraftFields[CYBERWARE_CATALOG_FIELD_KEY] ??
     globalCyberwareCatalog?.fieldData[CYBERWARE_CATALOG_FIELD_KEY] ??
     '[]'
-  const sheetEditorFieldData = useMemo(
+  const sheetEditorFieldData: Record<string, string> = useMemo(
     () => ({
       ...draftFields,
       [CYBERWARE_CATALOG_FIELD_KEY]: globalCyberwareCatalogValue,
     }),
     [draftFields, globalCyberwareCatalogValue],
+  )
+  const relationsData = useMemo(
+    () => parseRelationsData(sheetEditorFieldData[RELATIONS_FIELD_KEY]),
+    [sheetEditorFieldData],
+  )
+  const relationsTone = useMemo(
+    () => resolveKarmaTone(sheetEditorFieldData),
+    [sheetEditorFieldData],
   )
 
   useUnsavedChangesWarning(
@@ -2525,12 +2551,32 @@ export function SheetWorkspacePage() {
                       return next
                     })
                   }}
-                      canEdit={canEdit}
-                      cyberwareViewerRole={cyberwareViewerRole}
-                      cyberwareViewerProfileId={profile?.id ?? null}
-                    />
+                  canEdit={canEdit}
+                  cyberwareViewerRole={cyberwareViewerRole}
+                  cyberwareViewerProfileId={profile?.id ?? null}
+                />
 
-                    {canConfigureShareAccess ? (
+                <section className="hud-panel rounded-[28px] p-4">
+                  <div className="mb-3">
+                    <p className="panel-title">Relações</p>
+                    <p className="mt-1 text-sm leading-6 text-stone-300">
+                      Página extra de amizades e contactos.
+                    </p>
+                  </div>
+                  <RelationsBoard
+                    data={relationsData}
+                    canEdit={canEdit}
+                    tone={relationsTone}
+                    onChange={(updated) => {
+                      setDraftFields((current) => ({
+                        ...current,
+                        [RELATIONS_FIELD_KEY]: stringifyRelationsData(updated),
+                      }))
+                    }}
+                  />
+                </section>
+
+                {canConfigureShareAccess ? (
                   <section className="hud-panel rounded-[28px] p-4">
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                       <div>
