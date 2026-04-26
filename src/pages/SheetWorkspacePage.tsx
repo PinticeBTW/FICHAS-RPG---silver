@@ -65,6 +65,13 @@ const GLOBAL_CYBERWARE_SETUP_MESSAGE =
 const SAVE_QUEUE_DELAY_MS = 1000
 const KARMA_FIELD_ALIASES = ['KARMA', 'Karma', 'karma', 'K4rma', 'K4RMA'] as const
 const RELATIONS_FIELD_KEY = 'RELATIONS_DATA'
+const RELATIONS_FALLBACK_FIELD_KEYS = [
+  'RELACOES_DATA',
+  'RELACOES',
+  'RELATIONS',
+  'AMIZADES',
+  'FRIENDS_DATA',
+] as const
 
 function serializeFieldData(fieldData: Record<string, string>) {
   return JSON.stringify(
@@ -298,6 +305,57 @@ function resolveKarmaTone(fieldData: Record<string, string>) {
   }
 
   return 'red' as const
+}
+
+function parseLegacyRelationsData(raw: string | undefined) {
+  if (!raw || !raw.trim()) {
+    return null
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as unknown
+
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      !Array.isArray(parsed) &&
+      'groups' in parsed &&
+      'npcs' in parsed &&
+      Array.isArray((parsed as { groups: unknown }).groups) &&
+      Array.isArray((parsed as { npcs: unknown }).npcs)
+    ) {
+      return parseRelationsData(raw)
+    }
+  } catch {
+    return null
+  }
+
+  return null
+}
+
+function resolveRelationsFieldKey(fieldData: Record<string, string>) {
+  if (parseLegacyRelationsData(fieldData[RELATIONS_FIELD_KEY])) {
+    return RELATIONS_FIELD_KEY
+  }
+
+  for (const key of RELATIONS_FALLBACK_FIELD_KEYS) {
+    if (parseLegacyRelationsData(fieldData[key])) {
+      return key
+    }
+  }
+
+  for (const [key, value] of Object.entries(fieldData)) {
+    if (key === CYBERWARE_CATALOG_FIELD_KEY) {
+      continue
+    }
+
+    const parsed = parseLegacyRelationsData(value)
+    if (parsed && parsed.npcs.length) {
+      return key
+    }
+  }
+
+  return RELATIONS_FIELD_KEY
 }
 
 function isPlayerOwnedNpcProfile(profile: Profile) {
@@ -830,9 +888,13 @@ export function SheetWorkspacePage() {
     }),
     [draftFields, globalCyberwareCatalogValue],
   )
-  const relationsData = useMemo(
-    () => parseRelationsData(sheetEditorFieldData[RELATIONS_FIELD_KEY]),
+  const relationsFieldKey = useMemo(
+    () => resolveRelationsFieldKey(sheetEditorFieldData),
     [sheetEditorFieldData],
+  )
+  const relationsData = useMemo(
+    () => parseLegacyRelationsData(sheetEditorFieldData[relationsFieldKey]) ?? parseRelationsData(''),
+    [relationsFieldKey, sheetEditorFieldData],
   )
   const relationsTone = useMemo(
     () => resolveKarmaTone(sheetEditorFieldData),
@@ -2557,20 +2619,16 @@ export function SheetWorkspacePage() {
                 />
 
                 <section className="hud-panel rounded-[28px] p-4">
-                  <div className="mb-3">
-                    <p className="panel-title">Relações</p>
-                    <p className="mt-1 text-sm leading-6 text-stone-300">
-                      Página extra de amizades e contactos.
-                    </p>
-                  </div>
                   <RelationsBoard
                     data={relationsData}
                     canEdit={canEdit}
                     tone={relationsTone}
                     onChange={(updated) => {
+                      const serialized = stringifyRelationsData(updated)
                       setDraftFields((current) => ({
                         ...current,
-                        [RELATIONS_FIELD_KEY]: stringifyRelationsData(updated),
+                        [relationsFieldKey]: serialized,
+                        [RELATIONS_FIELD_KEY]: serialized,
                       }))
                     }}
                   />
