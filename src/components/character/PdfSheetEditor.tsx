@@ -20,10 +20,11 @@ GlobalWorkerOptions.workerSrc = pdfWorkerUrl
 const TEMPLATE_URLS: Record<string, string> = {
   'blue-m': '/templates/sheet-blue-m.pdf',
   'blue-f': '/templates/sheet-blue-f.pdf',
-  'grey-m': '/templates/sheet-grey-m.pdf',
-  'grey-f': '/templates/sheet-grey-f.pdf',
-  'red-m': '/templates/sheet-red-m.pdf',
-  'red-f': '/templates/sheet-red-f.pdf',
+  // Red and grey source assets are currently named inversely.
+  'grey-m': '/templates/sheet-red-m.pdf',
+  'grey-f': '/templates/sheet-red-f.pdf',
+  'red-m': '/templates/sheet-grey-m.pdf',
+  'red-f': '/templates/sheet-grey-f.pdf',
 }
 
 const KARMA_FIELD_ALIASES = ['KARMA', 'Karma', 'karma', 'K4rma', 'K4RMA'] as const

@@ -61,6 +61,7 @@ const LOCAL_DRAFT_STORAGE_PREFIX = 'rpgsilver-sheet-draft:'
 const GLOBAL_CYBERWARE_SETUP_MESSAGE =
   'Falta ativar o catalogo global de cyberware: corre supabase/global-cyberware-catalog.sql no Supabase SQL Editor.'
 const SAVE_QUEUE_DELAY_MS = 1000
+const KARMA_FIELD_ALIASES = ['KARMA', 'Karma', 'karma', 'K4rma', 'K4RMA'] as const
 
 function serializeFieldData(fieldData: Record<string, string>) {
   return JSON.stringify(
@@ -275,6 +276,10 @@ function readSheetField(fieldData: Record<string, string> | undefined, ...keys: 
   }
 
   return ''
+}
+
+function isKarmaFieldAlias(fieldName: string) {
+  return KARMA_FIELD_ALIASES.includes(fieldName as (typeof KARMA_FIELD_ALIASES)[number])
 }
 
 function isPlayerOwnedNpcProfile(profile: Profile) {
@@ -2499,12 +2504,27 @@ export function SheetWorkspacePage() {
               <>
                 <PdfSheetEditor
                   fieldData={sheetEditorFieldData}
-                      onFieldChange={(fieldName, value) => {
-                        setDraftFields((current) => ({
+                  onFieldChange={(fieldName, value) => {
+                    setDraftFields((current) => {
+                      if (!isKarmaFieldAlias(fieldName)) {
+                        return {
                           ...current,
                           [fieldName]: value,
-                        }))
-                      }}
+                        }
+                      }
+
+                      const next: Record<string, string> = {
+                        ...current,
+                        KARMA: value,
+                      }
+
+                      for (const alias of KARMA_FIELD_ALIASES) {
+                        next[alias] = value
+                      }
+
+                      return next
+                    })
+                  }}
                       canEdit={canEdit}
                       cyberwareViewerRole={cyberwareViewerRole}
                       cyberwareViewerProfileId={profile?.id ?? null}
