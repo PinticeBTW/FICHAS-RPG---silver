@@ -205,7 +205,7 @@ export function CyberwareBoard({
       <CyberwareTotals
         totals={totals}
         colors={colors}
-        canEdit={isGmViewer}
+        canEdit={canEdit && (isGmViewer || isOwnerViewer)}
         cyberMaxValue={fieldData[CYBERWARE_CYBER_MAX_FIELD_KEY] ?? ''}
         shieldMaxValue={fieldData[CYBERWARE_SHIELD_MAX_FIELD_KEY] ?? ''}
         onCyberMaxChange={(value) => onFieldChange(CYBERWARE_CYBER_MAX_FIELD_KEY, value)}
