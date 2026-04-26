@@ -3,7 +3,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy } from 'pdfjs-dist'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { CyberwareBoard } from './CyberwareBoard'
-import { RelationsBoard } from './RelationsBoard'
 import { ImageCropDialog } from '../shared/ImageCropDialog'
 import { readFileAsDataUrl } from '../shared/imageFile'
 import {
@@ -14,7 +13,6 @@ import {
   sheetPageSectionConfigs,
   type SheetLayoutBox,
 } from '../../lib/pdfSheetLayoutConfig'
-import { parseRelationsData, stringifyRelationsData } from '../../lib/relationsTypes'
 import { pdfSheetPageSizes, pdfSheetTemplateFields, type PdfSheetTemplateField } from '../../lib/pdfSheetTemplate'
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl
@@ -29,16 +27,33 @@ const TEMPLATE_URLS: Record<string, string> = {
 }
 
 function karmaToColor(karma: string): 'blue' | 'grey' | 'red' {
-  const trimmed = karma.trim()
-  if (trimmed.startsWith('+')) return 'blue'
-  if (trimmed.startsWith('-')) return 'red'
-  return 'grey'
+  const normalized = karma.normalize('NFKC').trim()
+
+  if (!normalized) return 'grey'
+
+  // Accepts multiple Unicode variants used by keyboards/fonts for +/-.
+  if (/[+＋﹢]/u.test(normalized)) return 'blue'
+  if (/[-‐‑‒–—﹣－−|｜]/u.test(normalized)) return 'red'
+
+  // Any non-empty value without explicit '+' should be treated as negative.
+  return 'red'
 }
 
 function sexoToGender(sexo: string): 'm' | 'f' {
   const v = sexo.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
   const feminine = ['f', 'feminino', 'mulher', 'femea', 'female']
   return feminine.some((w) => v === w || v.startsWith(w)) ? 'f' : 'm'
+}
+
+function readKarmaValue(fieldData: Record<string, string>) {
+  return (
+    fieldData['KARMA'] ??
+    fieldData['Karma'] ??
+    fieldData['karma'] ??
+    fieldData['K4rma'] ??
+    fieldData['K4RMA'] ??
+    ''
+  )
 }
 
 const statFieldNames = new Set([
@@ -82,6 +97,7 @@ const skillSelectKeys = new Set([
   'INTUICAO',
   'INVESTIGACAO',
   'LUTA',
+  'MECANICA',
   'MEDICINA',
   'MENTIRA',
   'PRECEPCAO',
@@ -122,15 +138,25 @@ function loadTemplateDocument(url: string) {
 }
 
 function isMultilineField(field: PdfSheetTemplateField) {
-  return /^DESC\d+$/i.test(field.name) || /^HAB ?\d+$/i.test(field.name) || /^CUSTO\d+$/i.test(field.name)
+  return (
+    /^DESC\d+$/i.test(field.name) ||
+    /^HAB ?\d+$/i.test(field.name) ||
+    /^CUSTO\d+$/i.test(field.name) ||
+    /^DESCPE\d+$/i.test(field.name) ||
+    /^HABPE\d+$/i.test(field.name) ||
+    /^CUSTOPE\d+$/i.test(field.name)
+  )
 }
 
 function isCodexValueField(field: PdfSheetTemplateField) {
-  return field.page === 3 && /^CUSTO\d+$/i.test(field.name)
+  return (field.page === 3 || field.page === 4) && (/^CUSTO\d+$/i.test(field.name) || /^CUSTOPE\d+$/i.test(field.name))
 }
 
 function isCodexTextField(field: PdfSheetTemplateField) {
-  return field.page === 3 && (/^HAB ?\d+$/i.test(field.name) || /^DESC\d+$/i.test(field.name))
+  return (
+    (field.page === 3 || field.page === 4) &&
+    (/^HAB ?\d+$/i.test(field.name) || /^DESC\d+$/i.test(field.name) || /^HABPE\d+$/i.test(field.name) || /^DESCPE\d+$/i.test(field.name))
+  )
 }
 
 function isCodexSingleLineTextField(field: PdfSheetTemplateField) {
@@ -234,9 +260,9 @@ function resolveFieldSectionId(field: PdfSheetTemplateField) {
     if (['DESL', 'EX', 'EX 1', 'DEFESA', 'BLOQUEIO'].includes(field.name)) return 'page2-combat'
   }
 
-  if (field.page === 3) {
-    const codexIndex = Number(field.name.replace(/^\D+/g, ''))
-    return codexIndex > 11 ? 'page3-codex-bottom' : 'page3-codex-top'
+  if (field.page === 3 || field.page === 4) {
+    const sectionPrefix = field.page === 3 ? 'page3' : 'page4'
+    return field.y >= 292 ? `${sectionPrefix}-codex-top` : `${sectionPrefix}-codex-bottom`
   }
 
   return null
@@ -683,7 +709,7 @@ function TemplatePdfPage({
         <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
       )}
 
-      {pageNumber === 4 ? (
+      {pageNumber === 5 ? (
         <CyberwareBoard
           fieldData={fieldData}
           onFieldChange={onFieldChange}
@@ -752,37 +778,26 @@ export function PdfSheetEditor({
   cyberwareViewerRole?: 'gm' | 'owner' | 'shared'
   cyberwareViewerProfileId?: string | null
 }) {
-  const color = karmaToColor(fieldData['KARMA'] ?? '')
+  const color = karmaToColor(readKarmaValue(fieldData))
   const gender = sexoToGender(fieldData['SEXO'] ?? '')
   const templateUrl = TEMPLATE_URLS[`${color}-${gender}`] ?? TEMPLATE_URLS['grey-m']
 
-  const relationsData = parseRelationsData(fieldData['P5_RELATIONS'])
-
   return (
     <div className="grid grid-cols-2 gap-4">
-      {[1, 2, 3, 4].map((pageNumber) => (
-        <TemplatePdfPage
-          key={pageNumber}
-          pageNumber={pageNumber}
-          templateUrl={templateUrl}
-          fieldData={fieldData}
-          onFieldChange={onFieldChange}
-          canEdit={canEdit}
-          cyberwareViewerRole={cyberwareViewerRole}
-          cyberwareViewerProfileId={cyberwareViewerProfileId}
-          tone={color}
-        />
+      {[1, 2, 3, 4, 5].map((pageNumber) => (
+        <div key={pageNumber} className={pageNumber === 5 ? 'col-span-2' : ''}>
+          <TemplatePdfPage
+            pageNumber={pageNumber}
+            templateUrl={templateUrl}
+            fieldData={fieldData}
+            onFieldChange={onFieldChange}
+            canEdit={canEdit}
+            cyberwareViewerRole={cyberwareViewerRole}
+            cyberwareViewerProfileId={cyberwareViewerProfileId}
+            tone={color}
+          />
+        </div>
       ))}
-
-      {/* Page 5 — Relações */}
-      <div className="col-span-2">
-        <RelationsBoard
-          data={relationsData}
-          canEdit={canEdit}
-          tone={color}
-          onChange={(updated) => onFieldChange('P5_RELATIONS', stringifyRelationsData(updated))}
-        />
-      </div>
     </div>
   )
 }
@@ -796,40 +811,23 @@ export function PdfSheetPreview({
   pageNumber?: number
   className?: string
 }) {
-  const color = karmaToColor(fieldData['KARMA'] ?? '')
+  const color = karmaToColor(readKarmaValue(fieldData))
   const gender = sexoToGender(fieldData['SEXO'] ?? '')
   const templateUrl = TEMPLATE_URLS[`${color}-${gender}`] ?? TEMPLATE_URLS['grey-m']
   const safePageNumber = Math.min(5, Math.max(1, Math.round(pageNumber)))
-  const relationsData = parseRelationsData(fieldData['P5_RELATIONS'])
 
   return (
     <div className={className}>
-      {safePageNumber === 5 ? (
-        <RelationsBoard
-          data={relationsData}
-          canEdit={false}
-          tone={color}
-          onChange={() => {}}
-        />
-      ) : (
-        <TemplatePdfPage
-          pageNumber={safePageNumber}
-          templateUrl={templateUrl}
-          fieldData={fieldData}
-          onFieldChange={() => {}}
-          canEdit={false}
-          cyberwareViewerRole="shared"
-          cyberwareViewerProfileId={null}
-          tone={color}
-        />
-      )}
+      <TemplatePdfPage
+        pageNumber={safePageNumber}
+        templateUrl={templateUrl}
+        fieldData={fieldData}
+        onFieldChange={() => {}}
+        canEdit={false}
+        cyberwareViewerRole="shared"
+        cyberwareViewerProfileId={null}
+        tone={color}
+      />
     </div>
   )
 }
-
-
-
-
-
-
-

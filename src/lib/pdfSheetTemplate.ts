@@ -29,6 +29,11 @@ export const pdfSheetPageSizes = [
     width: 475,
     height: 675,
   },
+  {
+    page: 5,
+    width: 742,
+    height: 675,
+  },
 ] as const
 
 const page1AttackRows = [
@@ -55,16 +60,17 @@ function buildAttackFields(): PdfSheetTemplateField[] {
 }
 
 const page1InventoryRows = [
-  { index: 1, item: { x: 319, y: 257, width: 80, height: 23 }, space: { x: 400, y: 257, width: 63, height: 23 } },
-  { index: 2, item: { x: 319, y: 232, width: 80, height: 23 }, space: { x: 400, y: 232, width: 63, height: 23 } },
-  { index: 3, item: { x: 319, y: 207, width: 80, height: 23 }, space: { x: 400, y: 207, width: 63, height: 23 } },
-  { index: 4, item: { x: 319, y: 182, width: 80, height: 23 }, space: { x: 400, y: 182, width: 63, height: 23 } },
-  { index: 5, item: { x: 319, y: 157, width: 80, height: 23 }, space: { x: 400, y: 157, width: 63, height: 23 } },
-  { index: 6, item: { x: 319, y: 132, width: 80, height: 23 }, space: { x: 400, y: 132, width: 63, height: 23 } },
-  { index: 7, item: { x: 319, y: 107, width: 80, height: 23 }, space: { x: 400, y: 107, width: 63, height: 23 } },
-  { index: 8, item: { x: 319, y: 82, width: 80, height: 23 }, space: { x: 400, y: 82, width: 63, height: 23 } },
-  { index: 9, item: { x: 319, y: 57, width: 80, height: 23 }, space: { x: 400, y: 57, width: 63, height: 23 } },
-  { index: 10, item: { x: 319, y: 32, width: 80, height: 23 }, space: { x: 400, y: 32, width: 63, height: 23 } },
+  { index: 1, item: { x: 319, y: 282, width: 80, height: 23 }, space: { x: 400, y: 282, width: 63, height: 23 } },
+  { index: 2, item: { x: 319, y: 257, width: 80, height: 23 }, space: { x: 400, y: 257, width: 63, height: 23 } },
+  { index: 3, item: { x: 319, y: 232, width: 80, height: 23 }, space: { x: 400, y: 232, width: 63, height: 23 } },
+  { index: 4, item: { x: 319, y: 207, width: 80, height: 23 }, space: { x: 400, y: 207, width: 63, height: 23 } },
+  { index: 5, item: { x: 319, y: 182, width: 80, height: 23 }, space: { x: 400, y: 182, width: 63, height: 23 } },
+  { index: 6, item: { x: 319, y: 157, width: 80, height: 23 }, space: { x: 400, y: 157, width: 63, height: 23 } },
+  { index: 7, item: { x: 319, y: 132, width: 80, height: 23 }, space: { x: 400, y: 132, width: 63, height: 23 } },
+  { index: 8, item: { x: 319, y: 107, width: 80, height: 23 }, space: { x: 400, y: 107, width: 63, height: 23 } },
+  { index: 9, item: { x: 319, y: 82, width: 80, height: 23 }, space: { x: 400, y: 82, width: 63, height: 23 } },
+  { index: 10, item: { x: 319, y: 57, width: 80, height: 23 }, space: { x: 400, y: 57, width: 63, height: 23 } },
+  { index: 11, item: { x: 319, y: 32, width: 80, height: 23 }, space: { x: 400, y: 32, width: 63, height: 23 } },
 ] as const
 
 function buildInventoryFields(): PdfSheetTemplateField[] {
@@ -102,16 +108,17 @@ const leftSkills = [
 const rightSkills = [
   { name: 'INVESTIGACAO', x: 392, y: 471, width: 46, height: 11, scoreX: 374, scoreWidth: 14, scoreHeight: 11 },
   { name: 'LUTA', x: 392, y: 453, width: 46, height: 11, scoreX: 373, scoreWidth: 14, scoreHeight: 11 },
-  { name: 'MEDICINA', x: 392, y: 435, width: 46, height: 11, scoreX: 373, scoreWidth: 14, scoreHeight: 11 },
-  { name: 'MENTIRA', x: 392, y: 417, width: 46, height: 11, scoreX: 373, scoreWidth: 14, scoreHeight: 11 },
-  { name: 'PRECEPCAO', x: 392, y: 399, width: 46, height: 11, scoreX: 373, scoreWidth: 14, scoreHeight: 11 },
-  { name: 'PONTARIA', x: 392, y: 381, width: 46, height: 11, scoreX: 373, scoreWidth: 14, scoreHeight: 11 },
-  { name: 'PROFISSAO', x: 391, y: 363, width: 46, height: 11, scoreX: 373, scoreWidth: 14, scoreHeight: 11 },
-  { name: 'REFLEXOS', x: 391, y: 345, width: 46, height: 11, scoreX: 373, scoreWidth: 14, scoreHeight: 11 },
-  { name: 'SOBREVIVENCIA', x: 392, y: 327, width: 46, height: 11, scoreX: 373, scoreWidth: 14, scoreHeight: 11 },
-  { name: 'TATICA', x: 392, y: 309, width: 46, height: 11, scoreX: 373, scoreWidth: 14, scoreHeight: 11 },
-  { name: 'TECNOLOGIA', x: 392, y: 291, width: 46, height: 11, scoreX: 374, scoreWidth: 14, scoreHeight: 11 },
-  { name: 'VONTADE', x: 392, y: 273, width: 46, height: 11, scoreX: 373, scoreWidth: 14, scoreHeight: 11 },
+  { name: 'MECANICA', x: 392, y: 435, width: 46, height: 11, scoreX: 373, scoreWidth: 14, scoreHeight: 11 },
+  { name: 'MEDICINA', x: 392, y: 417, width: 46, height: 11, scoreX: 373, scoreWidth: 14, scoreHeight: 11 },
+  { name: 'MENTIRA', x: 392, y: 399, width: 46, height: 11, scoreX: 373, scoreWidth: 14, scoreHeight: 11 },
+  { name: 'PRECEPCAO', x: 392, y: 381, width: 46, height: 11, scoreX: 373, scoreWidth: 14, scoreHeight: 11 },
+  { name: 'PONTARIA', x: 392, y: 363, width: 46, height: 11, scoreX: 373, scoreWidth: 14, scoreHeight: 11 },
+  { name: 'PROFISSAO', x: 391, y: 345, width: 46, height: 11, scoreX: 373, scoreWidth: 14, scoreHeight: 11 },
+  { name: 'REFLEXOS', x: 391, y: 327, width: 46, height: 11, scoreX: 373, scoreWidth: 14, scoreHeight: 11 },
+  { name: 'SOBREVIVENCIA', x: 392, y: 309, width: 46, height: 11, scoreX: 373, scoreWidth: 14, scoreHeight: 11 },
+  { name: 'TATICA', x: 392, y: 291, width: 46, height: 11, scoreX: 373, scoreWidth: 14, scoreHeight: 11 },
+  { name: 'TECNOLOGIA', x: 392, y: 273, width: 46, height: 11, scoreX: 374, scoreWidth: 14, scoreHeight: 11 },
+  { name: 'VONTADE', x: 392, y: 255, width: 46, height: 11, scoreX: 373, scoreWidth: 14, scoreHeight: 11 },
 ] as const
 
 const skillScoreFieldOffsetX = 2
@@ -161,6 +168,9 @@ const page3Rows = [
   { ability: { x: 91, y: 392, width: 146, height: 23 }, cost: { x: 239, y: 392, width: 60, height: 23 }, description: { x: 301, y: 393, width: 161, height: 23 } },
   { ability: { x: 93, y: 367, width: 146, height: 23 }, cost: { x: 241, y: 367, width: 60, height: 23 }, description: { x: 303, y: 368, width: 161, height: 23 } },
   { ability: { x: 93, y: 342, width: 146, height: 23 }, cost: { x: 241, y: 342, width: 60, height: 23 }, description: { x: 303, y: 343, width: 161, height: 23 } },
+  // Rows that exist in the template between the old top/bottom split.
+  { ability: { x: 92, y: 317, width: 146, height: 23 }, cost: { x: 240, y: 317, width: 60, height: 23 }, description: { x: 302, y: 317, width: 161, height: 23 } },
+  { ability: { x: 92, y: 292, width: 146, height: 23 }, cost: { x: 240, y: 292, width: 60, height: 23 }, description: { x: 302, y: 292, width: 161, height: 23 } },
   { ability: { x: 92, y: 266, width: 146, height: 23 }, cost: { x: 240, y: 266, width: 60, height: 23 }, description: { x: 302, y: 267, width: 161, height: 23 } },
   { ability: { x: 91, y: 241, width: 146, height: 23 }, cost: { x: 240, y: 241, width: 60, height: 23 }, description: { x: 302, y: 241, width: 161, height: 23 } },
   { ability: { x: 94, y: 216, width: 146, height: 23 }, cost: { x: 242, y: 216, width: 60, height: 23 }, description: { x: 304, y: 217, width: 161, height: 23 } },
@@ -174,14 +184,18 @@ const page3Rows = [
   { ability: { x: 93, y: 14, width: 146, height: 23 }, cost: { x: 241, y: 14, width: 60, height: 23 }, description: { x: 303, y: 15, width: 161, height: 23 } },
 ] as const
 
-function buildPage3Fields(): PdfSheetTemplateField[] {
+function buildCodexFields(page: 3 | 4): PdfSheetTemplateField[] {
   return page3Rows.flatMap((row, index) => {
     const slot = index + 1
+    const isPePage = page === 4
+    const habName = isPePage ? `HABPE${slot}` : slot === 1 ? 'HAB 1' : `HAB${slot}`
+    const costName = isPePage ? `CUSTOPE${slot}` : `CUSTO${slot}`
+    const descName = isPePage ? `DESCPE${slot}` : `DESC${slot}`
 
     return [
-      { name: slot === 1 ? 'HAB 1' : `HAB${slot}`, widgetIndex: 0, page: 3, ...row.ability },
-      { name: `CUSTO${slot}`, widgetIndex: 0, page: 3, ...row.cost },
-      { name: `DESC${slot}`, widgetIndex: 0, page: 3, ...row.description },
+      { name: habName, widgetIndex: 0, page, ...row.ability },
+      { name: costName, widgetIndex: 0, page, ...row.cost },
+      { name: descName, widgetIndex: 0, page, ...row.description },
     ]
   })
 }
@@ -219,5 +233,6 @@ export const pdfSheetTemplateFields: PdfSheetTemplateField[] = [
   { name: 'BLOQUEIO', widgetIndex: 0, page: 2, x: 407, y: 38, width: 47, height: 54 },
   { name: 'DESL', widgetIndex: 0, page: 2, x: 343, y: 150, width: 88, height: 51 },
 
-  ...buildPage3Fields(),
+  ...buildCodexFields(3),
+  ...buildCodexFields(4),
 ]
