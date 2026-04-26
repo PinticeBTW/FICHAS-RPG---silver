@@ -26,14 +26,16 @@ const TEMPLATE_URLS: Record<string, string> = {
   'red-f': '/templates/sheet-red-f.pdf',
 }
 
+const KARMA_FIELD_ALIASES = ['KARMA', 'Karma', 'karma', 'K4rma', 'K4RMA'] as const
+
 function karmaToColor(karma: string): 'blue' | 'grey' | 'red' {
   const normalized = karma.normalize('NFKC').trim()
+  const compact = normalized.replace(/\s+/g, '')
 
-  if (!normalized) return 'grey'
+  if (!compact) return 'grey'
 
-  // Accepts multiple Unicode variants used by keyboards/fonts for +/-.
-  if (/[+＋﹢]/u.test(normalized)) return 'blue'
-  if (/[-‐‑‒–—﹣－−|｜]/u.test(normalized)) return 'red'
+  if (/[+\uFF0B\uFE62]/u.test(compact)) return 'blue'
+  if (/[-\u2010\u2011\u2012\u2013\u2014\uFE63\uFF0D\u2212|\uFF5C]/u.test(compact)) return 'red'
 
   // Any non-empty value without explicit '+' should be treated as negative.
   return 'red'
@@ -46,16 +48,22 @@ function sexoToGender(sexo: string): 'm' | 'f' {
 }
 
 function readKarmaValue(fieldData: Record<string, string>) {
-  return (
-    fieldData['KARMA'] ??
-    fieldData['Karma'] ??
-    fieldData['karma'] ??
-    fieldData['K4rma'] ??
-    fieldData['K4RMA'] ??
-    ''
-  )
-}
+  for (const key of KARMA_FIELD_ALIASES) {
+    const value = fieldData[key]
+    if (typeof value === 'string' && value.trim()) {
+      return value
+    }
+  }
 
+  for (const key of KARMA_FIELD_ALIASES) {
+    const value = fieldData[key]
+    if (typeof value === 'string') {
+      return value
+    }
+  }
+
+  return ''
+}
 const statFieldNames = new Set([
   'PV', 'PV-ATUAL', 'PS', 'PS-ATUAL', 'PE', 'PE-ATUAL',
   'DEFESA', 'BLOQUEIO', 'DESL', 'EX', 'EX 1',
@@ -665,7 +673,7 @@ function TemplatePdfPage({
       )
     }
 
-    const value = fieldData[field.name] ?? ''
+    const value = field.name === 'KARMA' ? readKarmaValue(fieldData) : fieldData[field.name] ?? ''
 
     if (isMultilineField(field) && !isCodexValueField(field) && !isCodexSingleLineTextField(field)) {
       return (
