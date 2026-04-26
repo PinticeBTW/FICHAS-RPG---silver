@@ -2618,21 +2618,19 @@ export function SheetWorkspacePage() {
                   cyberwareViewerProfileId={profile?.id ?? null}
                 />
 
-                <section className="hud-panel rounded-[28px] p-4">
-                  <RelationsBoard
-                    data={relationsData}
-                    canEdit={canEdit}
-                    tone={relationsTone}
-                    onChange={(updated) => {
-                      const serialized = stringifyRelationsData(updated)
-                      setDraftFields((current) => ({
-                        ...current,
-                        [relationsFieldKey]: serialized,
-                        [RELATIONS_FIELD_KEY]: serialized,
-                      }))
-                    }}
-                  />
-                </section>
+                <RelationsBoard
+                  data={relationsData}
+                  canEdit={canEdit}
+                  tone={relationsTone}
+                  onChange={(updated) => {
+                    const serialized = stringifyRelationsData(updated)
+                    setDraftFields((current) => ({
+                      ...current,
+                      [relationsFieldKey]: serialized,
+                      [RELATIONS_FIELD_KEY]: serialized,
+                    }))
+                  }}
+                />
 
                 {canConfigureShareAccess ? (
                   <section className="hud-panel rounded-[28px] p-4">
