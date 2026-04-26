@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft, Plus, Trash2, X, Check, Pencil, ImagePlus } from 'lucide-react'
 import {
   type RelationNpc,
@@ -13,6 +13,7 @@ import { readFileAsDataUrl } from '../shared/imageFile'
 // ─── Tone colour system ───────────────────────────────────────────────────────
 
 export type RelationsTone = 'blue' | 'red' | 'grey'
+const RELATIONS_LAST_GROUP_KEY = 'rpgsilver.relations.last-group-id'
 
 interface ToneColors {
   accent: string
@@ -746,7 +747,16 @@ type BoardView = 'grid' | 'card'
 
 export function RelationsBoard({ data, canEdit, tone = 'blue', onChange }: RelationsBoardProps) {
   applyTone(tone)
-  const [selectedGroupId, setSelectedGroupId] = useState<string>(data.groups[0]?.id ?? '')
+  const [selectedGroupId, setSelectedGroupId] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const rememberedGroupId = window.localStorage.getItem(RELATIONS_LAST_GROUP_KEY)
+      if (rememberedGroupId && data.groups.some((group) => group.id === rememberedGroupId)) {
+        return rememberedGroupId
+      }
+    }
+
+    return data.groups[0]?.id ?? ''
+  })
   const [selectedNpcId, setSelectedNpcId] = useState<string | null>(null)
   const [view, setView] = useState<BoardView>('grid')
   const [addingGroup, setAddingGroup] = useState(false)
@@ -754,6 +764,49 @@ export function RelationsBoard({ data, canEdit, tone = 'blue', onChange }: Relat
   const selectedGroup = data.groups.find((g) => g.id === selectedGroupId)
   const groupNpcs = data.npcs.filter((n) => n.groupId === selectedGroupId)
   const selectedNpc = selectedNpcId ? data.npcs.find((n) => n.id === selectedNpcId) : null
+
+  useEffect(() => {
+    if (!data.groups.length) {
+      if (selectedGroupId) {
+        setSelectedGroupId('')
+      }
+
+      if (selectedNpcId) {
+        setSelectedNpcId(null)
+      }
+
+      if (view !== 'grid') {
+        setView('grid')
+      }
+
+      return
+    }
+
+    const hasSelectedGroup = data.groups.some((group) => group.id === selectedGroupId)
+    if (hasSelectedGroup) {
+      return
+    }
+
+    let nextGroupId = data.groups[0].id
+    if (typeof window !== 'undefined') {
+      const rememberedGroupId = window.localStorage.getItem(RELATIONS_LAST_GROUP_KEY)
+      if (rememberedGroupId && data.groups.some((group) => group.id === rememberedGroupId)) {
+        nextGroupId = rememberedGroupId
+      }
+    }
+
+    setSelectedGroupId(nextGroupId)
+    setSelectedNpcId(null)
+    setView('grid')
+  }, [data.groups, selectedGroupId, selectedNpcId, view])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !selectedGroupId) {
+      return
+    }
+
+    window.localStorage.setItem(RELATIONS_LAST_GROUP_KEY, selectedGroupId)
+  }, [selectedGroupId])
 
   // ── Group operations ──
 
