@@ -167,7 +167,7 @@ export function CyberwareBoard({
   }
 
   return (
-    <div className="pointer-events-none absolute inset-0" style={{ padding: '1% 3% 1%' }}>
+    <div className="pointer-events-none absolute inset-0">
       {cyberwareSheetZones.flatMap((zone) =>
         zone.slotBoxes.map((slotBox, slotIndex) => (
           (() => {
