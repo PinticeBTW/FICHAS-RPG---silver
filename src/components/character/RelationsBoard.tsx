@@ -46,15 +46,15 @@ const TONE_COLORS: Record<RelationsTone, ToneColors> = {
     bg:      '#0f0004',
     bgCard:  'rgba(22,4,8,0.97)',
   },
-  // Medium grey + white — matches grey sheet
+  // Dark graphite + white — matches grey sheet
   grey: {
-    accent:  '#c8cdd6',
-    dim:     'rgba(200,205,214,0.22)',
-    mid:     'rgba(200,205,214,0.45)',
-    faint:   'rgba(200,205,214,0.10)',
-    glow:    '0 0 8px rgba(200,205,214,0.35)',
-    bg:      '#6a6e73',
-    bgCard:  'rgba(80,84,88,0.97)',
+    accent:  '#f3f3ed',
+    dim:     'rgba(243,243,237,0.16)',
+    mid:     'rgba(243,243,237,0.34)',
+    faint:   'rgba(243,243,237,0.08)',
+    glow:    '0 0 8px rgba(243,243,237,0.22)',
+    bg:      '#0d0d0d',
+    bgCard:  'rgba(16,16,16,0.97)',
   },
 }
 
