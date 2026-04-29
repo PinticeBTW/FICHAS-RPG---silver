@@ -70,7 +70,6 @@ const page1InventoryRows = [
   { index: 8, item: { x: 319, y: 107, width: 80, height: 23 }, space: { x: 400, y: 107, width: 63, height: 23 } },
   { index: 9, item: { x: 319, y: 82, width: 80, height: 23 }, space: { x: 400, y: 82, width: 63, height: 23 } },
   { index: 10, item: { x: 319, y: 57, width: 80, height: 23 }, space: { x: 400, y: 57, width: 63, height: 23 } },
-  { index: 11, item: { x: 319, y: 32, width: 80, height: 23 }, space: { x: 400, y: 32, width: 63, height: 23 } },
 ] as const
 
 function buildInventoryFields(): PdfSheetTemplateField[] {
@@ -211,6 +210,7 @@ export const pdfSheetTemplateFields: PdfSheetTemplateField[] = [
   { name: 'OCUPAÇÃO', widgetIndex: 0, page: 1, x: 294, y: 404, width: 164, height: 20 },
   ...buildAttackFields(),
   { name: 'CYBERPHYSHOSIS', widgetIndex: 0, page: 1, x: 195, y: 16, width: 122, height: 39 },
+  { name: 'CASH', widgetIndex: 0, page: 1, x: 400, y: 16, width: 63, height: 39 },
   ...buildInventoryFields(),
   { name: 'KARMA', widgetIndex: 0, page: 1, x: 330, y: 334, width: 128, height: 27 },
 

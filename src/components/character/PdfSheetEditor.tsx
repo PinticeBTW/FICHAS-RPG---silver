@@ -185,7 +185,7 @@ function isPage2ResourceField(field: PdfSheetTemplateField) {
 }
 
 function isNumericField(field: PdfSheetTemplateField) {
-  return hasNormalizedPage2Attribute(field) || isPage2AttributeTopField(field) || isPage2ResourceField(field) || isCodexValueField(field) || isSkillBonusBox2(field) || field.name === 'CYBERPHYSHOSIS'
+  return hasNormalizedPage2Attribute(field) || isPage2AttributeTopField(field) || isPage2ResourceField(field) || isCodexValueField(field) || isSkillBonusBox2(field) || field.name === 'CYBERPHYSHOSIS' || field.name === 'CASH'
 }
 
 function isRamField(field: PdfSheetTemplateField) {
@@ -260,6 +260,7 @@ function resolveFieldSectionId(field: PdfSheetTemplateField) {
     if (field.name === 'KARMA') return 'page1-karma'
     if (/^INV \d+$/i.test(field.name) || /^ESP\d+$/i.test(field.name)) return 'page1-inventory'
     if (field.name === 'CYBERPHYSHOSIS') return 'page1-cyberpsychosis'
+    if (field.name === 'CASH') return 'page1-cash'
   }
 
   if (field.page === 2) {
@@ -282,6 +283,7 @@ function resolveFieldVisualPreset(field: PdfSheetTemplateField): FieldVisualPres
   if (isInfoField(field)) return 'info'
   if (field.name === 'KARMA') return 'page1Karma'
   if (field.name === 'CYBERPHYSHOSIS') return 'page1Cyberpsychosis'
+  if (field.name === 'CASH') return 'page1Cash'
   if (/^INV \d+$/i.test(field.name)) return 'inventoryCell'
   if (/^ESP\d+$/i.test(field.name)) return 'inventoryCellCentered'
   if (/^ATAQUES\d+$/i.test(field.name)) return 'attackCell'
