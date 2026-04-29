@@ -1,4 +1,4 @@
-import { ChevronDown, ImagePlus, Pencil, X } from 'lucide-react'
+import { ChevronDown, ImagePlus, Link2, Lock, Pencil, Play, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy } from 'pdfjs-dist'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
@@ -137,6 +137,8 @@ const scoreToOptionLabel = new Map<string, string>([
 ])
 
 const templateCache = new Map<string, Promise<PDFDocumentProxy>>()
+const CODEX_UNLOCK_LINKS_FIELD = '__CODEX_UNLOCK_LINKS'
+const CODEX_UNLOCK_USED_FIELD = '__CODEX_UNLOCK_USED'
 
 function loadTemplateDocument(url: string) {
   if (!templateCache.has(url)) {
@@ -165,6 +167,13 @@ function isCodexTextField(field: PdfSheetTemplateField) {
   return (
     (field.page === 3 || field.page === 4) &&
     (/^HAB ?\d+$/i.test(field.name) || /^DESC\d+$/i.test(field.name) || /^HABPE\d+$/i.test(field.name) || /^DESCPE\d+$/i.test(field.name))
+  )
+}
+
+function isCodexAbilityNameField(field: PdfSheetTemplateField) {
+  return (
+    (field.page === 3 && /^HAB ?\d+$/i.test(field.name)) ||
+    (field.page === 4 && /^HABPE\d+$/i.test(field.name))
   )
 }
 
@@ -248,6 +257,297 @@ function resolveSkillSelectValue(fieldName: string, fieldData: Record<string, st
   const score = (fieldData[numericFieldName] ?? '').trim()
 
   return scoreToOptionLabel.get(score) ?? explicitValue
+}
+
+type CodexResourceKind = 'ram' | 'pe'
+
+type CodexResourceState = {
+  fieldName: 'DESL' | 'PE-ATUAL'
+  available: number | null
+}
+
+type CodexUnlockState = Record<CodexResourceKind, Record<string, number>>
+type CodexUnlockUsageState = Record<CodexResourceKind, Record<string, boolean>>
+
+type CodexAbilityRowState = {
+  slot: number
+  resourceKind: CodexResourceKind
+  cost: number | null
+  spendCost: number | null
+  resource: CodexResourceState
+  abilityName: string
+  hasContent: boolean
+  isUnlockSource: boolean
+  linkedTargetSlot: number | null
+  unlockUsed: boolean
+  prerequisiteSourceSlot: number | null
+  prerequisiteLabel: string | null
+  isLockedByPrerequisite: boolean
+  isResourceBlocked: boolean
+  isBlocked: boolean
+  rowBox: SheetLayoutBox
+  actionBox: SheetLayoutBox
+  linkBox: SheetLayoutBox
+}
+
+function parseSheetNumber(value: string | undefined) {
+  if (!value?.trim()) {
+    return null
+  }
+
+  const match = value.replace(',', '.').match(/-?\d+(?:\.\d+)?/)
+  if (!match) {
+    return null
+  }
+
+  const parsed = Number(match[0])
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function formatSheetNumber(value: number) {
+  const normalized = Math.max(0, value)
+  return Number.isInteger(normalized)
+    ? String(normalized)
+    : String(Number(normalized.toFixed(2)))
+}
+
+function resolveCodexResourceState(kind: CodexResourceKind, fieldData: Record<string, string>): CodexResourceState {
+  if (kind === 'ram') {
+    return {
+      fieldName: 'DESL',
+      available: parseSheetNumber(fieldData.DESL),
+    }
+  }
+
+  return {
+    fieldName: 'PE-ATUAL',
+    available: parseSheetNumber(fieldData['PE-ATUAL']) ?? parseSheetNumber(fieldData.PE),
+  }
+}
+
+function createEmptyCodexUnlockState(): CodexUnlockState {
+  return {
+    ram: {},
+    pe: {},
+  }
+}
+
+function createEmptyCodexUnlockUsageState(): CodexUnlockUsageState {
+  return {
+    ram: {},
+    pe: {},
+  }
+}
+
+function parseCodexUnlockState(value: string | undefined): CodexUnlockState {
+  const fallback = createEmptyCodexUnlockState()
+
+  if (!value?.trim()) {
+    return fallback
+  }
+
+  try {
+    const parsed = JSON.parse(value) as unknown
+
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return fallback
+    }
+
+    for (const kind of ['ram', 'pe'] as const) {
+      const entries = (parsed as Record<string, unknown>)[kind]
+
+      if (!entries || typeof entries !== 'object' || Array.isArray(entries)) {
+        continue
+      }
+
+      for (const [sourceSlot, targetSlot] of Object.entries(entries as Record<string, unknown>)) {
+        const normalizedSource = Number(sourceSlot)
+        const normalizedTarget = Number(targetSlot)
+
+        if (
+          Number.isInteger(normalizedSource) &&
+          normalizedSource > 0 &&
+          Number.isInteger(normalizedTarget) &&
+          normalizedTarget > 0
+        ) {
+          fallback[kind][String(normalizedSource)] = normalizedTarget
+        }
+      }
+    }
+  } catch {
+    return fallback
+  }
+
+  return fallback
+}
+
+function parseCodexUnlockUsageState(value: string | undefined): CodexUnlockUsageState {
+  const fallback = createEmptyCodexUnlockUsageState()
+
+  if (!value?.trim()) {
+    return fallback
+  }
+
+  try {
+    const parsed = JSON.parse(value) as unknown
+
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return fallback
+    }
+
+    for (const kind of ['ram', 'pe'] as const) {
+      const entries = (parsed as Record<string, unknown>)[kind]
+
+      if (!entries || typeof entries !== 'object' || Array.isArray(entries)) {
+        continue
+      }
+
+      for (const [sourceSlot, used] of Object.entries(entries as Record<string, unknown>)) {
+        const normalizedSource = Number(sourceSlot)
+
+        if (Number.isInteger(normalizedSource) && normalizedSource > 0 && used === true) {
+          fallback[kind][String(normalizedSource)] = true
+        }
+      }
+    }
+  } catch {
+    return fallback
+  }
+
+  return fallback
+}
+
+function serializeCodexUnlockState(value: CodexUnlockState) {
+  return JSON.stringify(value)
+}
+
+function serializeCodexUnlockUsageState(value: CodexUnlockUsageState) {
+  return JSON.stringify(value)
+}
+
+function getCodexSlot(fieldName: string, pageNumber: number) {
+  const ramMatch =
+    pageNumber === 3 ? fieldName.match(/^(?:HAB ?|CUSTO|DESC)(\d+)$/i) : null
+  const peMatch =
+    pageNumber === 4 ? fieldName.match(/^(?:HABPE|CUSTOPE|DESCPE)(\d+)$/i) : null
+  const slot = Number((ramMatch ?? peMatch)?.[1])
+
+  return Number.isInteger(slot) && slot > 0 ? slot : null
+}
+
+function buildCodexAbilityRowStates(
+  pageNumber: number,
+  pageFields: PdfSheetTemplateField[],
+  fieldData: Record<string, string>,
+  unlockLinks: CodexUnlockState,
+  unlockUsage: CodexUnlockUsageState,
+): CodexAbilityRowState[] {
+  if (pageNumber !== 3 && pageNumber !== 4) {
+    return []
+  }
+
+  const resourceKind: CodexResourceKind = pageNumber === 3 ? 'ram' : 'pe'
+  const resource = resolveCodexResourceState(resourceKind, fieldData)
+  const linksForKind = unlockLinks[resourceKind]
+  const usageForKind = unlockUsage[resourceKind]
+  const fieldsBySlot = new Map<number, PdfSheetTemplateField[]>()
+
+  for (const field of pageFields) {
+    const slot = getCodexSlot(field.name, pageNumber)
+
+    if (!slot) {
+      continue
+    }
+
+    const fields = fieldsBySlot.get(slot)
+    if (fields) {
+      fields.push(field)
+    } else {
+      fieldsBySlot.set(slot, [field])
+    }
+  }
+
+  const baseRows = [...fieldsBySlot.entries()]
+    .sort(([left], [right]) => left - right)
+    .map(([slot, fields]) => {
+      const costFieldName = resourceKind === 'ram' ? `CUSTO${slot}` : `CUSTOPE${slot}`
+      const abilityFieldName = resourceKind === 'ram' ? (slot === 1 ? 'HAB 1' : `HAB${slot}`) : `HABPE${slot}`
+      const descriptionFieldName = resourceKind === 'ram' ? `DESC${slot}` : `DESCPE${slot}`
+      const costField = fields.find((field) => field.name === costFieldName)
+      const cost = parseSheetNumber(fieldData[costFieldName])
+      const abilityName = fieldData[abilityFieldName]?.trim() || `Habilidade ${slot}`
+      const hasContent = [abilityFieldName, costFieldName, descriptionFieldName].some(
+        (fieldName) => Boolean(fieldData[fieldName]?.trim()),
+      )
+      const left = Math.min(...fields.map((field) => field.x))
+      const right = Math.max(...fields.map((field) => field.x + field.width))
+      const bottom = Math.min(...fields.map((field) => field.y))
+      const top = Math.max(...fields.map((field) => field.y + field.height))
+      const rowBox = {
+        x: left,
+        y: bottom,
+        width: right - left,
+        height: top - bottom,
+      }
+
+      return {
+        slot,
+        resourceKind,
+        cost,
+        spendCost: cost === null ? null : Math.abs(cost),
+        resource,
+        abilityName,
+        hasContent,
+        isUnlockSource: cost !== null && cost < 0,
+        linkedTargetSlot: cost !== null && cost < 0 ? linksForKind[String(slot)] ?? null : null,
+        unlockUsed: usageForKind[String(slot)] === true,
+        prerequisiteSourceSlot: null,
+        prerequisiteLabel: null,
+        isLockedByPrerequisite: false,
+        isResourceBlocked: false,
+        isBlocked: false,
+        rowBox,
+        actionBox: {
+          x: left + 3,
+          y: bottom + 4,
+          width: 13,
+          height: Math.max(12, rowBox.height - 8),
+        },
+        linkBox: {
+          x: (costField?.x ?? left + 150) + (costField?.width ?? 60) - 15,
+          y: (costField?.y ?? bottom) + 5,
+          width: 12,
+          height: Math.max(11, (costField?.height ?? rowBox.height) - 10),
+        },
+      }
+    })
+    .filter((row) => row.hasContent && row.cost !== null)
+
+  const rowsBySlot = new Map(baseRows.map((row) => [row.slot, row]))
+
+  return baseRows.map((row) => {
+    const prerequisiteSourceSlot = Number(
+      Object.entries(linksForKind).find(([, targetSlot]) => targetSlot === row.slot)?.[0],
+    )
+    const hasPrerequisite =
+      Number.isInteger(prerequisiteSourceSlot) && prerequisiteSourceSlot > 0
+    const prerequisiteSource = hasPrerequisite ? rowsBySlot.get(prerequisiteSourceSlot) : undefined
+    const isLockedByPrerequisite =
+      hasPrerequisite && usageForKind[String(prerequisiteSourceSlot)] !== true
+    const isResourceBlocked =
+      row.spendCost !== null &&
+      row.resource.available !== null &&
+      row.spendCost > row.resource.available
+
+    return {
+      ...row,
+      prerequisiteSourceSlot: hasPrerequisite ? prerequisiteSourceSlot : null,
+      prerequisiteLabel: prerequisiteSource?.abilityName ?? null,
+      isLockedByPrerequisite,
+      isResourceBlocked,
+      isBlocked: isLockedByPrerequisite || isResourceBlocked,
+    }
+  })
 }
 
 type FieldVisualPresetKey = keyof typeof sheetFieldVisualPresets
@@ -589,6 +889,100 @@ function TemplatePdfPage({
     }),
     [pageSize.height, pageSize.width, sheetScale],
   )
+  const [pendingUnlockSource, setPendingUnlockSource] = useState<{
+    kind: CodexResourceKind
+    slot: number
+  } | null>(null)
+  const codexUnlockLinks = parseCodexUnlockState(fieldData[CODEX_UNLOCK_LINKS_FIELD])
+  const codexUnlockUsage = parseCodexUnlockUsageState(fieldData[CODEX_UNLOCK_USED_FIELD])
+  const codexAbilityRows = buildCodexAbilityRowStates(
+    pageNumber,
+    pageFields,
+    fieldData,
+    codexUnlockLinks,
+    codexUnlockUsage,
+  )
+
+  const handleUseCodexAbility = (row: CodexAbilityRowState) => {
+    if (
+      !canEdit ||
+      row.spendCost === null ||
+      row.resource.available === null ||
+      row.spendCost > row.resource.available ||
+      row.isLockedByPrerequisite ||
+      (row.isUnlockSource && (!row.linkedTargetSlot || row.unlockUsed))
+    ) {
+      return
+    }
+
+    onFieldChange(row.resource.fieldName, formatSheetNumber(row.resource.available - row.spendCost))
+
+    if (row.isUnlockSource) {
+      const nextUsage: CodexUnlockUsageState = {
+        ram: { ...codexUnlockUsage.ram },
+        pe: { ...codexUnlockUsage.pe },
+      }
+
+      nextUsage[row.resourceKind][String(row.slot)] = true
+
+      onFieldChange(CODEX_UNLOCK_USED_FIELD, serializeCodexUnlockUsageState(nextUsage))
+    }
+  }
+
+  const handleResetCodexUnlock = (row: CodexAbilityRowState) => {
+    if (!canEdit || !row.isUnlockSource) {
+      return
+    }
+
+    const nextUsage: CodexUnlockUsageState = {
+      ram: { ...codexUnlockUsage.ram },
+      pe: { ...codexUnlockUsage.pe },
+    }
+
+    delete nextUsage[row.resourceKind][String(row.slot)]
+
+    onFieldChange(CODEX_UNLOCK_USED_FIELD, serializeCodexUnlockUsageState(nextUsage))
+  }
+
+  const handleToggleUnlockLink = (row: CodexAbilityRowState) => {
+    if (!canEdit || !row.isUnlockSource) {
+      return
+    }
+
+    setPendingUnlockSource((current) =>
+      current?.kind === row.resourceKind && current.slot === row.slot
+        ? null
+        : { kind: row.resourceKind, slot: row.slot },
+    )
+  }
+
+  const handleSelectUnlockTarget = (row: CodexAbilityRowState) => {
+    if (
+      !canEdit ||
+      !pendingUnlockSource ||
+      pendingUnlockSource.kind !== row.resourceKind ||
+      pendingUnlockSource.slot === row.slot ||
+      row.isUnlockSource
+    ) {
+      return
+    }
+
+    const nextLinks: CodexUnlockState = {
+      ram: { ...codexUnlockLinks.ram },
+      pe: { ...codexUnlockLinks.pe },
+    }
+    const nextUsage: CodexUnlockUsageState = {
+      ram: { ...codexUnlockUsage.ram },
+      pe: { ...codexUnlockUsage.pe },
+    }
+
+    nextLinks[pendingUnlockSource.kind][String(pendingUnlockSource.slot)] = row.slot
+    delete nextUsage[pendingUnlockSource.kind][String(pendingUnlockSource.slot)]
+
+    onFieldChange(CODEX_UNLOCK_LINKS_FIELD, serializeCodexUnlockState(nextLinks))
+    onFieldChange(CODEX_UNLOCK_USED_FIELD, serializeCodexUnlockUsageState(nextUsage))
+    setPendingUnlockSource(null)
+  }
 
   const renderField = (field: PdfSheetTemplateField, sectionBox?: SheetLayoutBox) => {
     const fieldBox = { x: field.x, y: field.y, width: field.width, height: field.height }
@@ -597,6 +991,12 @@ function TemplatePdfPage({
     const inputStyle = field.name === 'CIDADE'
       ? { ...buildFieldInputStyle(field), ...buildDebugInputStyle(), fontFamily: 'CyberwayRiders, sans-serif' }
       : { ...buildFieldInputStyle(field), ...buildDebugInputStyle() }
+    if (isCodexAbilityNameField(field)) {
+      inputStyle.paddingLeft = 'calc(20px * var(--sheet-scale, 1))'
+    }
+    if (isCodexValueField(field) && (parseSheetNumber(fieldData[field.name]) ?? 0) < 0) {
+      inputStyle.paddingRight = 'calc(18px * var(--sheet-scale, 1))'
+    }
     const fieldKey = `${field.page}-${field.name}-${field.widgetIndex}`
 
     if (field.name === 'SEXO') {
@@ -708,6 +1108,127 @@ function TemplatePdfPage({
     )
   }
 
+  const renderCodexAbilityControls = () =>
+    codexAbilityRows.map((row) => {
+      const resourceLabel = row.resourceKind === 'ram' ? 'RAM' : 'PE'
+      const linkedTarget = row.linkedTargetSlot
+        ? codexAbilityRows.find((entry) => entry.slot === row.linkedTargetSlot)
+        : undefined
+      const unlockSourceSelected =
+        pendingUnlockSource?.kind === row.resourceKind &&
+        pendingUnlockSource.slot === row.slot
+      const canSelectAsUnlockTarget =
+        canEdit &&
+        Boolean(pendingUnlockSource) &&
+        pendingUnlockSource?.kind === row.resourceKind &&
+        pendingUnlockSource.slot !== row.slot &&
+        !row.isUnlockSource
+      const canUse =
+        canEdit &&
+        row.spendCost !== null &&
+        row.resource.available !== null &&
+        row.spendCost <= row.resource.available &&
+        !row.isLockedByPrerequisite &&
+        (!row.isUnlockSource || (Boolean(row.linkedTargetSlot) && !row.unlockUsed))
+      const canResetUnlock = canEdit && row.isUnlockSource && row.unlockUsed
+      const disabledReason =
+        row.isUnlockSource && row.unlockUsed
+          ? 'Voltar a bloquear habilidade ligada'
+          : row.isUnlockSource && !row.linkedTargetSlot
+            ? 'Liga esta habilidade a uma habilidade alvo'
+            : row.isLockedByPrerequisite
+              ? `Usa ${row.prerequisiteLabel ?? 'o desbloqueio'} primeiro`
+              : row.resource.available === null
+          ? `Define ${resourceLabel} atual primeiro`
+          : `Sem ${resourceLabel} suficiente`
+      const blockedLabel = row.isLockedByPrerequisite
+        ? `REQ. ${row.prerequisiteLabel ?? 'DESBLOQ.'}`
+        : `${resourceLabel} BLOQ.`
+
+      return (
+        <div key={`codex-action-${row.resourceKind}-${row.slot}`}>
+          {row.isBlocked ? (
+            <div
+              className="pointer-events-none absolute z-10 flex items-center justify-end overflow-hidden border border-rose-400/45 px-1.5"
+              style={{
+                ...buildBoxStyle(row.rowBox, pageSize),
+                background:
+                  'linear-gradient(90deg, rgba(85,0,12,0.48), rgba(85,0,12,0.24)), repeating-linear-gradient(135deg, rgba(255,255,255,0.18) 0 1px, transparent 1px 7px)',
+                boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.08)',
+              }}
+            >
+              <span className="font-display text-[calc(11px*var(--sheet-scale,1))] leading-none tracking-[0.08em] text-rose-100">
+                {blockedLabel}
+              </span>
+            </div>
+          ) : null}
+
+          {canSelectAsUnlockTarget ? (
+            <button
+              type="button"
+              onClick={() => handleSelectUnlockTarget(row)}
+              className="absolute z-30 flex items-center justify-end border border-[#53b5ff]/70 bg-[#53b5ff]/16 px-1.5 font-display text-[calc(10px*var(--sheet-scale,1))] leading-none tracking-[0.08em] text-[#9bddff] transition hover:bg-[#53b5ff]/26"
+              style={buildBoxStyle(row.rowBox, pageSize)}
+              title="Escolher esta habilidade como alvo do desbloqueio"
+            >
+              LIGAR
+            </button>
+          ) : null}
+
+          {canEdit ? (
+            <button
+              type="button"
+              disabled={!canUse && !canResetUnlock}
+              onClick={() =>
+                canResetUnlock ? handleResetCodexUnlock(row) : handleUseCodexAbility(row)
+              }
+              className={`absolute z-20 flex items-center justify-center transition ${
+                canUse
+                  ? 'cursor-pointer text-[#f3e600] hover:bg-[#f3e600]/14'
+                  : canResetUnlock
+                    ? 'cursor-pointer text-[#53b5ff] hover:bg-[#53b5ff]/14'
+                    : 'cursor-not-allowed text-rose-100/70 opacity-70'
+              }`}
+              style={buildBoxStyle(row.actionBox, pageSize)}
+              title={
+                canUse
+                  ? `Usar habilidade: -${row.spendCost} ${resourceLabel}`
+                  : disabledReason
+              }
+            >
+              {canUse ? (
+                <Play size="calc(7px * var(--sheet-scale, 1))" fill="currentColor" />
+              ) : (
+                <Lock size="calc(7px * var(--sheet-scale, 1))" />
+              )}
+            </button>
+          ) : null}
+
+          {canEdit && row.isUnlockSource ? (
+            <button
+              type="button"
+              onClick={() => handleToggleUnlockLink(row)}
+              className={`absolute z-20 flex items-center justify-center transition ${
+                unlockSourceSelected
+                  ? 'bg-[#53b5ff]/24 text-[#9bddff]'
+                  : row.linkedTargetSlot
+                    ? 'text-[#53b5ff] hover:bg-[#53b5ff]/14'
+                    : 'text-[#f3e600] hover:bg-[#f3e600]/14'
+              }`}
+              style={buildBoxStyle(row.linkBox, pageSize)}
+              title={
+                row.linkedTargetSlot
+                  ? `Ligado a ${linkedTarget?.abilityName ?? `habilidade ${row.linkedTargetSlot}`}`
+                  : 'Escolher habilidade desbloqueada'
+              }
+            >
+              <Link2 size="calc(7px * var(--sheet-scale, 1))" />
+            </button>
+          ) : null}
+        </div>
+      )
+    })
+
   return (
     <section
       ref={pageRef}
@@ -751,6 +1272,7 @@ function TemplatePdfPage({
           />
         </div>
       ))}
+      {renderCodexAbilityControls()}
       {pageSections.map((section) => {
         const sectionFields = fieldsBySectionId.get(section.id) ?? []
         if (!sectionFields.length) {
