@@ -2604,6 +2604,8 @@ export function SilverNotebook({
         height: selectedDrawingBounds.height * camera.zoom,
       }
     : null
+  const boardGridDotSize = Math.max(0.42, Number((1.1 * camera.zoom).toFixed(3)))
+  const boardGridLineSize = Math.max(0.35, Number((camera.zoom).toFixed(3)))
 
   return (
     <section className="hud-panel rounded-[28px] p-3 md:p-4">
@@ -2624,7 +2626,7 @@ export function SilverNotebook({
             className="absolute inset-0"
             style={{
               backgroundImage:
-                'radial-gradient(circle, rgba(243,230,0,0.12) 1.1px, transparent 1.1px), linear-gradient(to right, rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.025) 1px, transparent 1px)',
+                `radial-gradient(circle, rgba(243,230,0,0.12) ${boardGridDotSize}px, transparent ${boardGridDotSize}px), linear-gradient(to right, rgba(255,255,255,0.025) ${boardGridLineSize}px, transparent ${boardGridLineSize}px), linear-gradient(to bottom, rgba(255,255,255,0.025) ${boardGridLineSize}px, transparent ${boardGridLineSize}px)`,
               backgroundPosition: `${-camera.x * camera.zoom}px ${-camera.y * camera.zoom}px, ${-camera.x * camera.zoom}px ${-camera.y * camera.zoom}px, ${-camera.x * camera.zoom}px ${-camera.y * camera.zoom}px`,
               backgroundSize: `${26 * camera.zoom}px ${26 * camera.zoom}px, ${130 * camera.zoom}px ${130 * camera.zoom}px, ${130 * camera.zoom}px ${130 * camera.zoom}px`,
             }}
