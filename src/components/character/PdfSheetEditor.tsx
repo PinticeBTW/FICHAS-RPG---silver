@@ -293,6 +293,7 @@ type CodexAbilityRowState = {
   abilityName: string
   hasContent: boolean
   isUnlockSource: boolean
+  unlockGroupKey: string | null
   linkedTargetSlots: number[]
   unlockUsed: boolean
   prerequisiteSourceSlot: number | null
@@ -311,13 +312,28 @@ function parseSheetNumber(value: string | undefined) {
     return null
   }
 
-  const match = value.replace(',', '.').match(/-?\d+(?:\.\d+)?/)
+  const match = value.match(/[-\u2010\u2011\u2012\u2013\u2014\u2212\uFE63\uFF0D]?\s*\d+(?:[,.]\d+)?/u)
   if (!match) {
     return null
   }
 
-  const parsed = Number(match[0])
+  const parsed = Number(
+    match[0]
+      .replace(/[\u2010\u2011\u2012\u2013\u2014\u2212\uFE63\uFF0D]/gu, '-')
+      .replace(/\s+/g, '')
+      .replace(',', '.'),
+  )
   return Number.isFinite(parsed) ? parsed : null
+}
+
+function hasNegativeSheetNumber(value: string | undefined) {
+  return /[-\u2010\u2011\u2012\u2013\u2014\u2212\uFE63\uFF0D]\s*\d/u.test(value ?? '')
+}
+
+function normalizeCodexUnlockGroupName(value: string) {
+  const normalized = normalizeFieldKey(value)
+
+  return normalized || null
 }
 
 function formatSheetNumber(value: number) {
@@ -495,7 +511,9 @@ function buildCodexAbilityRowStates(
       const abilityFieldName = resourceKind === 'ram' ? (slot === 1 ? 'HAB 1' : `HAB${slot}`) : `HABPE${slot}`
       const descriptionFieldName = resourceKind === 'ram' ? `DESC${slot}` : `DESCPE${slot}`
       const costField = fields.find((field) => field.name === costFieldName)
-      const cost = parseSheetNumber(fieldData[costFieldName])
+      const costValue = fieldData[costFieldName]
+      const cost = parseSheetNumber(costValue)
+      const isUnlockSource = cost !== null && hasNegativeSheetNumber(costValue)
       const abilityName = fieldData[abilityFieldName]?.trim() || `Habilidade ${slot}`
       const hasContent = [abilityFieldName, costFieldName, descriptionFieldName].some(
         (fieldName) => Boolean(fieldData[fieldName]?.trim()),
@@ -522,8 +540,9 @@ function buildCodexAbilityRowStates(
         resource,
         abilityName,
         hasContent,
-        isUnlockSource: cost !== null && cost < 0,
-        linkedTargetSlots: cost !== null && cost < 0 ? linksForKind[String(slot)] ?? [] : [],
+        isUnlockSource,
+        unlockGroupKey: isUnlockSource ? normalizeCodexUnlockGroupName(abilityName) : null,
+        linkedTargetSlots: isUnlockSource ? linksForKind[String(slot)] ?? [] : [],
         unlockUsed: usageForKind[String(slot)] === true,
         prerequisiteSourceSlot: null,
         prerequisiteLabel: null,
@@ -554,6 +573,30 @@ function buildCodexAbilityRowStates(
     .filter((row) => row.hasContent && row.cost !== null)
 
   const rowsBySlot = new Map(baseRows.map((row) => [row.slot, row]))
+  const unlockGroupSlotsByKey = new Map<string, number[]>()
+
+  for (const row of baseRows) {
+    if (!row.isUnlockSource || !row.unlockGroupKey) {
+      continue
+    }
+
+    const groupSlots = unlockGroupSlotsByKey.get(row.unlockGroupKey)
+
+    if (groupSlots) {
+      groupSlots.push(row.slot)
+    } else {
+      unlockGroupSlotsByKey.set(row.unlockGroupKey, [row.slot])
+    }
+  }
+
+  const isUnlockPrerequisiteUsed = (sourceSlot: number) => {
+    const sourceRow = rowsBySlot.get(sourceSlot)
+    const groupSlots = sourceRow?.unlockGroupKey
+      ? unlockGroupSlotsByKey.get(sourceRow.unlockGroupKey) ?? [sourceSlot]
+      : [sourceSlot]
+
+    return groupSlots.some((slot) => usageForKind[String(slot)] === true)
+  }
 
   return baseRows.map((row) => {
     const prerequisiteSourceSlots = Object.entries(linksForKind)
@@ -561,7 +604,7 @@ function buildCodexAbilityRowStates(
       .map(([sourceSlot]) => Number(sourceSlot))
       .filter((sourceSlot) => Number.isInteger(sourceSlot) && sourceSlot > 0)
     const lockedPrerequisiteSlots = prerequisiteSourceSlots.filter(
-      (sourceSlot) => usageForKind[String(sourceSlot)] !== true,
+      (sourceSlot) => !isUnlockPrerequisiteUsed(sourceSlot),
     )
     const firstLockedPrerequisiteSlot = lockedPrerequisiteSlots[0]
     const prerequisiteSource = firstLockedPrerequisiteSlot
@@ -942,20 +985,39 @@ function TemplatePdfPage({
     codexUnlockLinks,
     codexUnlockUsage,
   )
+  const getUnlockGroupRows = (row: CodexAbilityRowState) => {
+    if (!row.unlockGroupKey) {
+      return [row]
+    }
+
+    const groupRows = codexAbilityRows.filter(
+      (entry) =>
+        entry.resourceKind === row.resourceKind &&
+        entry.isUnlockSource &&
+        entry.unlockGroupKey === row.unlockGroupKey,
+    )
+
+    return groupRows.length ? groupRows : [row]
+  }
 
   const handleUseCodexAbility = (row: CodexAbilityRowState) => {
+    const hasEnoughResource =
+      row.spendCost === 0 ||
+      (row.resource.available !== null && row.spendCost !== null && row.spendCost <= row.resource.available)
+
     if (
       !canEdit ||
       row.spendCost === null ||
-      row.resource.available === null ||
-      row.spendCost > row.resource.available ||
+      !hasEnoughResource ||
       row.isLockedByPrerequisite ||
       (row.isUnlockSource && (!row.linkedTargetSlots.length || row.unlockUsed))
     ) {
       return
     }
 
-    onFieldChange(row.resource.fieldName, formatSheetNumber(row.resource.available - row.spendCost))
+    if (row.resource.available !== null) {
+      onFieldChange(row.resource.fieldName, formatSheetNumber(row.resource.available - row.spendCost))
+    }
 
     if (row.isUnlockSource) {
       const nextUsage: CodexUnlockUsageState = {
@@ -963,7 +1025,9 @@ function TemplatePdfPage({
         pe: { ...codexUnlockUsage.pe },
       }
 
-      nextUsage[row.resourceKind][String(row.slot)] = true
+      for (const sourceRow of getUnlockGroupRows(row)) {
+        nextUsage[row.resourceKind][String(sourceRow.slot)] = true
+      }
 
       onFieldChange(CODEX_UNLOCK_USED_FIELD, serializeCodexUnlockUsageState(nextUsage))
     }
@@ -979,7 +1043,9 @@ function TemplatePdfPage({
       pe: { ...codexUnlockUsage.pe },
     }
 
-    delete nextUsage[row.resourceKind][String(row.slot)]
+    for (const sourceRow of getUnlockGroupRows(row)) {
+      delete nextUsage[row.resourceKind][String(sourceRow.slot)]
+    }
 
     onFieldChange(CODEX_UNLOCK_USED_FIELD, serializeCodexUnlockUsageState(nextUsage))
   }
@@ -1071,7 +1137,7 @@ function TemplatePdfPage({
     if (isCodexAbilityNameField(field)) {
       inputStyle.paddingLeft = 'calc(20px * var(--sheet-scale, 1))'
     }
-    if (isCodexValueField(field) && (parseSheetNumber(fieldData[field.name]) ?? 0) < 0) {
+    if (isCodexValueField(field) && hasNegativeSheetNumber(fieldData[field.name])) {
       inputStyle.paddingRight = 'calc(18px * var(--sheet-scale, 1))'
     }
     const fieldKey = `${field.page}-${field.name}-${field.widgetIndex}`
@@ -1208,11 +1274,14 @@ function TemplatePdfPage({
         pendingUnlockSource?.kind === row.resourceKind &&
         pendingUnlockSource.slot !== row.slot &&
         !row.isUnlockSource
+      const hasEnoughResource =
+        row.spendCost !== null &&
+        (row.spendCost === 0 ||
+          (row.resource.available !== null && row.spendCost <= row.resource.available))
       const canUse =
         canEdit &&
         row.spendCost !== null &&
-        row.resource.available !== null &&
-        row.spendCost <= row.resource.available &&
+        hasEnoughResource &&
         !row.isLockedByPrerequisite &&
         (!row.isUnlockSource || (row.linkedTargetSlots.length > 0 && !row.unlockUsed))
       const canResetUnlock = canEdit && row.isUnlockSource && row.unlockUsed
