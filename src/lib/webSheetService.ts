@@ -13,6 +13,7 @@ const SHEET_RECORD_CACHE_LIMIT = 12
 const GLOBAL_CYBERWARE_CATALOG_ID = 'global'
 const GLOBAL_CYBERWARE_TEMPLATE_KEY = 'global-cyberware-v1'
 const RECENT_LOCAL_NPC_WRITE_TTL_MS = 15_000
+const SHEET_REALTIME_BROADCAST_EVENT = 'sheet-updated'
 
 type ProfileRow = {
   id: string
@@ -45,6 +46,7 @@ type GlobalCyberwareCatalogRow = {
 
 type SavedGlobalCyberwareCatalogRow = Pick<GlobalCyberwareCatalogRow, 'id' | 'updated_at'>
 type SavedNpcCardRow = Pick<NpcCardRow, 'id' | 'updated_at'>
+type SheetRealtimeTargetKind = 'profile' | 'npc'
 
 type SheetProfileMetadata = Partial<
   Pick<
@@ -897,7 +899,9 @@ export async function saveNpcSheet(
   if (fieldPatch) {
     try {
       const savedPatch = await saveNpcSheetPatchPayload(npcId, fieldPatch.patch, fieldPatch.removedKeys)
-      return mapSavedNpcSheet(savedPatch, normalizedFieldData)
+      const savedSheet = mapSavedNpcSheet(savedPatch, normalizedFieldData)
+      broadcastSheetRealtimeChange('npc', npcId, savedSheet.updatedAt)
+      return savedSheet
     } catch (error) {
       if (!isNpcPatchFunctionUnavailableError(error)) {
         throw error
@@ -908,7 +912,9 @@ export async function saveNpcSheet(
   }
 
   const savedFull = await saveNpcSheetFullPayload(npcId, normalizedFieldData)
-  return mapSavedNpcSheet(savedFull, normalizedFieldData)
+  const savedSheet = mapSavedNpcSheet(savedFull, normalizedFieldData)
+  broadcastSheetRealtimeChange('npc', npcId, savedSheet.updatedAt)
+  return savedSheet
 }
 
 export async function fetchOrCreateSheet(profile: Profile) {
@@ -995,7 +1001,9 @@ export async function saveSheetFields(profileId: string, fieldData: Record<strin
     throw error
   }
 
-  return mapSavedSheet(data as SavedSheetRow, normalizedFieldData)
+  const savedSheet = mapSavedSheet(data as SavedSheetRow, normalizedFieldData)
+  broadcastSheetRealtimeChange('profile', profileId, savedSheet.updatedAt)
+  return savedSheet
 }
 
 export async function fetchGlobalCyberwareCatalog(): Promise<WebSheetRecord> {
@@ -1169,6 +1177,49 @@ function createRealtimeChannelId(prefix: string) {
   return `${prefix}:${Date.now()}:${channelId}`
 }
 
+function createSheetBroadcastTopic(kind: SheetRealtimeTargetKind, id: string) {
+  return `sheet-sync:${kind}:${id}`
+}
+
+function broadcastSheetRealtimeChange(
+  kind: SheetRealtimeTargetKind,
+  id: string,
+  updatedAt: string,
+) {
+  const client = ensureSupabase()
+  const channel = client.channel(createSheetBroadcastTopic(kind, id), {
+    config: { broadcast: { self: false } },
+  })
+  let sent = false
+
+  const send = () => {
+    if (sent) {
+      return
+    }
+
+    sent = true
+    void channel
+      .send({
+        type: 'broadcast',
+        event: SHEET_REALTIME_BROADCAST_EVENT,
+        payload: { kind, id, updatedAt },
+      })
+      .finally(() => {
+        window.setTimeout(() => {
+          void client.removeChannel(channel)
+        }, 1000)
+      })
+  }
+
+  channel.subscribe((status) => {
+    if (status === 'SUBSCRIBED') {
+      send()
+    }
+  })
+
+  window.setTimeout(send, 500)
+}
+
 function createRealtimeRefreshRunner<T>(
   fetchLatest: () => Promise<T | null>,
   onChange: (value: T) => void,
@@ -1230,6 +1281,34 @@ function createRealtimeRefreshRunner<T>(
   }
 }
 
+function subscribeToSheetBroadcast(
+  kind: SheetRealtimeTargetKind,
+  id: string,
+  refreshRunner: ReturnType<typeof createRealtimeRefreshRunner<WebSheetRecord>>,
+) {
+  const client = ensureSupabase()
+  const channel = client
+    .channel(createSheetBroadcastTopic(kind, id), {
+      config: { broadcast: { self: false } },
+    })
+    .on(
+      'broadcast',
+      { event: SHEET_REALTIME_BROADCAST_EVENT },
+      () => {
+        refreshRunner.scheduleRefresh()
+      },
+    )
+    .subscribe((status) => {
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        refreshRunner.scheduleRefresh()
+      }
+    })
+
+  return () => {
+    void client.removeChannel(channel)
+  }
+}
+
 export function subscribeToSheet(
   profileId: string,
   onChange: (sheet: WebSheetRecord) => void,
@@ -1239,6 +1318,7 @@ export function subscribeToSheet(
     () => fetchRealtimeSheetByProfileId(profileId),
     onChange,
   )
+  const unsubscribeBroadcast = subscribeToSheetBroadcast('profile', profileId, refreshRunner)
   const channel = client
     .channel(createRealtimeChannelId(`character-sheet-form:${profileId}`))
     .on(
@@ -1268,6 +1348,7 @@ export function subscribeToSheet(
 
   return () => {
     refreshRunner.dispose()
+    unsubscribeBroadcast()
     void client.removeChannel(channel)
   }
 }
@@ -1281,6 +1362,7 @@ export function subscribeToNpcSheet(
     () => fetchRealtimeNpcSheetById(npcId),
     onChange,
   )
+  const unsubscribeBroadcast = subscribeToSheetBroadcast('npc', npcId, refreshRunner)
   const channel = client
     .channel(createRealtimeChannelId(`npc-sheet:${npcId}`))
     .on(
@@ -1318,6 +1400,7 @@ export function subscribeToNpcSheet(
 
   return () => {
     refreshRunner.dispose()
+    unsubscribeBroadcast()
     void client.removeChannel(channel)
   }
 }
