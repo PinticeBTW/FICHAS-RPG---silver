@@ -1215,6 +1215,9 @@ export function SheetWorkspacePage() {
 
     const handleIncomingSheet = (nextSheet: WebSheetRecord) => {
       const nextSignature = serializeFieldData(nextSheet.fieldData)
+      const previousSheetFields = sheetRef.current?.fieldData ?? {}
+      let mergedRemoteChanges = false
+      let keptLocalChanges = false
 
       setSheet((current) => {
         if (
@@ -1230,7 +1233,7 @@ export function SheetWorkspacePage() {
 
       setDraftFields((current) => {
         const currentSignature = serializeFieldData(current)
-        const loadedSheetSignature = serializeFieldData(sheetRef.current?.fieldData ?? {})
+        const loadedSheetSignature = serializeFieldData(previousSheetFields)
         const hasLocalUnsavedChanges = currentSignature !== loadedSheetSignature
 
         if (currentSignature === nextSignature) {
@@ -1238,17 +1241,39 @@ export function SheetWorkspacePage() {
         }
 
         if (savingRef.current || isDirtyRef.current || hasLocalUnsavedChanges) {
-          return current
+          const mergedDraft = { ...current }
+
+          for (const [fieldName, nextValue] of Object.entries(nextSheet.fieldData)) {
+            const previousValue = previousSheetFields[fieldName] ?? ''
+            const currentValue = current[fieldName] ?? ''
+            const fieldChangedRemotely = nextValue !== previousValue
+            const fieldChangedLocally = currentValue !== previousValue
+
+            if (fieldChangedRemotely && !fieldChangedLocally) {
+              mergedDraft[fieldName] = nextValue
+              mergedRemoteChanges = true
+            } else if (fieldChangedRemotely && fieldChangedLocally) {
+              keptLocalChanges = true
+            }
+          }
+
+          return mergedRemoteChanges ? mergedDraft : current
         }
 
         return nextSheet.fieldData
       })
 
-      setSyncLabel(
-        savingRef.current || isDirtyRef.current
-          ? 'Alteracoes locais por guardar. Clica em Guardar.'
-          : 'Atualizado em tempo real',
-      )
+      if (keptLocalChanges) {
+        setSyncLabel('Atualizacao recebida, mas mantive os teus campos por guardar.')
+      } else if (mergedRemoteChanges) {
+        setSyncLabel('Atualizado em tempo real. Campos locais por guardar preservados.')
+      } else {
+        setSyncLabel(
+          savingRef.current || isDirtyRef.current
+            ? 'Alteracoes locais por guardar. Clica em Guardar.'
+            : 'Atualizado em tempo real',
+        )
+      }
     }
 
     const unsubscribe = isNpcProfile(activeProfile)
