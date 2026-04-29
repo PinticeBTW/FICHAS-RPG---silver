@@ -160,7 +160,7 @@ function isMultilineField(field: PdfSheetTemplateField) {
 }
 
 function isManualLineBreakField(field: PdfSheetTemplateField) {
-  return field.page === 1 && (/^INV \d+$/i.test(field.name) || /^ATAQUES\d+$/i.test(field.name))
+  return field.page === 1 && /^ATAQUES\d+$/i.test(field.name)
 }
 
 function supportsLineBreaks(field: PdfSheetTemplateField) {
@@ -281,7 +281,7 @@ type CodexResourceState = {
   available: number | null
 }
 
-type CodexUnlockState = Record<CodexResourceKind, Record<string, number>>
+type CodexUnlockState = Record<CodexResourceKind, Record<string, number[]>>
 type CodexUnlockUsageState = Record<CodexResourceKind, Record<string, boolean>>
 
 type CodexAbilityRowState = {
@@ -293,7 +293,7 @@ type CodexAbilityRowState = {
   abilityName: string
   hasContent: boolean
   isUnlockSource: boolean
-  linkedTargetSlot: number | null
+  linkedTargetSlots: number[]
   unlockUsed: boolean
   prerequisiteSourceSlot: number | null
   prerequisiteLabel: string | null
@@ -303,6 +303,7 @@ type CodexAbilityRowState = {
   rowBox: SheetLayoutBox
   actionBox: SheetLayoutBox
   linkBox: SheetLayoutBox
+  clearLinkBox: SheetLayoutBox
 }
 
 function parseSheetNumber(value: string | undefined) {
@@ -375,17 +376,22 @@ function parseCodexUnlockState(value: string | undefined): CodexUnlockState {
         continue
       }
 
-      for (const [sourceSlot, targetSlot] of Object.entries(entries as Record<string, unknown>)) {
+      for (const [sourceSlot, targetSlotValue] of Object.entries(entries as Record<string, unknown>)) {
         const normalizedSource = Number(sourceSlot)
-        const normalizedTarget = Number(targetSlot)
+        const targetSlotValues = Array.isArray(targetSlotValue) ? targetSlotValue : [targetSlotValue]
+        const normalizedTargets = [...new Set(
+          targetSlotValues
+            .map((targetSlot) => Number(targetSlot))
+            .filter(
+              (targetSlot) =>
+                Number.isInteger(targetSlot) &&
+                targetSlot > 0 &&
+                targetSlot !== normalizedSource,
+            ),
+        )]
 
-        if (
-          Number.isInteger(normalizedSource) &&
-          normalizedSource > 0 &&
-          Number.isInteger(normalizedTarget) &&
-          normalizedTarget > 0
-        ) {
-          fallback[kind][String(normalizedSource)] = normalizedTarget
+        if (Number.isInteger(normalizedSource) && normalizedSource > 0 && normalizedTargets.length) {
+          fallback[kind][String(normalizedSource)] = normalizedTargets
         }
       }
     }
@@ -504,6 +510,9 @@ function buildCodexAbilityRowStates(
         width: right - left,
         height: top - bottom,
       }
+      const costRight = (costField?.x ?? left + 150) + (costField?.width ?? 60)
+      const costIconY = (costField?.y ?? bottom) + 5
+      const costIconHeight = Math.max(11, (costField?.height ?? rowBox.height) - 10)
 
       return {
         slot,
@@ -514,7 +523,7 @@ function buildCodexAbilityRowStates(
         abilityName,
         hasContent,
         isUnlockSource: cost !== null && cost < 0,
-        linkedTargetSlot: cost !== null && cost < 0 ? linksForKind[String(slot)] ?? null : null,
+        linkedTargetSlots: cost !== null && cost < 0 ? linksForKind[String(slot)] ?? [] : [],
         unlockUsed: usageForKind[String(slot)] === true,
         prerequisiteSourceSlot: null,
         prerequisiteLabel: null,
@@ -529,10 +538,16 @@ function buildCodexAbilityRowStates(
           height: Math.max(12, rowBox.height - 8),
         },
         linkBox: {
-          x: (costField?.x ?? left + 150) + (costField?.width ?? 60) - 15,
-          y: (costField?.y ?? bottom) + 5,
+          x: costRight - 28,
+          y: costIconY,
           width: 12,
-          height: Math.max(11, (costField?.height ?? rowBox.height) - 10),
+          height: costIconHeight,
+        },
+        clearLinkBox: {
+          x: costRight - 15,
+          y: costIconY,
+          width: 12,
+          height: costIconHeight,
         },
       }
     })
@@ -541,14 +556,24 @@ function buildCodexAbilityRowStates(
   const rowsBySlot = new Map(baseRows.map((row) => [row.slot, row]))
 
   return baseRows.map((row) => {
-    const prerequisiteSourceSlot = Number(
-      Object.entries(linksForKind).find(([, targetSlot]) => targetSlot === row.slot)?.[0],
+    const prerequisiteSourceSlots = Object.entries(linksForKind)
+      .filter(([, targetSlots]) => targetSlots.includes(row.slot))
+      .map(([sourceSlot]) => Number(sourceSlot))
+      .filter((sourceSlot) => Number.isInteger(sourceSlot) && sourceSlot > 0)
+    const lockedPrerequisiteSlots = prerequisiteSourceSlots.filter(
+      (sourceSlot) => usageForKind[String(sourceSlot)] !== true,
     )
-    const hasPrerequisite =
-      Number.isInteger(prerequisiteSourceSlot) && prerequisiteSourceSlot > 0
-    const prerequisiteSource = hasPrerequisite ? rowsBySlot.get(prerequisiteSourceSlot) : undefined
+    const firstLockedPrerequisiteSlot = lockedPrerequisiteSlots[0]
+    const prerequisiteSource = firstLockedPrerequisiteSlot
+      ? rowsBySlot.get(firstLockedPrerequisiteSlot)
+      : undefined
+    const prerequisiteLabel = prerequisiteSource
+      ? lockedPrerequisiteSlots.length > 1
+        ? `${prerequisiteSource.abilityName} +${lockedPrerequisiteSlots.length - 1}`
+        : prerequisiteSource.abilityName
+      : null
     const isLockedByPrerequisite =
-      hasPrerequisite && usageForKind[String(prerequisiteSourceSlot)] !== true
+      lockedPrerequisiteSlots.length > 0
     const isResourceBlocked =
       row.spendCost !== null &&
       row.resource.available !== null &&
@@ -556,8 +581,8 @@ function buildCodexAbilityRowStates(
 
     return {
       ...row,
-      prerequisiteSourceSlot: hasPrerequisite ? prerequisiteSourceSlot : null,
-      prerequisiteLabel: prerequisiteSource?.abilityName ?? null,
+      prerequisiteSourceSlot: firstLockedPrerequisiteSlot ?? null,
+      prerequisiteLabel,
       isLockedByPrerequisite,
       isResourceBlocked,
       isBlocked: isLockedByPrerequisite || isResourceBlocked,
@@ -925,7 +950,7 @@ function TemplatePdfPage({
       row.resource.available === null ||
       row.spendCost > row.resource.available ||
       row.isLockedByPrerequisite ||
-      (row.isUnlockSource && (!row.linkedTargetSlot || row.unlockUsed))
+      (row.isUnlockSource && (!row.linkedTargetSlots.length || row.unlockUsed))
     ) {
       return
     }
@@ -971,6 +996,30 @@ function TemplatePdfPage({
     )
   }
 
+  const handleClearUnlockLink = (row: CodexAbilityRowState) => {
+    if (!canEdit || !row.isUnlockSource) {
+      return
+    }
+
+    const nextLinks: CodexUnlockState = {
+      ram: { ...codexUnlockLinks.ram },
+      pe: { ...codexUnlockLinks.pe },
+    }
+    const nextUsage: CodexUnlockUsageState = {
+      ram: { ...codexUnlockUsage.ram },
+      pe: { ...codexUnlockUsage.pe },
+    }
+
+    delete nextLinks[row.resourceKind][String(row.slot)]
+    delete nextUsage[row.resourceKind][String(row.slot)]
+
+    onFieldChange(CODEX_UNLOCK_LINKS_FIELD, serializeCodexUnlockState(nextLinks))
+    onFieldChange(CODEX_UNLOCK_USED_FIELD, serializeCodexUnlockUsageState(nextUsage))
+    setPendingUnlockSource((current) =>
+      current?.kind === row.resourceKind && current.slot === row.slot ? null : current,
+    )
+  }
+
   const handleSelectUnlockTarget = (row: CodexAbilityRowState) => {
     if (
       !canEdit ||
@@ -991,12 +1040,25 @@ function TemplatePdfPage({
       pe: { ...codexUnlockUsage.pe },
     }
 
-    nextLinks[pendingUnlockSource.kind][String(pendingUnlockSource.slot)] = row.slot
-    delete nextUsage[pendingUnlockSource.kind][String(pendingUnlockSource.slot)]
+    const sourceKey = String(pendingUnlockSource.slot)
+    const linkedTargets = nextLinks[pendingUnlockSource.kind][sourceKey] ?? []
+
+    if (linkedTargets.includes(row.slot)) {
+      const remainingTargets = linkedTargets.filter((targetSlot) => targetSlot !== row.slot)
+
+      if (remainingTargets.length) {
+        nextLinks[pendingUnlockSource.kind][sourceKey] = remainingTargets
+      } else {
+        delete nextLinks[pendingUnlockSource.kind][sourceKey]
+      }
+    } else {
+      nextLinks[pendingUnlockSource.kind][sourceKey] = [...linkedTargets, row.slot]
+    }
+
+    delete nextUsage[pendingUnlockSource.kind][sourceKey]
 
     onFieldChange(CODEX_UNLOCK_LINKS_FIELD, serializeCodexUnlockState(nextLinks))
     onFieldChange(CODEX_UNLOCK_USED_FIELD, serializeCodexUnlockUsageState(nextUsage))
-    setPendingUnlockSource(null)
   }
 
   const renderField = (field: PdfSheetTemplateField, sectionBox?: SheetLayoutBox) => {
@@ -1126,12 +1188,20 @@ function TemplatePdfPage({
   const renderCodexAbilityControls = () =>
     codexAbilityRows.map((row) => {
       const resourceLabel = row.resourceKind === 'ram' ? 'RAM' : 'PE'
-      const linkedTarget = row.linkedTargetSlot
-        ? codexAbilityRows.find((entry) => entry.slot === row.linkedTargetSlot)
-        : undefined
+      const linkedTargets = row.linkedTargetSlots
+        .map((targetSlot) => codexAbilityRows.find((entry) => entry.slot === targetSlot))
+        .filter((entry): entry is CodexAbilityRowState => Boolean(entry))
+      const linkedTargetLabel =
+        linkedTargets.length > 1
+          ? `${linkedTargets[0].abilityName} +${linkedTargets.length - 1}`
+          : linkedTargets[0]?.abilityName ?? null
       const unlockSourceSelected =
         pendingUnlockSource?.kind === row.resourceKind &&
         pendingUnlockSource.slot === row.slot
+      const isLinkedToPendingSource =
+        Boolean(pendingUnlockSource) &&
+        pendingUnlockSource?.kind === row.resourceKind &&
+        (codexUnlockLinks[pendingUnlockSource.kind][String(pendingUnlockSource.slot)] ?? []).includes(row.slot)
       const canSelectAsUnlockTarget =
         canEdit &&
         Boolean(pendingUnlockSource) &&
@@ -1144,12 +1214,12 @@ function TemplatePdfPage({
         row.resource.available !== null &&
         row.spendCost <= row.resource.available &&
         !row.isLockedByPrerequisite &&
-        (!row.isUnlockSource || (Boolean(row.linkedTargetSlot) && !row.unlockUsed))
+        (!row.isUnlockSource || (row.linkedTargetSlots.length > 0 && !row.unlockUsed))
       const canResetUnlock = canEdit && row.isUnlockSource && row.unlockUsed
       const disabledReason =
         row.isUnlockSource && row.unlockUsed
           ? 'Voltar a bloquear habilidade ligada'
-          : row.isUnlockSource && !row.linkedTargetSlot
+          : row.isUnlockSource && !row.linkedTargetSlots.length
             ? 'Liga esta habilidade a uma habilidade alvo'
             : row.isLockedByPrerequisite
               ? `Usa ${row.prerequisiteLabel ?? 'o desbloqueio'} primeiro`
@@ -1157,7 +1227,7 @@ function TemplatePdfPage({
           ? `Define ${resourceLabel} atual primeiro`
           : `Sem ${resourceLabel} suficiente`
       const blockedLabel = row.isLockedByPrerequisite
-        ? `REQ. ${row.prerequisiteLabel ?? 'DESBLOQ.'}`
+        ? ''
         : `${resourceLabel} BLOQ.`
 
       return (
@@ -1172,9 +1242,11 @@ function TemplatePdfPage({
                 boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.08)',
               }}
             >
-              <span className="font-display text-[calc(11px*var(--sheet-scale,1))] leading-none tracking-[0.08em] text-rose-100">
-                {blockedLabel}
-              </span>
+              {blockedLabel ? (
+                <span className="font-display text-[calc(11px*var(--sheet-scale,1))] leading-none tracking-[0.08em] text-rose-100">
+                  {blockedLabel}
+                </span>
+              ) : null}
             </div>
           ) : null}
 
@@ -1182,11 +1254,19 @@ function TemplatePdfPage({
             <button
               type="button"
               onClick={() => handleSelectUnlockTarget(row)}
-              className="absolute z-30 flex items-center justify-end border border-[#53b5ff]/70 bg-[#53b5ff]/16 px-1.5 font-display text-[calc(10px*var(--sheet-scale,1))] leading-none tracking-[0.08em] text-[#9bddff] transition hover:bg-[#53b5ff]/26"
+              className={`absolute z-30 flex items-center justify-end border px-1.5 font-display text-[calc(10px*var(--sheet-scale,1))] leading-none tracking-[0.08em] transition ${
+                isLinkedToPendingSource
+                  ? 'border-rose-300/70 bg-rose-500/18 text-rose-100 hover:bg-rose-500/28'
+                  : 'border-[#53b5ff]/70 bg-[#53b5ff]/16 text-[#9bddff] hover:bg-[#53b5ff]/26'
+              }`}
               style={buildBoxStyle(row.rowBox, pageSize)}
-              title="Escolher esta habilidade como alvo do desbloqueio"
+              title={
+                isLinkedToPendingSource
+                  ? 'Remover esta habilidade deste desbloqueio'
+                  : 'Adicionar esta habilidade ao desbloqueio'
+              }
             >
-              LIGAR
+              {isLinkedToPendingSource ? 'REMOVER' : 'LIGAR'}
             </button>
           ) : null}
 
@@ -1226,18 +1306,30 @@ function TemplatePdfPage({
               className={`absolute z-20 flex items-center justify-center transition ${
                 unlockSourceSelected
                   ? 'bg-[#53b5ff]/24 text-[#9bddff]'
-                  : row.linkedTargetSlot
+                  : row.linkedTargetSlots.length
                     ? 'text-[#53b5ff] hover:bg-[#53b5ff]/14'
                     : 'text-[#f3e600] hover:bg-[#f3e600]/14'
               }`}
-              style={buildBoxStyle(row.linkBox, pageSize)}
+              style={buildBoxStyle(row.linkedTargetSlots.length ? row.linkBox : row.clearLinkBox, pageSize)}
               title={
-                row.linkedTargetSlot
-                  ? `Ligado a ${linkedTarget?.abilityName ?? `habilidade ${row.linkedTargetSlot}`}`
+                row.linkedTargetSlots.length
+                  ? `Adicionar/remover alvos. Ligado a ${linkedTargetLabel ?? 'habilidades'}`
                   : 'Escolher habilidade desbloqueada'
               }
             >
               <Link2 size="calc(7px * var(--sheet-scale, 1))" />
+            </button>
+          ) : null}
+
+          {canEdit && row.isUnlockSource && row.linkedTargetSlots.length ? (
+            <button
+              type="button"
+              onClick={() => handleClearUnlockLink(row)}
+              className="absolute z-20 flex items-center justify-center text-rose-300 transition hover:bg-rose-500/16"
+              style={buildBoxStyle(row.clearLinkBox, pageSize)}
+              title={`Remover ${row.linkedTargetSlots.length} ligação${row.linkedTargetSlots.length === 1 ? '' : 'ões'}`}
+            >
+              <X size="calc(8px * var(--sheet-scale, 1))" />
             </button>
           ) : null}
         </div>
