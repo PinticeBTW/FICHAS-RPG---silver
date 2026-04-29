@@ -159,6 +159,14 @@ function isMultilineField(field: PdfSheetTemplateField) {
   )
 }
 
+function isManualLineBreakField(field: PdfSheetTemplateField) {
+  return field.page === 1 && (/^INV \d+$/i.test(field.name) || /^ATAQUES\d+$/i.test(field.name))
+}
+
+function supportsLineBreaks(field: PdfSheetTemplateField) {
+  return isMultilineField(field) || isManualLineBreakField(field)
+}
+
 function isCodexValueField(field: PdfSheetTemplateField) {
   return (field.page === 3 || field.page === 4) && (/^CUSTO\d+$/i.test(field.name) || /^CUSTOPE\d+$/i.test(field.name))
 }
@@ -179,6 +187,13 @@ function isCodexAbilityNameField(field: PdfSheetTemplateField) {
 
 function isCodexSingleLineTextField(field: PdfSheetTemplateField) {
   return isCodexTextField(field)
+}
+
+function shouldRenderTextareaField(field: PdfSheetTemplateField) {
+  return (
+    isManualLineBreakField(field) ||
+    (isMultilineField(field) && !isCodexValueField(field) && !isCodexSingleLineTextField(field))
+  )
 }
 
 function isPage2AttributeField(field: PdfSheetTemplateField) {
@@ -626,7 +641,7 @@ function buildFieldInputStyle(field: PdfSheetTemplateField) {
     fontWeight: preset.fontWeight ?? '400',
     overflow: 'hidden',
     textOverflow: 'clip',
-    whiteSpace: isMultilineField(field) ? 'pre-wrap' : 'nowrap',
+    whiteSpace: supportsLineBreaks(field) ? 'pre-wrap' : 'nowrap',
     overflowWrap: 'anywhere',
   } satisfies React.CSSProperties
 }
@@ -1078,7 +1093,7 @@ function TemplatePdfPage({
 
     const value = field.name === 'KARMA' ? readKarmaValue(fieldData) : fieldData[field.name] ?? ''
 
-    if (isMultilineField(field) && !isCodexValueField(field) && !isCodexSingleLineTextField(field)) {
+    if (shouldRenderTextareaField(field)) {
       return (
         <div key={fieldKey} className="absolute overflow-hidden" style={wrapperStyle}>
           <textarea
