@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronLeft, ChevronRight, Folder, FolderOpen, GripVertical, LogOut, Pencil, Plus, RefreshCcw, Save, Search, StickyNote, X } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, Folder, FolderOpen, GripVertical, LogOut, Pencil, Plus, RefreshCcw, Save, Search, Share2, StickyNote, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { CyberwareCatalogManager } from '../components/character/CyberwareCatalogManager'
@@ -52,7 +52,7 @@ import {
   serializePlayerInboxMessages,
   type SilverMessageRecipientOption,
 } from '../lib/playerInbox'
-import { parseRelationsData, stringifyRelationsData } from '../lib/relationsTypes'
+import { mergeSharedRelationsData, parseRelationsData, stringifyRelationsData } from '../lib/relationsTypes'
 import type { Profile, WebSheetRecord } from '../types/domain'
 
 const UNSAVED_CHANGES_LEAVE_MESSAGE =
@@ -708,6 +708,11 @@ export function SheetWorkspacePage() {
   const [savingShareAccess, setSavingShareAccess] = useState(false)
   const [shareAccessError, setShareAccessError] = useState<string | null>(null)
   const [sheetSharingUnavailable, setSheetSharingUnavailable] = useState(false)
+  const [selectedRelationShareNpcId, setSelectedRelationShareNpcId] = useState<string | null>(null)
+  const [relationShareRecipientIds, setRelationShareRecipientIds] = useState<string[]>([])
+  const [sharingRelations, setSharingRelations] = useState(false)
+  const [relationShareError, setRelationShareError] = useState<string | null>(null)
+  const [relationShareFeedback, setRelationShareFeedback] = useState<string | null>(null)
   const [gmWorkspaceView, setGmWorkspaceView] = useState<'sheet' | 'cyberware'>('sheet')
 
   const accessibleProfiles = useMemo(() => {
@@ -778,6 +783,16 @@ export function SheetWorkspacePage() {
       ),
     [profiles, selectedProfile?.id],
   )
+  const relationSharePlayers = useMemo(
+    () =>
+      profiles.filter(
+        (entry) =>
+          entry.role !== 'gm' &&
+          !isNpcProfile(entry) &&
+          entry.id !== selectedProfile?.id,
+      ),
+    [profiles, selectedProfile?.id],
+  )
   const newFichaPlayerOptions = useMemo(
     () =>
       profiles.filter(
@@ -802,6 +817,12 @@ export function SheetWorkspacePage() {
   }, [profiles])
   const shareAccessDirty =
     serializeViewerIds(shareViewerIds) !== serializeViewerIds(loadedShareViewerIds)
+  const canManageRelationsShare = Boolean(
+    profile &&
+    selectedProfile &&
+    profile.role === 'gm' &&
+    selectedProfile.id !== profile.id,
+  )
   const normalizedProfileSearchQuery = profileSearchQuery.trim().toLowerCase()
   const filteredAccessibleProfiles = useMemo(() => {
     if (!normalizedProfileSearchQuery) {
@@ -896,6 +917,13 @@ export function SheetWorkspacePage() {
     () => parseLegacyRelationsData(sheetEditorFieldData[relationsFieldKey]) ?? parseRelationsData(''),
     [relationsFieldKey, sheetEditorFieldData],
   )
+  const selectedRelationToShare = useMemo(
+    () =>
+      selectedRelationShareNpcId
+        ? relationsData.npcs.find((npc) => npc.id === selectedRelationShareNpcId) ?? null
+        : null,
+    [relationsData.npcs, selectedRelationShareNpcId],
+  )
   const relationsTone = useMemo(
     () => resolveKarmaTone(sheetEditorFieldData),
     [sheetEditorFieldData],
@@ -946,6 +974,13 @@ export function SheetWorkspacePage() {
 
   useEffect(() => {
     setPlayerMessageError(null)
+  }, [selectedProfile?.id])
+
+  useEffect(() => {
+    setSelectedRelationShareNpcId(null)
+    setRelationShareRecipientIds([])
+    setRelationShareError(null)
+    setRelationShareFeedback(null)
   }, [selectedProfile?.id])
 
   useEffect(() => {
@@ -1533,6 +1568,92 @@ export function SheetWorkspacePage() {
       setSavingShareAccess(false)
     }
   }, [refreshProfiles, selectedProfile, shareViewerIds])
+
+  const handleShareRelations = useCallback(async () => {
+    if (!profile || !selectedProfile || profile.role !== 'gm') {
+      return
+    }
+
+    if (!selectedRelationToShare) {
+      setRelationShareError('Escolhe primeiro uma pessoa no quadro de amizades.')
+      return
+    }
+
+    const recipients = relationSharePlayers.filter((entry) =>
+      relationShareRecipientIds.includes(entry.id),
+    )
+
+    if (!recipients.length) {
+      setRelationShareError('Escolhe pelo menos um player para receber esta amizade.')
+      return
+    }
+
+    setSharingRelations(true)
+    setRelationShareError(null)
+    setRelationShareFeedback(null)
+
+    try {
+      const sharedAt = new Date().toISOString()
+      const selectedRelationGroup = relationsData.groups.find(
+        (group) => group.id === selectedRelationToShare.groupId,
+      )
+      const singleRelationData = {
+        groups: selectedRelationGroup ? [selectedRelationGroup] : relationsData.groups,
+        npcs: [selectedRelationToShare],
+      }
+      const savedSheets = await Promise.all(
+        recipients.map(async (recipient) => {
+          const currentSheet = await fetchOrCreateSheet(recipient)
+          const currentRelationsFieldKey = resolveRelationsFieldKey(currentSheet.fieldData)
+          const currentRelations =
+            parseLegacyRelationsData(currentSheet.fieldData[currentRelationsFieldKey]) ??
+            parseRelationsData('')
+          const mergedRelations = mergeSharedRelationsData(currentRelations, singleRelationData, {
+            sourceProfileId: selectedProfile.id,
+            sharedByProfileId: profile.id,
+            sharedAt,
+          })
+          const serialized = stringifyRelationsData(mergedRelations)
+          const nextFieldData = {
+            ...currentSheet.fieldData,
+            [currentRelationsFieldKey]: serialized,
+            [RELATIONS_FIELD_KEY]: serialized,
+          }
+
+          return saveSheetFields(recipient.id, nextFieldData)
+        }),
+      )
+
+      setBoardSheetSnapshots((current) => {
+        const nextSnapshots = { ...current }
+
+        savedSheets.forEach((savedSheet) => {
+          nextSnapshots[savedSheet.profileId] = savedSheet
+        })
+
+        return nextSnapshots
+      })
+      setRelationShareRecipientIds([])
+      setRelationShareFeedback(
+        `${selectedRelationToShare.name || 'Amizade'} enviada para ${recipients.map((entry) => entry.displayName).join(', ')}.`,
+      )
+    } catch (caughtError) {
+      setRelationShareError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : 'Nao foi possivel partilhar esta amizade.',
+      )
+    } finally {
+      setSharingRelations(false)
+    }
+  }, [
+    profile,
+    relationSharePlayers,
+    relationShareRecipientIds,
+    relationsData.groups,
+    selectedRelationToShare,
+    selectedProfile,
+  ])
 
   const handleSave = useCallback(async () => {
     if (savingRef.current) {
@@ -2647,6 +2768,16 @@ export function SheetWorkspacePage() {
                   data={relationsData}
                   canEdit={canEdit}
                   tone={relationsTone}
+                  canShare={canManageRelationsShare}
+                  selectedShareNpcId={selectedRelationShareNpcId}
+                  onShareNpc={(npc) => {
+                    if (selectedRelationShareNpcId !== npc.id) {
+                      setRelationShareRecipientIds([])
+                    }
+                    setSelectedRelationShareNpcId(npc.id)
+                    setRelationShareError(null)
+                    setRelationShareFeedback(null)
+                  }}
                   onChange={(updated) => {
                     const serialized = stringifyRelationsData(updated)
                     setDraftFields((current) => ({
@@ -2656,6 +2787,102 @@ export function SheetWorkspacePage() {
                     }))
                   }}
                 />
+
+                {canManageRelationsShare ? (
+                  <section className="hud-panel rounded-[28px] p-4">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                      <div>
+                        <p className="panel-title">Partilha de amizades</p>
+                        <p className="mt-2 text-lg font-semibold text-white">
+                          {selectedRelationToShare
+                            ? `Enviar ${selectedRelationToShare.name || 'amizade sem nome'}`
+                            : 'Escolhe uma pessoa no quadro'}
+                        </p>
+                        <p className="mt-1 text-sm leading-7 text-stone-400">
+                          Usa o botao Enviar em cada cartao de amizade. Depois escolhe aqui que
+                          player recebe essa pessoa na propria ficha.
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => void handleShareRelations()}
+                        className="signal-button inline-flex items-center gap-2 px-4 py-2 text-sm"
+                        disabled={
+                          sharingRelations ||
+                          !selectedRelationToShare ||
+                          !relationShareRecipientIds.length
+                        }
+                      >
+                        <Share2 size={14} />
+                        {sharingRelations ? 'A enviar...' : 'Enviar amizade'}
+                      </button>
+                    </div>
+
+                    {relationShareError ? (
+                      <div className="mt-4 border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+                        {relationShareError}
+                      </div>
+                    ) : null}
+
+                    {relationShareFeedback ? (
+                      <div className="mt-4 border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
+                        {relationShareFeedback}
+                      </div>
+                    ) : null}
+
+                    <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                      {!relationsData.npcs.length ? (
+                        <div className="border border-white/10 bg-black/25 px-4 py-3 text-sm text-stone-300">
+                          Esta ficha ainda nao tem amizades para enviar.
+                        </div>
+                      ) : !selectedRelationToShare ? (
+                        <div className="border border-white/10 bg-black/25 px-4 py-3 text-sm text-stone-300">
+                          Clica em Enviar num dos cartoes acima para escolher exatamente que pessoa
+                          vai para outro player.
+                        </div>
+                      ) : !relationSharePlayers.length ? (
+                        <div className="border border-white/10 bg-black/25 px-4 py-3 text-sm text-stone-300">
+                          Ainda nao ha outros players disponiveis para receber esta amizade.
+                        </div>
+                      ) : (
+                        relationSharePlayers.map((person) => {
+                          const checked = relationShareRecipientIds.includes(person.id)
+
+                          return (
+                            <label
+                              key={person.id}
+                              className={`flex cursor-pointer items-start gap-3 border px-4 py-3 transition ${
+                                checked
+                                  ? 'border-[#f3e600]/60 bg-[#f3e600]/10'
+                                  : 'border-white/10 bg-black/25 hover:border-white/20'
+                              }`}
+                            >
+                              <input
+                                type="radio"
+                                name="relation-share-recipient"
+                                checked={checked}
+                                disabled={sharingRelations}
+                                onChange={() => {
+                                  setRelationShareError(null)
+                                  setRelationShareFeedback(null)
+                                  setRelationShareRecipientIds([person.id])
+                                }}
+                                className="mt-1 h-4 w-4 accent-[#f3e600]"
+                              />
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold text-white">
+                                  {person.displayName}
+                                </p>
+                                <p className="truncate text-xs text-stone-400">{person.email}</p>
+                              </div>
+                            </label>
+                          )
+                        })
+                      )}
+                    </div>
+                  </section>
+                ) : null}
 
                 {canConfigureShareAccess ? (
                   <section className="hud-panel rounded-[28px] p-4">
