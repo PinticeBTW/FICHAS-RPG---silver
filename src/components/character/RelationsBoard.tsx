@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, Plus, Trash2, X, Check, Pencil, ImagePlus } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, X, Check, Pencil, ImagePlus, Share2 } from 'lucide-react'
 import {
   type RelationNpc,
   type RelationGroup,
@@ -292,15 +292,21 @@ function CyberField({
 function NpcCardView({
   npc,
   canEdit,
+  canShare,
+  selectedForShare,
   onBack,
   onSave,
   onDelete,
+  onShare,
 }: {
   npc: RelationNpc
   canEdit: boolean
+  canShare: boolean
+  selectedForShare: boolean
   onBack: () => void
   onSave: (updated: RelationNpc) => void
   onDelete: () => void
+  onShare: () => void
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState<RelationNpc>(npc)
@@ -336,8 +342,19 @@ function NpcCardView({
           </span>
         </button>
 
-        {canEdit && (
+        {(canEdit || canShare) && (
           <div style={{ display: 'flex', gap: '8px' }}>
+            {canShare && (
+              <button
+                type="button"
+                onClick={onShare}
+                style={actionBtnStyle(selectedForShare ? '#f3e600' : CYAN)}
+                title="Escolher esta amizade para enviar"
+              >
+                <Share2 size={13} />
+                <span>{selectedForShare ? 'Escolhida' : 'Enviar'}</span>
+              </button>
+            )}
             {editing ? (
               <>
                 <button type="button" onClick={handleSave} style={actionBtnStyle('#10ff8a')}>
@@ -476,15 +493,21 @@ function NpcCardView({
 function NpcGrid({
   npcs,
   canEdit,
+  canShare,
+  selectedShareNpcId,
   onSelect,
   onAdd,
   onDelete,
+  onShare,
 }: {
   npcs: RelationNpc[]
   canEdit: boolean
+  canShare: boolean
+  selectedShareNpcId?: string | null
   onSelect: (id: string) => void
   onAdd: () => void
   onDelete: (id: string) => void
+  onShare?: (npc: RelationNpc) => void
 }) {
   return (
     <div
@@ -496,7 +519,16 @@ function NpcGrid({
       }}
     >
       {npcs.map((npc) => (
-        <NpcSlot key={npc.id} npc={npc} canEdit={canEdit} onSelect={onSelect} onDelete={onDelete} />
+        <NpcSlot
+          key={npc.id}
+          npc={npc}
+          canEdit={canEdit}
+          canShare={canShare}
+          selectedForShare={selectedShareNpcId === npc.id}
+          onSelect={onSelect}
+          onDelete={onDelete}
+          onShare={() => onShare?.(npc)}
+        />
       ))}
 
       {canEdit && (
@@ -540,13 +572,19 @@ function NpcGrid({
 function NpcSlot({
   npc,
   canEdit,
+  canShare,
+  selectedForShare,
   onSelect,
   onDelete,
+  onShare,
 }: {
   npc: RelationNpc
   canEdit: boolean
+  canShare: boolean
+  selectedForShare: boolean
   onSelect: (id: string) => void
   onDelete: (id: string) => void
+  onShare: () => void
 }) {
   const [hovered, setHovered] = useState(false)
 
@@ -562,12 +600,12 @@ function NpcSlot({
         onClick={() => onSelect(npc.id)}
         style={{
           aspectRatio: '3/4',
-          border: `1px solid ${hovered ? CYAN : CYAN_DIM}`,
+          border: `1px solid ${selectedForShare ? '#f3e600' : hovered ? CYAN : CYAN_DIM}`,
           background: BG_CARD,
           overflow: 'hidden',
           position: 'relative',
           cursor: 'pointer',
-          boxShadow: hovered ? CYAN_GLOW : 'none',
+          boxShadow: selectedForShare ? '0 0 18px rgba(243,230,0,0.35)' : hovered ? CYAN_GLOW : 'none',
           transition: 'all 0.15s',
           padding: 0,
         }}
@@ -602,6 +640,38 @@ function NpcSlot({
           />
         )}
       </button>
+
+      {canShare && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            onShare()
+          }}
+          style={{
+            position: 'absolute',
+            top: 4,
+            left: 4,
+            zIndex: 2,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            background: selectedForShare ? 'rgba(243,230,0,0.95)' : 'rgba(0,0,0,0.78)',
+            border: selectedForShare ? '1px solid #f3e600' : `1px solid ${CYAN_MID}`,
+            color: selectedForShare ? '#111' : CYAN,
+            cursor: 'pointer',
+            padding: '3px 6px',
+            fontFamily: 'var(--font-display)',
+            fontSize: '0.5rem',
+            letterSpacing: '0.14em',
+            textTransform: 'uppercase',
+          }}
+          title="Escolher esta amizade para enviar"
+        >
+          <Share2 size={10} />
+          <span>{selectedForShare ? 'Ok' : 'Enviar'}</span>
+        </button>
+      )}
 
       {/* Name */}
       <span
@@ -740,12 +810,23 @@ interface RelationsBoardProps {
   data: RelationsData
   canEdit: boolean
   tone?: RelationsTone
+  canShare?: boolean
+  selectedShareNpcId?: string | null
   onChange: (updated: RelationsData) => void
+  onShareNpc?: (npc: RelationNpc) => void
 }
 
 type BoardView = 'grid' | 'card'
 
-export function RelationsBoard({ data, canEdit, tone = 'blue', onChange }: RelationsBoardProps) {
+export function RelationsBoard({
+  data,
+  canEdit,
+  tone = 'blue',
+  canShare = false,
+  selectedShareNpcId = null,
+  onChange,
+  onShareNpc,
+}: RelationsBoardProps) {
   applyTone(tone)
   const [selectedGroupId, setSelectedGroupId] = useState<string>(() => {
     if (typeof window !== 'undefined') {
@@ -973,17 +1054,23 @@ export function RelationsBoard({ data, canEdit, tone = 'blue', onChange }: Relat
           <NpcGrid
             npcs={groupNpcs}
             canEdit={canEdit}
+            canShare={canShare}
+            selectedShareNpcId={selectedShareNpcId}
             onSelect={openCard}
             onAdd={addNpc}
             onDelete={deleteNpc}
+            onShare={onShareNpc}
           />
         ) : selectedNpc ? (
           <NpcCardView
             npc={selectedNpc}
             canEdit={canEdit}
+            canShare={canShare}
+            selectedForShare={selectedShareNpcId === selectedNpc.id}
             onBack={backToGrid}
             onSave={saveNpc}
             onDelete={() => deleteNpc(selectedNpc.id)}
+            onShare={() => onShareNpc?.(selectedNpc)}
           />
         ) : null}
       </div>
