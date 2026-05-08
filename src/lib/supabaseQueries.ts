@@ -12,6 +12,79 @@ type SupabaseFetchOptions = {
 const inFlightFetches = new Map<string, Promise<unknown>>()
 const memoryCache = new Map<string, { expiresAt: number; value: unknown }>()
 
+function getApproxJsonByteSize(value: unknown) {
+  try {
+    return new Blob([JSON.stringify(value)]).size
+  } catch {
+    return 0
+  }
+}
+
+function countRows(value: unknown) {
+  if (Array.isArray(value)) {
+    return value.length
+  }
+
+  if (!value || typeof value !== 'object') {
+    return undefined
+  }
+
+  const candidate = value as { data?: unknown }
+
+  if (Array.isArray(candidate.data)) {
+    return candidate.data.length
+  }
+
+  if (candidate.data && typeof candidate.data === 'object') {
+    return 1
+  }
+
+  return undefined
+}
+
+function inspectPayload(value: unknown) {
+  let includesFieldData = false
+  let includesDataImage = false
+
+  const visit = (entry: unknown) => {
+    if (includesFieldData && includesDataImage) {
+      return
+    }
+
+    if (typeof entry === 'string') {
+      if (entry.includes('data:image')) {
+        includesDataImage = true
+      }
+      return
+    }
+
+    if (!entry || typeof entry !== 'object') {
+      return
+    }
+
+    if (Array.isArray(entry)) {
+      for (const item of entry) {
+        visit(item)
+      }
+      return
+    }
+
+    for (const [key, item] of Object.entries(entry as Record<string, unknown>)) {
+      if (key === 'field_data' || key === 'fieldData') {
+        includesFieldData = true
+      }
+      visit(item)
+    }
+  }
+
+  visit(value)
+
+  return {
+    includesFieldData,
+    includesDataImage,
+  }
+}
+
 function delay(ms: number) {
   return new Promise<void>((resolve) => {
     setTimeout(resolve, ms)
@@ -89,6 +162,30 @@ export function logSupabaseFetch({ functionName, table }: SupabaseFetchMeta) {
   })
 }
 
+export function logSupabasePayload(
+  meta: SupabaseFetchMeta & { operation?: string },
+  payload: unknown,
+  startedAt?: number,
+) {
+  if (!import.meta.env.DEV) {
+    return
+  }
+
+  const inspection = inspectPayload(payload)
+
+  console.debug('[SUPABASE_PAYLOAD]', {
+    operation: meta.operation ?? meta.functionName,
+    table: meta.table,
+    bytes: getApproxJsonByteSize(payload),
+    rows: countRows(payload),
+    durationMs:
+      typeof startedAt === 'number' ? Math.round(performance.now() - startedAt) : undefined,
+    includesFieldData: inspection.includesFieldData,
+    includesDataImage: inspection.includesDataImage,
+    timestamp: new Date().toISOString(),
+  })
+}
+
 export async function runSupabaseFetch<T>(
   key: string,
   meta: SupabaseFetchMeta,
@@ -118,7 +215,9 @@ export async function runSupabaseFetch<T>(
 
     while (true) {
       try {
+        const startedAt = performance.now()
         const value = await Promise.resolve(fetcher())
+        logSupabasePayload(meta, value, startedAt)
 
         if (options.cacheMs && options.cacheMs > 0) {
           memoryCache.set(key, {

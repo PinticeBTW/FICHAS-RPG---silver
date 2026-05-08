@@ -6,7 +6,12 @@ import {
   cyberwareSheetFieldKeys,
 } from './cyberwareSheetLayout'
 import { pdfSheetTemplateFields } from './pdfSheetTemplate'
-import { clearSupabaseFetchCache, logSupabaseFetch, runSupabaseFetch } from './supabaseQueries'
+import {
+  clearSupabaseFetchCache,
+  logSupabaseFetch,
+  logSupabasePayload,
+  runSupabaseFetch,
+} from './supabaseQueries'
 
 const CURRENT_TEMPLATE_KEY = 'blank-grey-v2'
 const SHEET_RECORD_CACHE_LIMIT = 12
@@ -14,6 +19,10 @@ const GLOBAL_CYBERWARE_CATALOG_ID = 'global'
 const GLOBAL_CYBERWARE_TEMPLATE_KEY = 'global-cyberware-v1'
 const RECENT_LOCAL_NPC_WRITE_TTL_MS = 15_000
 const SHEET_REALTIME_BROADCAST_EVENT = 'sheet-updated'
+const SHEET_DIRECTORY_BROADCAST_EVENT = 'sheet-directory-changed'
+const SHEET_REALTIME_PATCH_MAX_FIELDS = 20
+const SHEET_REALTIME_PATCH_VALUE_LIMIT_BYTES = 8 * 1024
+const SHEET_REALTIME_PATCH_TOTAL_LIMIT_BYTES = 24 * 1024
 
 type ProfileRow = {
   id: string
@@ -47,6 +56,52 @@ type GlobalCyberwareCatalogRow = {
 type SavedGlobalCyberwareCatalogRow = Pick<GlobalCyberwareCatalogRow, 'id' | 'updated_at'>
 type SavedNpcCardRow = Pick<NpcCardRow, 'id' | 'updated_at'>
 type SheetRealtimeTargetKind = 'profile' | 'npc'
+type SheetFieldDataPatch = {
+  patch: Record<string, string>
+  removedKeys: string[]
+  changedKeys: string[]
+}
+type SheetRealtimePatch = {
+  entityType: SheetRealtimeTargetKind
+  entityId: string
+  path: string
+  value: unknown
+  updatedAt: string
+  byUserId: string | null
+}
+type SheetRealtimePatchBroadcastPayload = {
+  version: 1
+  type: 'field-patches'
+  entityType: SheetRealtimeTargetKind
+  entityId: string
+  updatedAt: string
+  byUserId: string | null
+  patches: SheetRealtimePatch[]
+}
+type SheetRealtimeInvalidationBroadcastPayload = {
+  version: 1
+  type: 'field-invalidation'
+  entityType: SheetRealtimeTargetKind
+  entityId: string
+  updatedAt: string
+  byUserId: string | null
+  paths: string[]
+  reason: string
+}
+type SheetRealtimeBroadcastPayload =
+  | SheetRealtimePatchBroadcastPayload
+  | SheetRealtimeInvalidationBroadcastPayload
+  | {
+      kind?: SheetRealtimeTargetKind
+      id?: string
+      updatedAt?: string
+    }
+type SheetDirectoryBroadcastPayload = {
+  type: 'directory-changed'
+  reason: string
+  id?: string
+  updatedAt: string
+}
 
 type SheetProfileMetadata = Partial<
   Pick<
@@ -224,7 +279,7 @@ function normalizeFieldData(fieldData: Record<string, unknown> | string | null) 
 function buildFieldDataPatch(
   nextFieldData: Record<string, string>,
   previousFieldData?: Record<string, string> | null,
-) {
+): SheetFieldDataPatch | null {
   if (!previousFieldData) {
     return null
   }
@@ -300,44 +355,6 @@ function rememberRecentLocalNpcWrite(npcId: string, updatedAt: string | null | u
   }
 
   recentLocalNpcWrites.set(npcId, writes)
-}
-
-function shouldSkipNpcPartialRefresh(
-  npcId: string,
-  updatedAt: string | null | undefined,
-) {
-  if (!updatedAt) {
-    return false
-  }
-
-  const writes = recentLocalNpcWrites.get(npcId)
-
-  if (!writes) {
-    return false
-  }
-
-  const now = Date.now()
-
-  for (const [writtenAt, recordedAt] of writes.entries()) {
-    if (now - recordedAt > RECENT_LOCAL_NPC_WRITE_TTL_MS) {
-      writes.delete(writtenAt)
-    }
-  }
-
-  const matchedAt = writes.get(updatedAt)
-
-  if (!matchedAt) {
-    if (!writes.size) {
-      recentLocalNpcWrites.delete(npcId)
-    }
-    return false
-  }
-
-  writes.delete(updatedAt)
-  if (!writes.size) {
-    recentLocalNpcWrites.delete(npcId)
-  }
-  return true
 }
 
 function cloneSheetRecord(record: WebSheetRecord): WebSheetRecord {
@@ -718,12 +735,23 @@ export async function updateNpcCardDisplayName(npcId: string, displayName: strin
 
   logSupabaseFetch({ functionName: 'updateNpcCardDisplayName', table: 'npc_cards' })
 
+  const startedAt = performance.now()
   const { data, error } = await client
     .from('npc_cards')
     .update({ display_name: trimmed, updated_at: new Date().toISOString() })
     .eq('id', npcId)
     .select('id, display_name')
     .maybeSingle()
+
+  logSupabasePayload(
+    {
+      functionName: 'updateNpcCardDisplayName',
+      operation: 'update',
+      table: 'npc_cards',
+    },
+    { data, error },
+    startedAt,
+  )
 
   if (error) {
     throw error
@@ -734,6 +762,7 @@ export async function updateNpcCardDisplayName(npcId: string, displayName: strin
   }
 
   clearSupabaseFetchCache('listSheetProfiles:')
+  broadcastSheetDirectoryChange('npc-display-name-updated', npcId)
 }
 
 export async function fetchNpcSheet(npcId: string): Promise<WebSheetRecord> {
@@ -840,6 +869,15 @@ async function saveNpcSheetFullPayload(
     .select('id, updated_at')
     .maybeSingle()
 
+  logSupabasePayload(
+    {
+      functionName: 'saveNpcSheetFullPayload',
+      operation: 'update',
+      table: 'npc_cards',
+    },
+    { data, error },
+    startedAt,
+  )
   logNpcSave('duration:', `${Math.round(performance.now() - startedAt)} ms`)
 
   if (error) throw error
@@ -870,6 +908,15 @@ async function saveNpcSheetPatchPayload(
     .rpc('patch_npc_card_field_data', payload)
     .maybeSingle()
 
+  logSupabasePayload(
+    {
+      functionName: 'saveNpcSheetPatchPayload',
+      operation: 'rpc:patch_npc_card_field_data',
+      table: 'patch_npc_card_field_data',
+    },
+    { data, error },
+    startedAt,
+  )
   logNpcSave('duration:', `${Math.round(performance.now() - startedAt)} ms`)
 
   if (error) throw error
@@ -886,7 +933,9 @@ export async function saveNpcSheet(
   options: SaveNpcSheetOptions = {},
 ): Promise<WebSheetRecord> {
   const normalizedFieldData = normalizeFieldData(fieldData)
-  const fieldPatch = buildFieldDataPatch(normalizedFieldData, options.previousFieldData)
+  const previousFieldData =
+    options.previousFieldData ?? getCachedSheetRecord(npcId)?.fieldData ?? null
+  const fieldPatch = buildFieldDataPatch(normalizedFieldData, previousFieldData)
   logSupabaseFetch({ functionName: 'saveNpcSheet', table: 'npc_cards' })
 
   if (fieldPatch && !fieldPatch.changedKeys.length) {
@@ -900,7 +949,7 @@ export async function saveNpcSheet(
     try {
       const savedPatch = await saveNpcSheetPatchPayload(npcId, fieldPatch.patch, fieldPatch.removedKeys)
       const savedSheet = mapSavedNpcSheet(savedPatch, normalizedFieldData)
-      broadcastSheetRealtimeChange('npc', npcId, savedSheet.updatedAt)
+      broadcastSheetRealtimeChange('npc', npcId, savedSheet.updatedAt, fieldPatch)
       return savedSheet
     } catch (error) {
       if (!isNpcPatchFunctionUnavailableError(error)) {
@@ -913,7 +962,7 @@ export async function saveNpcSheet(
 
   const savedFull = await saveNpcSheetFullPayload(npcId, normalizedFieldData)
   const savedSheet = mapSavedNpcSheet(savedFull, normalizedFieldData)
-  broadcastSheetRealtimeChange('npc', npcId, savedSheet.updatedAt)
+  broadcastSheetRealtimeChange('npc', npcId, savedSheet.updatedAt, fieldPatch)
   return savedSheet
 }
 
@@ -982,8 +1031,11 @@ export async function fetchOrCreateSheet(profile: Profile) {
 export async function saveSheetFields(profileId: string, fieldData: Record<string, string>) {
   const client = ensureSupabase()
   const normalizedFieldData = normalizeFieldData(fieldData)
+  const previousFieldData = getCachedSheetRecord(profileId)?.fieldData ?? null
+  const fieldPatch = buildFieldDataPatch(normalizedFieldData, previousFieldData)
   logSupabaseFetch({ functionName: 'saveSheetFields', table: 'character_sheet_forms' })
 
+  const startedAt = performance.now()
   const { data, error } = await client
     .from('character_sheet_forms')
     .upsert(
@@ -997,12 +1049,22 @@ export async function saveSheetFields(profileId: string, fieldData: Record<strin
     .select('id, profile_id, template_key, updated_at')
     .single()
 
+  logSupabasePayload(
+    {
+      functionName: 'saveSheetFields',
+      operation: 'upsert',
+      table: 'character_sheet_forms',
+    },
+    { data, error },
+    startedAt,
+  )
+
   if (error) {
     throw error
   }
 
   const savedSheet = mapSavedSheet(data as SavedSheetRow, normalizedFieldData)
-  broadcastSheetRealtimeChange('profile', profileId, savedSheet.updatedAt)
+  broadcastSheetRealtimeChange('profile', profileId, savedSheet.updatedAt, fieldPatch)
   return savedSheet
 }
 
@@ -1036,6 +1098,7 @@ export async function saveGlobalCyberwareCatalog(
   }
   logSupabaseFetch({ functionName: 'saveGlobalCyberwareCatalog', table: 'cyberware_catalog_settings' })
 
+  const startedAt = performance.now()
   const { data, error } = await client
     .from('cyberware_catalog_settings')
     .upsert(
@@ -1048,6 +1111,16 @@ export async function saveGlobalCyberwareCatalog(
     )
     .select('id, updated_at')
     .single()
+
+  logSupabasePayload(
+    {
+      functionName: 'saveGlobalCyberwareCatalog',
+      operation: 'upsert',
+      table: 'cyberware_catalog_settings',
+    },
+    { data, error },
+    startedAt,
+  )
 
   if (error) {
     throw error
@@ -1181,15 +1254,320 @@ function createSheetBroadcastTopic(kind: SheetRealtimeTargetKind, id: string) {
   return `sheet-sync:${kind}:${id}`
 }
 
+function createSheetDirectoryBroadcastTopic() {
+  return 'sheet-directory'
+}
+
+function getApproxRealtimePayloadBytes(value: unknown) {
+  try {
+    return new Blob([JSON.stringify(value)]).size
+  } catch {
+    return Number.POSITIVE_INFINITY
+  }
+}
+
+function containsDataImageValue(value: unknown, seen = new Set<object>()): boolean {
+  if (typeof value === 'string') {
+    return value.includes('data:image')
+  }
+
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  if (seen.has(value)) {
+    return false
+  }
+
+  seen.add(value)
+
+  if (Array.isArray(value)) {
+    return value.some((item) => containsDataImageValue(item, seen))
+  }
+
+  return Object.values(value).some((item) => containsDataImageValue(item, seen))
+}
+
+function getPatchPaths(fieldPatch: SheetFieldDataPatch | null | undefined) {
+  if (!fieldPatch) {
+    return []
+  }
+
+  return fieldPatch.changedKeys.map((key) => (key.startsWith('-') ? key.slice(1) : key))
+}
+
+function createSheetRealtimeInvalidationPayload(
+  kind: SheetRealtimeTargetKind,
+  id: string,
+  updatedAt: string,
+  byUserId: string | null,
+  fieldPatch: SheetFieldDataPatch | null | undefined,
+  reason: string,
+): SheetRealtimeInvalidationBroadcastPayload {
+  return {
+    version: 1,
+    type: 'field-invalidation',
+    entityType: kind,
+    entityId: id,
+    updatedAt,
+    byUserId,
+    paths: getPatchPaths(fieldPatch),
+    reason,
+  }
+}
+
+function buildSheetRealtimeBroadcastPayload(
+  kind: SheetRealtimeTargetKind,
+  id: string,
+  updatedAt: string,
+  byUserId: string | null,
+  fieldPatch?: SheetFieldDataPatch | null,
+): SheetRealtimePatchBroadcastPayload | SheetRealtimeInvalidationBroadcastPayload | null {
+  if (!fieldPatch) {
+    return createSheetRealtimeInvalidationPayload(
+      kind,
+      id,
+      updatedAt,
+      byUserId,
+      fieldPatch,
+      'missing-previous-field-data',
+    )
+  }
+
+  if (!fieldPatch.changedKeys.length) {
+    return null
+  }
+
+  if (fieldPatch.removedKeys.length) {
+    return createSheetRealtimeInvalidationPayload(
+      kind,
+      id,
+      updatedAt,
+      byUserId,
+      fieldPatch,
+      'removed-fields',
+    )
+  }
+
+  const changedEntries = Object.entries(fieldPatch.patch)
+
+  if (changedEntries.length > SHEET_REALTIME_PATCH_MAX_FIELDS) {
+    return createSheetRealtimeInvalidationPayload(
+      kind,
+      id,
+      updatedAt,
+      byUserId,
+      fieldPatch,
+      'too-many-fields',
+    )
+  }
+
+  for (const [, value] of changedEntries) {
+    if (
+      containsDataImageValue(value) ||
+      getApproxRealtimePayloadBytes(value) > SHEET_REALTIME_PATCH_VALUE_LIMIT_BYTES
+    ) {
+      return createSheetRealtimeInvalidationPayload(
+        kind,
+        id,
+        updatedAt,
+        byUserId,
+        fieldPatch,
+        'large-field',
+      )
+    }
+  }
+
+  const patches = changedEntries.map(([path, value]) => ({
+    entityType: kind,
+    entityId: id,
+    path,
+    value,
+    updatedAt,
+    byUserId,
+  }))
+  const payload: SheetRealtimePatchBroadcastPayload = {
+    version: 1,
+    type: 'field-patches',
+    entityType: kind,
+    entityId: id,
+    updatedAt,
+    byUserId,
+    patches,
+  }
+
+  if (getApproxRealtimePayloadBytes(payload) > SHEET_REALTIME_PATCH_TOTAL_LIMIT_BYTES) {
+    return createSheetRealtimeInvalidationPayload(
+      kind,
+      id,
+      updatedAt,
+      byUserId,
+      fieldPatch,
+      'large-patch',
+    )
+  }
+
+  return payload
+}
+
+function isSheetRealtimePayloadForTarget(
+  payload: SheetRealtimeBroadcastPayload,
+  kind: SheetRealtimeTargetKind,
+  id: string,
+) {
+  if ('type' in payload && payload.type) {
+    return payload.entityType === kind && payload.entityId === id
+  }
+
+  return payload.kind === kind && payload.id === id
+}
+
+function isNewerSheetUpdate(nextUpdatedAt: string, currentUpdatedAt: string) {
+  const nextTime = Date.parse(nextUpdatedAt)
+  const currentTime = Date.parse(currentUpdatedAt)
+
+  if (!Number.isFinite(nextTime) || !Number.isFinite(currentTime)) {
+    return true
+  }
+
+  return nextTime >= currentTime
+}
+
+function applySheetRealtimePatchPayload(
+  kind: SheetRealtimeTargetKind,
+  id: string,
+  payload: SheetRealtimeBroadcastPayload,
+) {
+  if (!('type' in payload) || payload.type !== 'field-patches') {
+    return null
+  }
+
+  if (!isSheetRealtimePayloadForTarget(payload, kind, id)) {
+    return null
+  }
+
+  const cachedSheet = getCachedSheetRecord(id)
+
+  if (!cachedSheet) {
+    return null
+  }
+
+  if (!isNewerSheetUpdate(payload.updatedAt, cachedSheet.updatedAt)) {
+    return cachedSheet
+  }
+
+  let changed = false
+  const fieldData = { ...cachedSheet.fieldData }
+
+  for (const patch of payload.patches) {
+    if (
+      patch.entityType !== kind ||
+      patch.entityId !== id ||
+      typeof patch.path !== 'string'
+    ) {
+      continue
+    }
+
+    const nextValue = coerceFieldValue(patch.value)
+
+    if (fieldData[patch.path] !== nextValue) {
+      fieldData[patch.path] = nextValue
+      changed = true
+    }
+  }
+
+  if (!changed && cachedSheet.updatedAt === payload.updatedAt) {
+    return cachedSheet
+  }
+
+  return rememberCachedSheetRecord({
+    ...cachedSheet,
+    fieldData,
+    updatedAt: payload.updatedAt,
+  })
+}
+
+async function resolveCurrentUserId(client: ReturnType<typeof ensureSupabase>) {
+  try {
+    const { data } = await client.auth.getSession()
+    return data.session?.user.id ?? null
+  } catch {
+    return null
+  }
+}
+
 function broadcastSheetRealtimeChange(
   kind: SheetRealtimeTargetKind,
   id: string,
   updatedAt: string,
+  fieldPatch?: SheetFieldDataPatch | null,
 ) {
   const client = ensureSupabase()
   const channel = client.channel(createSheetBroadcastTopic(kind, id), {
     config: { broadcast: { self: false } },
   })
+  let sent = false
+
+  const send = async () => {
+    if (sent) {
+      return
+    }
+
+    sent = true
+    const byUserId = await resolveCurrentUserId(client)
+    const payload = buildSheetRealtimeBroadcastPayload(kind, id, updatedAt, byUserId, fieldPatch)
+
+    if (!payload) {
+      window.setTimeout(() => {
+        void client.removeChannel(channel)
+      }, 1000)
+      return
+    }
+
+    logSupabasePayload(
+      {
+        functionName: 'broadcastSheetRealtimeChange',
+        operation: payload.type,
+        table: createSheetBroadcastTopic(kind, id),
+      },
+      payload,
+    )
+
+    void channel
+      .send({
+        type: 'broadcast',
+        event: SHEET_REALTIME_BROADCAST_EVENT,
+        payload,
+      })
+      .finally(() => {
+        window.setTimeout(() => {
+          void client.removeChannel(channel)
+        }, 1000)
+      })
+  }
+
+  channel.subscribe((status) => {
+    if (status === 'SUBSCRIBED') {
+      void send()
+    }
+  })
+
+  window.setTimeout(() => {
+    void send()
+  }, 500)
+}
+
+function broadcastSheetDirectoryChange(reason: string, id?: string) {
+  const client = ensureSupabase()
+  const channel = client.channel(createSheetDirectoryBroadcastTopic(), {
+    config: { broadcast: { self: false } },
+  })
+  const payload: SheetDirectoryBroadcastPayload = {
+    type: 'directory-changed',
+    reason,
+    id,
+    updatedAt: new Date().toISOString(),
+  }
   let sent = false
 
   const send = () => {
@@ -1198,11 +1576,19 @@ function broadcastSheetRealtimeChange(
     }
 
     sent = true
+    logSupabasePayload(
+      {
+        functionName: 'broadcastSheetDirectoryChange',
+        operation: reason,
+        table: createSheetDirectoryBroadcastTopic(),
+      },
+      payload,
+    )
     void channel
       .send({
         type: 'broadcast',
-        event: SHEET_REALTIME_BROADCAST_EVENT,
-        payload: { kind, id, updatedAt },
+        event: SHEET_DIRECTORY_BROADCAST_EVENT,
+        payload,
       })
       .finally(() => {
         window.setTimeout(() => {
@@ -1285,6 +1671,7 @@ function subscribeToSheetBroadcast(
   kind: SheetRealtimeTargetKind,
   id: string,
   refreshRunner: ReturnType<typeof createRealtimeRefreshRunner<WebSheetRecord>>,
+  onChange: (sheet: WebSheetRecord) => void,
 ) {
   const client = ensureSupabase()
   const channel = client
@@ -1294,7 +1681,36 @@ function subscribeToSheetBroadcast(
     .on(
       'broadcast',
       { event: SHEET_REALTIME_BROADCAST_EVENT },
-      () => {
+      (message) => {
+        logSupabasePayload(
+          {
+            functionName: 'subscribeToSheetBroadcast',
+            operation: 'receive',
+            table: createSheetBroadcastTopic(kind, id),
+          },
+          message.payload,
+        )
+
+        if (!message.payload || typeof message.payload !== 'object') {
+          refreshRunner.scheduleRefresh()
+          return
+        }
+
+        const payload = message.payload as SheetRealtimeBroadcastPayload
+
+        if (!isSheetRealtimePayloadForTarget(payload, kind, id)) {
+          return
+        }
+
+        if ('type' in payload && payload.type === 'field-patches') {
+          const patchedSheet = applySheetRealtimePatchPayload(kind, id, payload)
+
+          if (patchedSheet) {
+            onChange(patchedSheet)
+            return
+          }
+        }
+
         refreshRunner.scheduleRefresh()
       },
     )
@@ -1313,43 +1729,20 @@ export function subscribeToSheet(
   profileId: string,
   onChange: (sheet: WebSheetRecord) => void,
 ) {
-  const client = ensureSupabase()
   const refreshRunner = createRealtimeRefreshRunner(
     () => fetchRealtimeSheetByProfileId(profileId),
     onChange,
   )
-  const unsubscribeBroadcast = subscribeToSheetBroadcast('profile', profileId, refreshRunner)
-  const channel = client
-    .channel(createRealtimeChannelId(`character-sheet-form:${profileId}`))
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'character_sheet_forms',
-        filter: `profile_id=eq.${profileId}`,
-      },
-      (payload) => {
-        if (payload.eventType !== 'DELETE' && payload.new) {
-          const nextRow = payload.new as Partial<SheetRow>
-
-          // Some realtime UPDATE payloads may omit heavy columns like field_data.
-          // Avoid replacing the current sheet with blanks when the payload is partial.
-          if (typeof nextRow.field_data !== 'undefined') {
-            onChange(mapSheet(nextRow as SheetRow))
-            return
-          }
-        }
-
-        refreshRunner.scheduleRefresh()
-      },
-    )
-    .subscribe()
+  const unsubscribeBroadcast = subscribeToSheetBroadcast(
+    'profile',
+    profileId,
+    refreshRunner,
+    onChange,
+  )
 
   return () => {
     refreshRunner.dispose()
     unsubscribeBroadcast()
-    void client.removeChannel(channel)
   }
 }
 
@@ -1357,51 +1750,20 @@ export function subscribeToNpcSheet(
   npcId: string,
   onChange: (sheet: WebSheetRecord) => void,
 ) {
-  const client = ensureSupabase()
   const refreshRunner = createRealtimeRefreshRunner(
     () => fetchRealtimeNpcSheetById(npcId),
     onChange,
   )
-  const unsubscribeBroadcast = subscribeToSheetBroadcast('npc', npcId, refreshRunner)
-  const channel = client
-    .channel(createRealtimeChannelId(`npc-sheet:${npcId}`))
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'npc_cards',
-        filter: `id=eq.${npcId}`,
-      },
-      (payload) => {
-        if (payload.eventType === 'DELETE') {
-          return
-        }
-
-        if (payload.new) {
-          const nextRow = payload.new as Partial<NpcCardRow>
-
-          // Some realtime UPDATE payloads may omit heavy columns like field_data.
-          // Avoid replacing the current sheet with blanks when the payload is partial.
-          if (typeof nextRow.field_data !== 'undefined') {
-            onChange(mapNpcSheet(nextRow as NpcCardRow))
-            return
-          }
-
-          if (shouldSkipNpcPartialRefresh(npcId, nextRow.updated_at)) {
-            return
-          }
-        }
-
-        refreshRunner.scheduleRefresh()
-      },
-    )
-    .subscribe()
+  const unsubscribeBroadcast = subscribeToSheetBroadcast(
+    'npc',
+    npcId,
+    refreshRunner,
+    onChange,
+  )
 
   return () => {
     refreshRunner.dispose()
     unsubscribeBroadcast()
-    void client.removeChannel(channel)
   }
 }
 
@@ -1447,7 +1809,24 @@ export function subscribeToGlobalCyberwareCatalog(
 export function subscribeToSheetDirectory(onChange: () => void) {
   const client = ensureSupabase()
   const channel = client
-    .channel(createRealtimeChannelId('sheet-directory'))
+    .channel(createSheetDirectoryBroadcastTopic(), {
+      config: { broadcast: { self: false } },
+    })
+    .on(
+      'broadcast',
+      { event: SHEET_DIRECTORY_BROADCAST_EVENT },
+      (message) => {
+        logSupabasePayload(
+          {
+            functionName: 'subscribeToSheetDirectory',
+            operation: 'receive',
+            table: createSheetDirectoryBroadcastTopic(),
+          },
+          message.payload,
+        )
+        onChange()
+      },
+    )
     .on(
       'postgres_changes',
       {
@@ -1468,25 +1847,6 @@ export function subscribeToSheetDirectory(onChange: () => void) {
       },
       () => {
         onChange()
-      },
-    )
-    .on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'npc_cards',
-      },
-      (payload) => {
-        const oldRow = payload.old as Partial<NpcCardRow>
-        const newRow = payload.new as Partial<NpcCardRow>
-
-        if (
-          oldRow.display_name !== undefined &&
-          newRow.display_name !== oldRow.display_name
-        ) {
-          onChange()
-        }
       },
     )
     .on(
