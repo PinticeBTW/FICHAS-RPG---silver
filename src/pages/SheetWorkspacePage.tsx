@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronLeft, ChevronRight, Folder, FolderOpen, GripVertical, LogOut, Pencil, Plus, RefreshCcw, Save, Search, Share2, StickyNote, X } from 'lucide-react'
+import { BookOpenText, ChevronDown, ChevronLeft, ChevronRight, Cpu, Folder, FolderOpen, GripVertical, LogOut, Pencil, Plus, RefreshCcw, Save, Search, Share2, StickyNote, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { CyberwareCatalogManager } from '../components/character/CyberwareCatalogManager'
@@ -7,6 +7,7 @@ import { RelationsBoard } from '../components/character/RelationsBoard'
 import { EmptyState } from '../components/common/EmptyState'
 import { LoadingScreen } from '../components/common/LoadingScreen'
 import { PlayerInboxPanel } from '../components/notes/PlayerMessagesPanel'
+import { MasterNotebookPanel } from '../components/notes/MasterNotebookPanel'
 import { PlayerNotebookPanel } from '../components/notes/PlayerNotebookPanel'
 import {
   SilverNotebook,
@@ -714,6 +715,7 @@ export function SheetWorkspacePage() {
   const [relationShareError, setRelationShareError] = useState<string | null>(null)
   const [relationShareFeedback, setRelationShareFeedback] = useState<string | null>(null)
   const [gmWorkspaceView, setGmWorkspaceView] = useState<'sheet' | 'cyberware'>('sheet')
+  const [silverMasterView, setSilverMasterView] = useState<'quadro' | 'caderno'>('quadro')
 
   const accessibleProfiles = useMemo(() => {
     if (!authProfileId) {
@@ -898,6 +900,8 @@ export function SheetWorkspacePage() {
       ? 'owner'
       : 'shared'
   const showingCyberwareManager = canManageCyberwareCatalog && gmWorkspaceView === 'cyberware'
+  const showingMasterNotebook =
+    isSilverWorkspace && gmWorkspaceView === 'sheet' && silverMasterView === 'caderno'
   const globalCyberwareCatalogValue =
     globalCyberwareDraftFields[CYBERWARE_CATALOG_FIELD_KEY] ??
     globalCyberwareCatalog?.fieldData[CYBERWARE_CATALOG_FIELD_KEY] ??
@@ -985,6 +989,7 @@ export function SheetWorkspacePage() {
 
   useEffect(() => {
     setGmWorkspaceView('sheet')
+    setSilverMasterView('quadro')
   }, [authProfileId])
 
   const refreshProfiles = useCallback(async (options?: { showLoading?: boolean }) => {
@@ -2155,68 +2160,13 @@ export function SheetWorkspacePage() {
             Sair
           </button>
 
-          <div className="mt-4 flex items-start justify-between gap-3">
-            <div>
-              <p className="panel-title">Operativos</p>
-              <p className="mt-2 text-lg font-semibold text-white">
-                {filteredAccessibleProfiles.length === accessibleProfiles.length
-                  ? `${accessibleProfiles.length} ficha(s)`
-                  : `${filteredAccessibleProfiles.length}/${accessibleProfiles.length} ficha(s)`}
-              </p>
-            </div>
-
-            <div className="flex flex-wrap justify-end gap-2">
-              {canManageCyberwareCatalog ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setGmWorkspaceView('sheet')}
-                    className="signal-button inline-flex items-center gap-2 px-3 py-1.5 text-xs"
-                    data-variant={gmWorkspaceView === 'sheet' ? undefined : 'ghost'}
-                  >
-                    Ficha
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setGmWorkspaceView('cyberware')}
-                    className="signal-button inline-flex items-center gap-2 px-3 py-1.5 text-xs"
-                    data-variant={gmWorkspaceView === 'cyberware' ? undefined : 'ghost'}
-                  >
-                    Cyberware
-                  </button>
-                </>
-              ) : null}
-
-              <button
-                type="button"
-                onClick={() => void refreshProfiles()}
-                className="signal-button inline-flex items-center gap-2 px-3 py-1.5 text-xs"
-                data-variant="ghost"
-                disabled={loadingProfiles || loadingSheet}
-              >
-                <RefreshCcw size={14} />
-                Atualizar
-              </button>
-
-              {canEdit ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (showingCyberwareManager) {
-                      void handleSaveGlobalCyberwareCatalog()
-                    } else {
-                      void handleSave()
-                    }
-                  }}
-                  className="signal-button inline-flex items-center gap-2 px-3 py-1.5 text-xs"
-                  disabled={activeSaveDisabled}
-                >
-                  <Save size={14} />
-                  {activeSaving ? 'A guardar...' : 'Guardar'}
-                </button>
-              ) : null}
-            </div>
+          <div className="mt-4">
+            <p className="panel-title">Operativos</p>
+            <p className="mt-2 text-lg font-semibold text-white">
+              {filteredAccessibleProfiles.length === accessibleProfiles.length
+                ? `${accessibleProfiles.length} ficha(s)`
+                : `${filteredAccessibleProfiles.length}/${accessibleProfiles.length} ficha(s)`}
+            </p>
           </div>
 
           {isGm ? (
@@ -2447,6 +2397,129 @@ export function SheetWorkspacePage() {
             )}
 
             {/* GM: botão nova pasta */}
+            
+
+            {/* Se existir role extra de admin no futuro, aplicar aqui junto com GM. */}
+            {isGm && profile ? (
+              <div className="mb-3 space-y-2">
+                <p className="px-1 text-[0.62rem] uppercase tracking-[0.22em] text-stone-600">
+                  PAGINAS
+                </p>
+
+                {canManageCyberwareCatalog ? (
+                  <button
+                    type="button"
+                    onClick={() => setGmWorkspaceView('cyberware')}
+                    className={`w-full border px-3 py-2 text-left transition ${
+                      gmWorkspaceView === 'cyberware'
+                        ? 'border-[#f3e600]/60 bg-[#f3e600]/10'
+                        : 'border-white/10 bg-black/25 hover:border-white/20'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white">
+                          CYBERWARE
+                        </p>
+                        <p className="mt-1 text-[0.68rem] text-stone-400">
+                          Implantes e upgrades
+                        </p>
+                      </div>
+                      <Cpu size={13} className="mt-0.5 shrink-0 text-[#f3e600]" />
+                    </div>
+                  </button>
+                ) : null}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setGmWorkspaceView('sheet')
+                    setSilverMasterView('caderno')
+                    if (selectedProfile?.id !== profile.id) {
+                      navigate(`/app/sheets/${profile.id}`)
+                    }
+                  }}
+                  className={`w-full border px-3 py-2 text-left transition ${
+                    showingMasterNotebook
+                      ? 'border-[#f3e600]/60 bg-[#f3e600]/10'
+                      : 'border-white/10 bg-black/25 hover:border-white/20'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white">
+                        CADERNO
+                      </p>
+                      <p className="mt-1 text-[0.68rem] text-stone-400">
+                        Notas, lore e sessoes
+                      </p>
+                    </div>
+                    <BookOpenText size={13} className="mt-0.5 shrink-0 text-[#f3e600]" />
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setGmWorkspaceView('sheet')
+                    setSilverMasterView('quadro')
+                    if (selectedProfile?.id !== profile.id) {
+                      navigate(`/app/sheets/${profile.id}`)
+                    }
+                  }}
+                  className={`w-full border px-3 py-2 text-left transition ${
+                    isSilverWorkspace && gmWorkspaceView === 'sheet' && silverMasterView === 'quadro'
+                      ? 'border-[#f3e600]/60 bg-[#f3e600]/10'
+                      : 'border-white/10 bg-black/25 hover:border-white/20'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white">
+                        QUADRO
+                      </p>
+                      <p className="mt-1 text-[0.68rem] text-stone-400">
+                        Mapa livre e stickies
+                      </p>
+                    </div>
+                    <StickyNote size={13} className="mt-0.5 shrink-0 text-[#f3e600]" />
+                  </div>
+                </button>
+              </div>
+            ) : null}
+
+            <div className={`mb-3 grid gap-2 ${canEdit ? 'grid-cols-2' : 'grid-cols-1'}`}>
+              <button
+                type="button"
+                onClick={() => void refreshProfiles()}
+                className="signal-button inline-flex items-center justify-center gap-2 px-3 py-1.5 text-xs"
+                data-variant="ghost"
+                disabled={loadingProfiles || loadingSheet}
+              >
+                <RefreshCcw size={14} />
+                Atualizar
+              </button>
+
+              {canEdit ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (showingCyberwareManager) {
+                      void handleSaveGlobalCyberwareCatalog()
+                    } else {
+                      void handleSave()
+                    }
+                  }}
+                  className="signal-button inline-flex items-center justify-center gap-2 px-3 py-1.5 text-xs"
+                  disabled={activeSaveDisabled}
+                >
+                  <Save size={14} />
+                  {activeSaving ? 'A guardar...' : 'Guardar Ficha'}
+                </button>
+              ) : null}
+            </div>
+
+            {/* GM: botão nova pasta */}
             {isGm && (
               <div className="mb-2">
                 {addingGroup ? (
@@ -2492,36 +2565,6 @@ export function SheetWorkspacePage() {
                 )}
               </div>
             )}
-
-            {/* GM: secção fixa do próprio GM */}
-            {isGm && profile && (() => {
-              const gmEntry = filteredAccessibleProfiles.find((p) => p.id === profile.id)
-              if (!gmEntry) return null
-              return (
-                <div className="mb-3">
-                  <p className="mb-1 text-[0.62rem] uppercase tracking-[0.22em] text-stone-600">Mestre de Jogo</p>
-                  <ProfileCard
-                    entry={gmEntry}
-                    selected={gmEntry.id === selectedProfile?.id}
-                    isGm={isGm}
-                    groups={groups}
-                    openMoveDropdown={openMoveDropdown}
-                    onNavigate={() => navigate(`/app/sheets/${gmEntry.id}`)}
-                    onToggleDropdown={() => setOpenMoveDropdown((prev) => prev === gmEntry.id ? null : gmEntry.id)}
-                    onToggleGroup={(gid) => toggleProfileInGroup(gmEntry.id, gid)}
-                    onRemoveFromAll={() => removeFromAllGroups(gmEntry.id)}
-                    renaming={renamingProfileId === gmEntry.id}
-                    renameValue={renamingProfileId === gmEntry.id ? renamingValue : gmEntry.displayName}
-                    renameSaving={renamingSaving && renamingProfileId === gmEntry.id}
-                    onStartRename={() => handleStartRename(gmEntry)}
-                    onRenameChange={setRenamingValue}
-                    onSaveRename={() => void handleSaveRename(gmEntry)}
-                    onCancelRename={handleCancelRename}
-                    onPinToBoard={isSilverWorkspace ? () => queueBoardProfileCard(gmEntry.id) : undefined}
-                  />
-                </div>
-              )
-            })()}
 
             {/* GM: pastas e lista */}
             {isGm && groups.map((group) => {
@@ -2666,7 +2709,7 @@ export function SheetWorkspacePage() {
         </aside>
         ) : null}
 
-        <section className="relative min-w-0 space-y-4">
+        <section className={`relative min-w-0 space-y-4 ${showingMasterNotebook ? 'pt-12' : ''}`}>
           <button
             type="button"
             onClick={toggleSidebar}
@@ -2699,41 +2742,49 @@ export function SheetWorkspacePage() {
             <LoadingScreen label="A abrir a ficha..." />
           ) : sheet ? (
             isSilverWorkspace ? (
-              <SilverNotebook
-                value={draftFields.GM_NOTES ?? ''}
-                pagesValue={draftFields.GM_NOTE_PAGES ?? ''}
-                remindersValue={draftFields.GM_REMINDERS ?? ''}
-                workspaceStorageKey={selectedProfile.id}
-                onQuickSave={() => void handleSave()}
-                canQuickSave={isDirty}
-                quickSaveBusy={saving}
-                playerMessageRecipients={playerMessageRecipients}
-                onSendPlayerMessage={handleSendPlayerMessage}
-                sendingPlayerMessage={sendingPlayerMessage}
-                playerMessageError={playerMessageError}
-                boardProfiles={boardProfiles}
-                boardProfileFieldData={boardProfileFieldData}
-                pendingBoardProfileCard={pendingBoardProfileCard}
-                onChange={(value) => {
-                  setDraftFields((current) => ({
-                    ...current,
-                    GM_NOTES: value,
-                  }))
-                }}
-                onPagesChange={(value) => {
-                  setDraftFields((current) => ({
-                    ...current,
-                    GM_NOTE_PAGES: value,
-                  }))
-                }}
-                onRemindersChange={(value) => {
-                  setDraftFields((current) => ({
-                    ...current,
-                    GM_REMINDERS: value,
-                  }))
-                }}
-                canEdit={canEdit}
-              />
+              showingMasterNotebook ? (
+                <MasterNotebookPanel
+                  userId={profile?.id ?? selectedProfile.id}
+                  viewerProfile={profile ?? selectedProfile}
+                  canEdit={canEdit}
+                />
+              ) : (
+                <SilverNotebook
+                  value={draftFields.GM_NOTES ?? ''}
+                  pagesValue={draftFields.GM_NOTE_PAGES ?? ''}
+                  remindersValue={draftFields.GM_REMINDERS ?? ''}
+                  workspaceStorageKey={selectedProfile.id}
+                  onQuickSave={() => void handleSave()}
+                  canQuickSave={isDirty}
+                  quickSaveBusy={saving}
+                  playerMessageRecipients={playerMessageRecipients}
+                  onSendPlayerMessage={handleSendPlayerMessage}
+                  sendingPlayerMessage={sendingPlayerMessage}
+                  playerMessageError={playerMessageError}
+                  boardProfiles={boardProfiles}
+                  boardProfileFieldData={boardProfileFieldData}
+                  pendingBoardProfileCard={pendingBoardProfileCard}
+                  onChange={(value) => {
+                    setDraftFields((current) => ({
+                      ...current,
+                      GM_NOTES: value,
+                    }))
+                  }}
+                  onPagesChange={(value) => {
+                    setDraftFields((current) => ({
+                      ...current,
+                      GM_NOTE_PAGES: value,
+                    }))
+                  }}
+                  onRemindersChange={(value) => {
+                    setDraftFields((current) => ({
+                      ...current,
+                      GM_REMINDERS: value,
+                    }))
+                  }}
+                  canEdit={canEdit}
+                />
+              )
             ) : (
               <>
                 <PdfSheetEditor

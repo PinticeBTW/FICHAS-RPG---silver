@@ -20,7 +20,9 @@
       "Bash(node scripts/pdf-raw-rects.mjs pag1-blue)",
       "Bash(node scripts/pdf-raw-rects.mjs pag2-blue)",
       "Bash(node scripts/pdf-raw-rects.mjs pag3-blue)",
-      "Bash(grep -E \"y=\\\\s*[0-9]{1,3}[^0-9]\")"
+      "Bash(grep -E \"y=\\\\s*[0-9]{1,3}[^0-9]\")",
+      "Bash(node scripts/pdf-raw-rects.mjs pag4-blue-m)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173/)"
     ]
   }
 }

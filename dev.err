@@ -1,1 +1,660 @@
-^C
+[2m2:03:21 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22m[vite] ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:03:21 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22m[vite] Failed to reload /src/components/character/CyberwareCatalogManager.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above)
+[2m2:03:46 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22m[vite] ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:03:46 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22m[vite] Failed to reload /src/pages/SheetWorkspacePage.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above)
+[2m2:03:48 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:03:48 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:03:48 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:03:48 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:03:48 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:03:48 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:03:48 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:03:48 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:03:48 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:03:48 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:03:48 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:03:48 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:03:48 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+
+The above error occurred in one of your React components.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary.
+
+[2m2:03:48 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mReact Router caught the following error during render ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:11 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:11 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:11 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:11 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:11 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:11 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:11 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:11 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:11 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:11 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:11 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:11 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:11 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+
+The above error occurred in one of your React components.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary.
+
+[2m2:04:11 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mReact Router caught the following error during render ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:32 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:32 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:32 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:32 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:32 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:32 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:32 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:32 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:32 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:32 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:32 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:32 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:32 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+
+The above error occurred in one of your React components.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary.
+
+[2m2:04:32 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mReact Router caught the following error during render ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:46 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:46 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:46 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:46 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:46 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:46 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:46 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:46 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:46 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:46 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:46 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:46 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:46 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+
+The above error occurred in one of your React components.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary.
+
+[2m2:04:46 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mReact Router caught the following error during render ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:58 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:58 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:58 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:58 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:58 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:58 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:58 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:58 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:58 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:58 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:58 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:58 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:04:58 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+
+The above error occurred in one of your React components.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary.
+
+[2m2:04:58 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mReact Router caught the following error during render ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:20 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:20 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:20 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:20 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:20 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:20 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:20 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:20 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:20 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:20 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:20 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:20 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:20 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+
+The above error occurred in one of your React components.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary.
+
+[2m2:05:20 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mReact Router caught the following error during render ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:32 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:32 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:32 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:32 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:32 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:32 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:32 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:32 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:32 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:32 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:32 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:32 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:32 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+
+The above error occurred in one of your React components.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary.
+
+[2m2:05:32 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mReact Router caught the following error during render ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:56 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:56 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:56 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:56 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:56 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:56 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:56 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:56 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:56 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:56 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:56 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:56 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:05:56 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+
+The above error occurred in one of your React components.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary.
+
+[2m2:05:56 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mReact Router caught the following error during render ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:21 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:21 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:21 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:21 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:21 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:21 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:21 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:21 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:21 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:21 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:21 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:21 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:21 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+
+The above error occurred in one of your React components.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary.
+
+[2m2:06:21 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mReact Router caught the following error during render ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:34 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:34 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:34 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:34 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:34 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:34 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:34 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:34 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:34 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:34 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:34 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:34 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:34 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+
+The above error occurred in one of your React components.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary.
+
+[2m2:06:34 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mReact Router caught the following error during render ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:55 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:55 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:55 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:55 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:55 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:55 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:55 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:55 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:55 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:55 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:55 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:55 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:06:55 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+
+The above error occurred in one of your React components.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary.
+
+[2m2:06:55 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mReact Router caught the following error during render ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:15 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:15 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:15 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:15 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:15 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:15 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:15 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:15 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:15 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:15 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:15 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:15 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:15 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+
+The above error occurred in one of your React components.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary.
+
+[2m2:07:15 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mReact Router caught the following error during render ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:36 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:36 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:36 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:36 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:36 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:36 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:36 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:36 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:36 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:36 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:36 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:36 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:36 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+
+The above error occurred in one of your React components.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary.
+
+[2m2:07:36 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mReact Router caught the following error during render ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:52 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:52 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:52 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:52 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:52 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:52 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:52 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:52 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:52 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:52 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:52 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:52 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:07:52 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+
+The above error occurred in one of your React components.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary.
+
+[2m2:07:52 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mReact Router caught the following error during render ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:08:06 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:08:06 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:08:06 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:08:06 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:08:06 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:08:06 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:08:06 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:08:06 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:08:06 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:08:06 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:08:06 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:08:06 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:08:06 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+
+The above error occurred in one of your React components.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary.
+
+[2m2:08:06 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mReact Router caught the following error during render ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:08:24 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:08:24 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:08:24 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:08:24 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:08:24 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:08:24 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:08:24 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:08:24 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:08:24 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:08:24 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:08:24 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:08:24 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:08:24 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+
+The above error occurred in one of your React components.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary.
+
+[2m2:08:24 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mReact Router caught the following error during render ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:09:28 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:09:28 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:09:28 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:09:28 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:09:28 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:09:28 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:09:28 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:09:28 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:09:28 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:09:28 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:09:28 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:09:28 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:09:28 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+
+The above error occurred in one of your React components.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary.
+
+[2m2:09:28 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mReact Router caught the following error during render ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:11:13 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:11:13 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:11:13 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:11:13 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:11:13 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:11:13 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:11:13 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:11:13 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:11:13 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:11:13 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:11:13 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:11:13 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:11:13 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+
+The above error occurred in one of your React components.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary.
+
+[2m2:11:13 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mReact Router caught the following error during render ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:11:17 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:11:17 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:11:17 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:11:17 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:11:17 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:11:17 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:11:17 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:11:17 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:11:17 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:11:17 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:11:17 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:11:17 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError handled by React Router default ErrorBoundary: ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m2:11:17 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+
+The above error occurred in one of your React components.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary.
+
+[2m2:11:17 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mReact Router caught the following error during render ReferenceError: cyberwareSheetZones is not defined
+    at http://127.0.0.1:5173/src/components/character/CyberwareCatalogManager.tsx?t=1777122201438:8:30
+[2m7:25:24 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mAuthError@http://127.0.0.1:5173/node_modules/.vite/deps/@supabase_supabase-js.js?v=fb137cf1:11927:3
+AuthApiError@http://127.0.0.1:5173/node_modules/.vite/deps/@supabase_supabase-js.js?v=fb137cf1:11949:3
+handleError@http://127.0.0.1:5173/node_modules/.vite/deps/@supabase_supabase-js.js?v=fb137cf1:12672:8
+
+[2m10:42:27 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mAuthApiError: Invalid Refresh Token: Refresh Token Not Found
+    at handleError (http://127.0.0.1:5173/node_modules/.vite/deps/@supabase_supabase-js.js?v=fb137cf1:12672:8)
+    at async _handleRequest (http://127.0.0.1:5173/node_modules/.vite/deps/@supabase_supabase-js.js?v=fb137cf1:12709:18)
+    at async _request (http://127.0.0.1:5173/node_modules/.vite/deps/@supabase_supabase-js.js?v=fb137cf1:12691:15)
+    at async http://127.0.0.1:5173/node_modules/.vite/deps/@supabase_supabase-js.js?v=fb137cf1:18597:12
+    at async http://127.0.0.1:5173/node_modules/.vite/deps/@supabase_supabase-js.js?v=fb137cf1:12513:20
+[2m2:19:53 AM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mTypeError: Failed to fetch
+    at http://localhost:5173/node_modules/.vite/deps/@supabase_supabase-js.js?v=fb137cf1:12448:22
+    at _handleRequest (http://localhost:5173/node_modules/.vite/deps/@supabase_supabase-js.js?v=fb137cf1:12704:18)
+    at _request (http://localhost:5173/node_modules/.vite/deps/@supabase_supabase-js.js?v=fb137cf1:12691:21)
+    at http://localhost:5173/node_modules/.vite/deps/@supabase_supabase-js.js?v=fb137cf1:18597:18
+    at http://localhost:5173/node_modules/.vite/deps/@supabase_supabase-js.js?v=fb137cf1:12513:26
+    at http://localhost:5173/node_modules/.vite/deps/@supabase_supabase-js.js?v=fb137cf1:12524:5
+    at new Promise (<anonymous>)
+    at retryable (http://localhost:5173/node_modules/.vite/deps/@supabase_supabase-js.js?v=fb137cf1:12510:9)
+    at SupabaseAuthClient._refreshAccessToken (http://localhost:5173/node_modules/.vite/deps/@supabase_supabase-js.js?v=fb137cf1:18594:17)
+    at SupabaseAuthClient._callRefreshToken (http://localhost:5173/node_modules/.vite/deps/@supabase_supabase-js.js?v=fb137cf1:18713:39)
+[2m2:19:54 AM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mAuthApiError: Invalid Refresh Token: Refresh Token Not Found
+    at handleError (http://localhost:5173/node_modules/.vite/deps/@supabase_supabase-js.js?v=fb137cf1:12672:8)
+    at async _handleRequest (http://localhost:5173/node_modules/.vite/deps/@supabase_supabase-js.js?v=fb137cf1:12709:18)
+    at async _request (http://localhost:5173/node_modules/.vite/deps/@supabase_supabase-js.js?v=fb137cf1:12691:15)
+    at async http://localhost:5173/node_modules/.vite/deps/@supabase_supabase-js.js?v=fb137cf1:18597:12
+    at async http://localhost:5173/node_modules/.vite/deps/@supabase_supabase-js.js?v=fb137cf1:12513:20
