@@ -67,6 +67,10 @@ let CYAN_FAINT = 'rgba(13,167,255,0.10)'
 let CYAN_GLOW = '0 0 12px rgba(13,167,255,0.55)'
 let BG        = '#02061a'
 let BG_CARD   = 'rgba(4,10,30,0.95)'
+let NEGATIVE_RELATION = '#ff365c'
+let NEGATIVE_RELATION_DIM = 'rgba(255,54,92,0.18)'
+let NEGATIVE_RELATION_MID = 'rgba(255,54,92,0.38)'
+let NEGATIVE_RELATION_GLOW = '0 0 12px rgba(255,54,92,0.55)'
 
 function applyTone(tone: RelationsTone) {
   const c   = TONE_COLORS[tone]
@@ -77,29 +81,169 @@ function applyTone(tone: RelationsTone) {
   CYAN_GLOW  = c.glow
   BG         = c.bg
   BG_CARD    = c.bgCard
+  NEGATIVE_RELATION = tone === 'red' ? '#f3e600' : '#ff365c'
+  NEGATIVE_RELATION_DIM = tone === 'red' ? 'rgba(243,230,0,0.18)' : 'rgba(255,54,92,0.18)'
+  NEGATIVE_RELATION_MID = tone === 'red' ? 'rgba(243,230,0,0.36)' : 'rgba(255,54,92,0.38)'
+  NEGATIVE_RELATION_GLOW = tone === 'red' ? '0 0 12px rgba(243,230,0,0.42)' : '0 0 12px rgba(255,54,92,0.55)'
 }
 
 // ─── Octagon Status Indicators ───────────────────────────────────────────────
 
-function OctagonIndicator({ filled }: { filled: boolean }) {
+const NEGATIVE_RELATION_VALUES = [-5, -4, -3, -2, -1] as const
+const POSITIVE_RELATION_VALUES = [1, 2, 3, 4, 5] as const
+
+function normalizeRelationValue(value: number) {
+  if (!Number.isFinite(value)) {
+    return 0
+  }
+
+  return Math.max(-5, Math.min(5, Math.round(value)))
+}
+
+function getNextRelationValue(currentValue: number, clickedValue: number) {
+  const current = normalizeRelationValue(currentValue)
+
+  if (current !== clickedValue) {
+    return clickedValue
+  }
+
+  return clickedValue > 0 ? clickedValue - 1 : clickedValue + 1
+}
+
+function OctagonIndicator({
+  filled,
+  sentiment = 'positive',
+}: {
+  filled: boolean
+  sentiment?: 'positive' | 'negative'
+}) {
+  const accent = sentiment === 'negative' ? NEGATIVE_RELATION : CYAN
+  const dim = sentiment === 'negative' ? NEGATIVE_RELATION_DIM : CYAN_DIM
+  const mid = sentiment === 'negative' ? NEGATIVE_RELATION_MID : CYAN_MID
+  const glow = sentiment === 'negative' ? NEGATIVE_RELATION_GLOW : CYAN_GLOW
+
   return (
     <svg width="42" height="42" viewBox="0 0 42 42">
       <polygon
         points="13,3 29,3 39,13 39,29 29,39 13,39 3,29 3,13"
-        fill={filled ? CYAN_DIM : 'none'}
-        stroke={filled ? CYAN : CYAN_DIM}
+        fill={filled ? dim : 'none'}
+        stroke={filled ? accent : dim}
         strokeWidth="1.5"
-        style={{ filter: filled ? CYAN_GLOW : 'none' }}
+        style={{ filter: filled ? glow : 'none' }}
       />
       {filled && (
         <polygon
           points="17,9 25,9 33,17 33,25 25,33 17,33 9,25 9,17"
-          fill={CYAN_MID}
+          fill={mid}
           stroke="none"
-          style={{ filter: CYAN_GLOW }}
+          style={{ filter: glow }}
         />
       )}
     </svg>
+  )
+}
+
+function RelationScale({
+  value,
+  editing,
+  onChange,
+}: {
+  value: number
+  editing: boolean
+  onChange: (value: number) => void
+}) {
+  const relation = normalizeRelationValue(value)
+
+  const renderStep = (step: number) => {
+    const negative = step < 0
+    const filled = negative ? relation <= step : relation >= step
+
+    if (!editing) {
+      return (
+        <OctagonIndicator
+          key={step}
+          filled={filled}
+          sentiment={negative ? 'negative' : 'positive'}
+        />
+      )
+    }
+
+    return (
+      <button
+        key={step}
+        type="button"
+        onClick={() => onChange(getNextRelationValue(relation, step))}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+        title={`Relacao ${step > 0 ? '+' : ''}${step}`}
+      >
+        <OctagonIndicator
+          filled={filled}
+          sentiment={negative ? 'negative' : 'positive'}
+        />
+      </button>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+      {NEGATIVE_RELATION_VALUES.map(renderStep)}
+      <button
+        type="button"
+        disabled={!editing}
+        onClick={() => onChange(0)}
+        style={{
+          width: '12px',
+          height: '36px',
+          border: 'none',
+          borderLeft: `1px solid ${CYAN_DIM}`,
+          borderRight: `1px solid ${CYAN_DIM}`,
+          background: relation === 0 ? CYAN_FAINT : 'transparent',
+          cursor: editing ? 'pointer' : 'default',
+          padding: 0,
+        }}
+        title="Relacao 0"
+      />
+      {POSITIVE_RELATION_VALUES.map(renderStep)}
+    </div>
+  )
+}
+
+function RelationPips({ value }: { value: number }) {
+  const relation = normalizeRelationValue(value)
+  const renderPip = (step: number) => {
+    const negative = step < 0
+    const filled = negative ? relation <= step : relation >= step
+    const color = negative ? NEGATIVE_RELATION : CYAN
+    const dim = negative ? NEGATIVE_RELATION_DIM : CYAN_DIM
+    const glow = negative ? NEGATIVE_RELATION_GLOW : CYAN_GLOW
+
+    return (
+      <div
+        key={step}
+        style={{
+          width: 5,
+          height: 5,
+          borderRadius: '50%',
+          background: filled ? color : dim,
+          boxShadow: filled ? glow : 'none',
+        }}
+      />
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', gap: '2px', justifyContent: 'center', alignItems: 'center' }}>
+      {NEGATIVE_RELATION_VALUES.map(renderPip)}
+      <span
+        style={{
+          width: 4,
+          height: 8,
+          borderLeft: `1px solid ${CYAN_DIM}`,
+          borderRight: `1px solid ${CYAN_DIM}`,
+        }}
+      />
+      {POSITIVE_RELATION_VALUES.map(renderPip)}
+    </div>
   )
 }
 
@@ -428,22 +572,11 @@ function NpcCardView({
             <p className="font-display uppercase" style={{ fontSize: '0.58rem', letterSpacing: '0.3em', color: CYAN, marginBottom: '8px' }}>
               Status de Relações
             </p>
-            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-              {Array.from({ length: 5 }, (_, i) =>
-                editing ? (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => set('relacao', d.relacao === i + 1 ? i : i + 1)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                  >
-                    <OctagonIndicator filled={i < d.relacao} />
-                  </button>
-                ) : (
-                  <OctagonIndicator key={i} filled={i < d.relacao} />
-                )
-              )}
-            </div>
+            <RelationScale
+              value={d.relacao}
+              editing={editing}
+              onChange={(value) => set('relacao', value)}
+            />
           </div>
 
           {/* ACERCA DE */}
@@ -688,20 +821,7 @@ function NpcSlot({
       </span>
 
       {/* Relation dots */}
-      <div style={{ display: 'flex', gap: '2px', justifyContent: 'center' }}>
-        {Array.from({ length: 5 }, (_, i) => (
-          <div
-            key={i}
-            style={{
-              width: 5,
-              height: 5,
-              borderRadius: '50%',
-              background: i < npc.relacao ? CYAN : CYAN_DIM,
-              boxShadow: i < npc.relacao ? CYAN_GLOW : 'none',
-            }}
-          />
-        ))}
-      </div>
+      <RelationPips value={npc.relacao} />
 
       {/* Delete button */}
       {canEdit && hovered && (
@@ -842,52 +962,22 @@ export function RelationsBoard({
   const [view, setView] = useState<BoardView>('grid')
   const [addingGroup, setAddingGroup] = useState(false)
 
-  const selectedGroup = data.groups.find((g) => g.id === selectedGroupId)
-  const groupNpcs = data.npcs.filter((n) => n.groupId === selectedGroupId)
-  const selectedNpc = selectedNpcId ? data.npcs.find((n) => n.id === selectedNpcId) : null
+  const activeGroupId = data.groups.some((group) => group.id === selectedGroupId)
+    ? selectedGroupId
+    : data.groups[0]?.id ?? ''
+  const selectedGroup = data.groups.find((g) => g.id === activeGroupId)
+  const groupNpcs = data.npcs.filter((n) => n.groupId === activeGroupId)
+  const selectedNpc = selectedNpcId
+    ? data.npcs.find((n) => n.id === selectedNpcId && n.groupId === activeGroupId)
+    : null
 
   useEffect(() => {
-    if (!data.groups.length) {
-      if (selectedGroupId) {
-        setSelectedGroupId('')
-      }
-
-      if (selectedNpcId) {
-        setSelectedNpcId(null)
-      }
-
-      if (view !== 'grid') {
-        setView('grid')
-      }
-
+    if (typeof window === 'undefined' || !activeGroupId) {
       return
     }
 
-    const hasSelectedGroup = data.groups.some((group) => group.id === selectedGroupId)
-    if (hasSelectedGroup) {
-      return
-    }
-
-    let nextGroupId = data.groups[0].id
-    if (typeof window !== 'undefined') {
-      const rememberedGroupId = window.localStorage.getItem(RELATIONS_LAST_GROUP_KEY)
-      if (rememberedGroupId && data.groups.some((group) => group.id === rememberedGroupId)) {
-        nextGroupId = rememberedGroupId
-      }
-    }
-
-    setSelectedGroupId(nextGroupId)
-    setSelectedNpcId(null)
-    setView('grid')
-  }, [data.groups, selectedGroupId, selectedNpcId, view])
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !selectedGroupId) {
-      return
-    }
-
-    window.localStorage.setItem(RELATIONS_LAST_GROUP_KEY, selectedGroupId)
-  }, [selectedGroupId])
+    window.localStorage.setItem(RELATIONS_LAST_GROUP_KEY, activeGroupId)
+  }, [activeGroupId])
 
   // ── Group operations ──
 
@@ -906,7 +996,7 @@ export function RelationsBoard({
       npcs: data.npcs.filter((n) => n.groupId !== id),
     }
     onChange(updated)
-    if (selectedGroupId === id) {
+    if (activeGroupId === id) {
       setSelectedGroupId(updated.groups[0]?.id ?? '')
       setView('grid')
       setSelectedNpcId(null)
@@ -918,7 +1008,7 @@ export function RelationsBoard({
   const addNpc = () => {
     const npc: RelationNpc = {
       id: makeNpcId(),
-      groupId: selectedGroupId,
+      groupId: activeGroupId,
       name: '',
       relacao: 0,
     }
@@ -980,7 +1070,7 @@ export function RelationsBoard({
           <GroupTab
             key={group.id}
             group={group}
-            active={group.id === selectedGroupId}
+            active={group.id === activeGroupId}
             canEdit={canEdit}
             onSelect={() => {
               setSelectedGroupId(group.id)

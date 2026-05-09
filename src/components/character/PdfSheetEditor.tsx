@@ -17,14 +17,17 @@ import { pdfSheetPageSizes, pdfSheetTemplateFields, type PdfSheetTemplateField }
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl
 
+const PDF_TEMPLATE_VERSION = 'page2-v3'
+const templateUrl = (path: string) => `${path}?v=${PDF_TEMPLATE_VERSION}`
+
 const TEMPLATE_URLS: Record<string, string> = {
-  'blue-m': '/templates/sheet-blue-m.pdf',
-  'blue-f': '/templates/sheet-blue-f.pdf',
+  'blue-m': templateUrl('/templates/sheet-blue-m.pdf'),
+  'blue-f': templateUrl('/templates/sheet-blue-f.pdf'),
   // Red and grey source assets are currently named inversely.
-  'grey-m': '/templates/sheet-red-m.pdf',
-  'grey-f': '/templates/sheet-red-f.pdf',
-  'red-m': '/templates/sheet-grey-m.pdf',
-  'red-f': '/templates/sheet-grey-f.pdf',
+  'grey-m': templateUrl('/templates/sheet-red-m.pdf'),
+  'grey-f': templateUrl('/templates/sheet-red-f.pdf'),
+  'red-m': templateUrl('/templates/sheet-grey-m.pdf'),
+  'red-f': templateUrl('/templates/sheet-grey-f.pdf'),
 }
 
 const KARMA_FIELD_ALIASES = ['KARMA', 'Karma', 'karma', 'K4rma', 'K4RMA'] as const
@@ -67,7 +70,23 @@ function readKarmaValue(fieldData: Record<string, string>) {
 }
 const statFieldNames = new Set([
   'PV', 'PV-ATUAL', 'PS', 'PS-ATUAL', 'PE', 'PE-ATUAL',
+  'PV-TEMP', 'PV-ATUAL-TEMP', 'PS-TEMP', 'PS-ATUAL-TEMP', 'PE-TEMP', 'PE-ATUAL-TEMP',
   'DEFESA', 'BLOQUEIO', 'DESL', 'EX', 'EX 1',
+])
+
+const page2VitalFieldNames = new Set([
+  'PV',
+  'PV-TEMP',
+  'PV-ATUAL',
+  'PV-ATUAL-TEMP',
+  'PS',
+  'PS-TEMP',
+  'PS-ATUAL',
+  'PS-ATUAL-TEMP',
+  'PE',
+  'PE-TEMP',
+  'PE-ATUAL',
+  'PE-ATUAL-TEMP',
 ])
 
 const infoFieldKeys = new Set([
@@ -125,6 +144,9 @@ const skillSelectOptions = [
   { label: 'Bom', score: '5' },
   { label: 'Mestre', score: '10' },
   { label: 'Fudido', score: '15' },
+  { label: 'Bom - Negativo', score: '-5' },
+  { label: 'Mestre - Negativo', score: '-10' },
+  { label: 'Fudido - Negativo', score: '-15' },
   { label: 'Bom - TEMP', score: '5' },
   { label: 'Mestre - TEMP', score: '10' },
   { label: 'Fudido - TEMP', score: '15' },
@@ -134,6 +156,9 @@ const scoreToOptionLabel = new Map<string, string>([
   ['5', 'Bom'],
   ['10', 'Mestre'],
   ['15', 'Fudido'],
+  ['-5', 'Bom - Negativo'],
+  ['-10', 'Mestre - Negativo'],
+  ['-15', 'Fudido - Negativo'],
 ])
 
 const templateCache = new Map<string, Promise<PDFDocumentProxy>>()
@@ -205,7 +230,7 @@ function isPage2AttributeTopField(field: PdfSheetTemplateField) {
 }
 
 function isPage2ResourceField(field: PdfSheetTemplateField) {
-  return field.page === 2 && ['PV', 'PV-ATUAL', 'PS', 'PS-ATUAL', 'PE', 'PE-ATUAL', 'DEFESA', 'BLOQUEIO', 'DESL', 'EX', 'EX 1'].includes(field.name)
+  return field.page === 2 && (page2VitalFieldNames.has(field.name) || ['DEFESA', 'BLOQUEIO', 'DESL', 'EX', 'EX 1'].includes(field.name))
 }
 
 function isNumericField(field: PdfSheetTemplateField) {
@@ -649,7 +674,7 @@ function resolveFieldSectionId(field: PdfSheetTemplateField) {
   if (field.page === 2) {
     if (hasNormalizedPage2Attribute(field) || isPage2AttributeTopField(field)) return 'page2-attributes'
     if (isSkillSelectField(field) || isSkillScoreField(field) || isSkillBonusBox2(field)) return 'page2-skills'
-    if (['PV', 'PV-ATUAL', 'PS', 'PS-ATUAL', 'PE', 'PE-ATUAL'].includes(field.name)) return 'page2-vitals'
+    if (page2VitalFieldNames.has(field.name)) return 'page2-vitals'
     if (['DESL', 'EX', 'EX 1', 'DEFESA', 'BLOQUEIO'].includes(field.name)) return 'page2-combat'
   }
 

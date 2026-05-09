@@ -13,7 +13,7 @@ import {
   runSupabaseFetch,
 } from './supabaseQueries'
 
-const CURRENT_TEMPLATE_KEY = 'blank-grey-v2'
+const CURRENT_TEMPLATE_KEY = 'blank-grey-v3'
 const SHEET_RECORD_CACHE_LIMIT = 12
 const GLOBAL_CYBERWARE_CATALOG_ID = 'global'
 const GLOBAL_CYBERWARE_TEMPLATE_KEY = 'global-cyberware-v1'
