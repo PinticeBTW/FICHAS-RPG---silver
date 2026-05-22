@@ -210,6 +210,30 @@ function isCodexAbilityNameField(field: PdfSheetTemplateField) {
   )
 }
 
+function isCodexDescriptionField(field: PdfSheetTemplateField) {
+  return (
+    (field.page === 3 && /^DESC\d+$/i.test(field.name)) ||
+    (field.page === 4 && /^DESCPE\d+$/i.test(field.name))
+  )
+}
+
+function getCodexAbilityFieldName(field: PdfSheetTemplateField) {
+  const slot = getCodexSlot(field.name, field.page)
+
+  if (!slot) {
+    return null
+  }
+
+  return field.page === 3 ? (slot === 1 ? 'HAB 1' : `HAB${slot}`) : `HABPE${slot}`
+}
+
+function getCodexDescriptionTitle(field: PdfSheetTemplateField, fieldData: Record<string, string>) {
+  const abilityFieldName = getCodexAbilityFieldName(field)
+  const abilityName = abilityFieldName ? fieldData[abilityFieldName]?.trim() : ''
+
+  return abilityName || 'DESCRIÇÃO'
+}
+
 function isCodexSingleLineTextField(field: PdfSheetTemplateField) {
   return isCodexTextField(field)
 }
@@ -877,6 +901,96 @@ function ImageUploadZone({
   )
 }
 
+function AbilityDescriptionModal({
+  title,
+  description,
+  canEdit,
+  onChange,
+  onClose,
+}: {
+  title: string
+  description: string
+  canEdit: boolean
+  onChange: (value: string) => void
+  onClose: () => void
+}) {
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow
+
+    document.body.style.overflow = 'hidden'
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [onClose])
+
+  useEffect(() => {
+    if (canEdit) {
+      textareaRef.current?.focus()
+    }
+  }, [canEdit])
+
+  return (
+    <div
+      id="description-modal"
+      className="description-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="description-modal-title"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose()
+        }
+      }}
+    >
+      <div className="description-modal-content">
+        <header className="description-modal-header">
+          <div className="min-w-0">
+            <p className="description-modal-kicker">DESCRIÇÃO</p>
+            <h2 id="description-modal-title" className="description-modal-title">
+              {title}
+            </h2>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="description-modal-close"
+            title="Fechar descrição"
+            aria-label="Fechar descrição"
+          >
+            <X size={18} />
+          </button>
+        </header>
+
+        <div className="description-modal-body">
+          {canEdit ? (
+            <textarea
+              ref={textareaRef}
+              value={description}
+              spellCheck={false}
+              onChange={(event) => onChange(event.target.value)}
+              className="description-modal-text description-modal-editor"
+            />
+          ) : (
+            <p className="description-modal-text">{description || 'Sem descrição.'}</p>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function TemplatePdfPage({
   pageNumber,
   templateUrl,
@@ -901,6 +1015,11 @@ function TemplatePdfPage({
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const [renderError, setRenderError] = useState(false)
   const [sheetScale, setSheetScale] = useState(1)
+  const [descriptionModal, setDescriptionModal] = useState<{
+    fieldName: string
+    title: string
+    description: string
+  } | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -1152,6 +1271,56 @@ function TemplatePdfPage({
     onFieldChange(CODEX_UNLOCK_USED_FIELD, serializeCodexUnlockUsageState(nextUsage))
   }
 
+  const openDescriptionModal = (field: PdfSheetTemplateField) => {
+    setDescriptionModal({
+      fieldName: field.name,
+      title: getCodexDescriptionTitle(field, fieldData),
+      description: fieldData[field.name] ?? '',
+    })
+  }
+
+  const handleDescriptionCellClick = (event: React.MouseEvent<HTMLElement>) => {
+    const target = event.target as HTMLElement | null
+    const cell = target?.closest<HTMLElement>('[data-ability-description-cell="true"]')
+
+    if (!cell || !pageRef.current?.contains(cell)) {
+      return
+    }
+
+    const fieldName = cell.dataset.descriptionFieldName
+    const field = pageFields.find((entry) => entry.name === fieldName && isCodexDescriptionField(entry))
+
+    if (!field) {
+      return
+    }
+
+    event.preventDefault()
+    openDescriptionModal(field)
+  }
+
+  const handleDescriptionCellKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
+    if (event.key !== 'Enter' && event.key !== ' ') {
+      return
+    }
+
+    const target = event.target as HTMLElement | null
+    const cell = target?.closest<HTMLElement>('[data-ability-description-cell="true"]')
+
+    if (!cell || !pageRef.current?.contains(cell)) {
+      return
+    }
+
+    const fieldName = cell.dataset.descriptionFieldName
+    const field = pageFields.find((entry) => entry.name === fieldName && isCodexDescriptionField(entry))
+
+    if (!field) {
+      return
+    }
+
+    event.preventDefault()
+    openDescriptionModal(field)
+  }
+
   const renderField = (field: PdfSheetTemplateField, sectionBox?: SheetLayoutBox) => {
     const fieldBox = { x: field.x, y: field.y, width: field.width, height: field.height }
     const wrapperStyle = buildBoxStyle(fieldBox, pageSize, sectionBox)
@@ -1161,6 +1330,12 @@ function TemplatePdfPage({
       : { ...buildFieldInputStyle(field), ...buildDebugInputStyle() }
     if (isCodexAbilityNameField(field)) {
       inputStyle.paddingLeft = 'calc(20px * var(--sheet-scale, 1))'
+    }
+    if (isCodexDescriptionField(field)) {
+      inputStyle.cursor = 'pointer'
+      inputStyle.overflow = 'hidden'
+      inputStyle.textOverflow = 'ellipsis'
+      inputStyle.whiteSpace = 'nowrap'
     }
     if (isCodexValueField(field) && hasNegativeSheetNumber(fieldData[field.name])) {
       inputStyle.paddingRight = 'calc(18px * var(--sheet-scale, 1))'
@@ -1245,6 +1420,36 @@ function TemplatePdfPage({
     }
 
     const value = field.name === 'KARMA' ? readKarmaValue(fieldData) : fieldData[field.name] ?? ''
+
+    if (isCodexDescriptionField(field)) {
+      const title = getCodexDescriptionTitle(field, fieldData)
+
+      return (
+        <div
+          key={fieldKey}
+          className="ability-description-cell absolute overflow-hidden"
+          style={wrapperStyle}
+          data-ability-description-cell="true"
+          data-description-field-name={field.name}
+          data-full-description={value}
+          title="Abrir descrição completa"
+          role="button"
+          tabIndex={0}
+          aria-label={`Abrir descrição completa: ${title}`}
+        >
+          <input
+            value={value}
+            readOnly
+            spellCheck={false}
+            inputMode="text"
+            aria-hidden="true"
+            tabIndex={-1}
+            className={`${inputClassName} pointer-events-none`}
+            style={inputStyle}
+          />
+        </div>
+      )
+    }
 
     if (shouldRenderTextareaField(field)) {
       return (
@@ -1435,6 +1640,8 @@ function TemplatePdfPage({
       ref={pageRef}
       className="relative overflow-hidden border-2 border-white/70 bg-[#a7a7a6] shadow-[0_18px_50px_rgba(0,0,0,0.35)]"
       style={pageStyle}
+      onClick={handleDescriptionCellClick}
+      onKeyDown={handleDescriptionCellKeyDown}
     >
       {renderError ? (
         <div className="absolute inset-0 bg-[#a7a7a6]" />
@@ -1495,6 +1702,20 @@ function TemplatePdfPage({
           </div>
         )
       })}
+      {descriptionModal ? (
+        <AbilityDescriptionModal
+          title={descriptionModal.title}
+          description={descriptionModal.description}
+          canEdit={canEdit}
+          onChange={(value) => {
+            setDescriptionModal((current) =>
+              current ? { ...current, description: value } : current,
+            )
+            onFieldChange(descriptionModal.fieldName, value)
+          }}
+          onClose={() => setDescriptionModal(null)}
+        />
+      ) : null}
     </section>
   )
 }
