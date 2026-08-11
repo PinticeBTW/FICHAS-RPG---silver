@@ -4,7 +4,10 @@ import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy } from 'pdfjs-d
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { CyberwareBoard } from './CyberwareBoard'
 import { ImageCropDialog } from '../shared/ImageCropDialog'
-import { readFileAsDataUrl } from '../shared/imageFile'
+import { SharedMediaImage } from '../shared/SharedMediaImage'
+import { resolveSharedMediaUrl, uploadSharedImage } from '../../lib/media/mediaStorage'
+import type { SharedMediaScope } from '../../lib/media/mediaTypes'
+import { validateImageInput } from '../../lib/media/imageOptimization'
 import {
   DEBUG_INPUTS_ONLY,
   type SheetFieldVisualPreset,
@@ -805,27 +808,52 @@ function ImageUploadZone({
   value,
   canEdit,
   aspectRatio,
+  mediaScope,
+  slot,
   onChange,
 }: {
   value: string
   canEdit: boolean
   aspectRatio: number
-  onChange: (dataUrl: string) => void
+  mediaScope: Pick<SharedMediaScope, 'subjectKind' | 'subjectId'>
+  slot: string
+  onChange: (reference: string) => void
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [cropSource, setCropSource] = useState<string | null>(null)
+  const [uploadError, setUploadError] = useState<string | null>(null)
 
-  const handleFile = async (file: File) => {
-    const dataUrl = await readFileAsDataUrl(file)
-    setCropSource(dataUrl)
+  const closeCrop = () => {
+    if (cropSource?.startsWith('blob:')) URL.revokeObjectURL(cropSource)
+    setCropSource(null)
+  }
+
+  const handleFile = (file: File) => {
+    setUploadError(null)
+    const validationError = validateImageInput(file, 'avatar')
+    if (validationError) {
+      setUploadError(validationError)
+      return
+    }
+    setCropSource(URL.createObjectURL(file))
+  }
+
+  const editCurrent = async () => {
+    setUploadError(null)
+    try {
+      setCropSource(await resolveSharedMediaUrl(value, 'display') ?? value)
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : 'A imagem não pôde ser aberta.')
+    }
   }
 
   return (
     <>
       {value ? (
         <>
-          <img
-            src={value}
+          <SharedMediaImage
+            source={value}
+            variant="display"
             className="absolute object-cover"
             style={{
               top: 0,
@@ -839,7 +867,7 @@ function ImageUploadZone({
             <div className="absolute right-1 top-1 flex gap-1 opacity-0 transition group-hover/img:opacity-100">
               <button
                 type="button"
-                onClick={() => setCropSource(value)}
+                onClick={() => void editCurrent()}
                 className="rounded bg-black/60 p-1 text-white transition hover:bg-black/80"
                 title="Ajustar foto"
               >
@@ -870,7 +898,7 @@ function ImageUploadZone({
         <input
           ref={inputRef}
           type="file"
-          accept="image/*"
+          accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
           className="hidden"
           onChange={(event) => {
             const file = event.target.files?.[0]
@@ -883,6 +911,7 @@ function ImageUploadZone({
           }}
         />
       )}
+      {uploadError ? <span role="alert" className="absolute bottom-1 left-1 right-1 bg-black/80 px-2 py-1 text-[10px] text-rose-300">{uploadError}</span> : null}
       {cropSource ? (
         <ImageCropDialog
           source={cropSource}
@@ -890,10 +919,15 @@ function ImageUploadZone({
           description="Escolhe o enquadramento da foto antes de a guardar na ficha."
           aspectRatio={aspectRatio}
           outputWidth={720}
-          onCancel={() => setCropSource(null)}
-          onConfirm={(dataUrl) => {
-            onChange(dataUrl)
-            setCropSource(null)
+          onCancel={closeCrop}
+          onConfirm={async (blob) => {
+            const uploaded = await uploadSharedImage({
+              ...mediaScope,
+              mediaKind: 'avatar',
+              slot,
+            }, blob, 'avatar')
+            onChange(uploaded.reference)
+            closeCrop()
           }}
         />
       ) : null}
@@ -999,6 +1033,7 @@ function TemplatePdfPage({
   canEdit,
   cyberwareViewerRole,
   cyberwareViewerProfileId,
+  mediaScope,
   tone,
 }: {
   pageNumber: number
@@ -1008,6 +1043,7 @@ function TemplatePdfPage({
   canEdit: boolean
   cyberwareViewerRole: 'gm' | 'owner' | 'shared'
   cyberwareViewerProfileId: string | null
+  mediaScope: Pick<SharedMediaScope, 'subjectKind' | 'subjectId'>
   tone: 'blue' | 'red' | 'grey'
 }) {
   const pageSize = pdfSheetPageSizes[pageNumber - 1]
@@ -1676,6 +1712,8 @@ function TemplatePdfPage({
               Math.max(1, parseFloat(imageZone.absoluteStyle.width)) /
               Math.max(1, parseFloat(imageZone.absoluteStyle.height))
             }
+            mediaScope={mediaScope}
+            slot={imageZone.fieldName.toLowerCase()}
             onChange={(dataUrl) => onFieldChange(imageZone.fieldName, dataUrl)}
           />
         </div>
@@ -1726,12 +1764,14 @@ export function PdfSheetEditor({
   canEdit,
   cyberwareViewerRole = 'shared',
   cyberwareViewerProfileId = null,
+  mediaScope,
 }: {
   fieldData: Record<string, string>
   onFieldChange: (fieldName: string, value: string) => void
   canEdit: boolean
   cyberwareViewerRole?: 'gm' | 'owner' | 'shared'
   cyberwareViewerProfileId?: string | null
+  mediaScope: Pick<SharedMediaScope, 'subjectKind' | 'subjectId'>
 }) {
   const color = karmaToColor(readKarmaValue(fieldData))
   const gender = sexoToGender(fieldData['SEXO'] ?? '')
@@ -1749,6 +1789,7 @@ export function PdfSheetEditor({
             canEdit={canEdit}
             cyberwareViewerRole={cyberwareViewerRole}
             cyberwareViewerProfileId={cyberwareViewerProfileId}
+            mediaScope={mediaScope}
             tone={color}
           />
         </div>
@@ -1781,6 +1822,7 @@ export function PdfSheetPreview({
         canEdit={false}
         cyberwareViewerRole="shared"
         cyberwareViewerProfileId={null}
+        mediaScope={{ subjectKind: 'profile-sheet', subjectId: 'preview' }}
         tone={color}
       />
     </div>

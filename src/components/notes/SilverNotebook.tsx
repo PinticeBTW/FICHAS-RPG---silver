@@ -18,6 +18,8 @@ import {
   StickyNote,
   Trash2,
 } from 'lucide-react'
+import { uploadSharedImage } from '../../lib/media/mediaStorage'
+import { SharedMediaImage } from '../shared/SharedMediaImage'
 import {
   useCallback,
   useEffect,
@@ -502,32 +504,6 @@ function parseStickies(value: unknown): SilverSticky[] {
         sheetPage: typeof sticky.sheetPage === 'number' ? sticky.sheetPage : undefined,
       }
     })
-}
-
-function readImageFileAsDataUrl(file: File) {
-  return new Promise<{ dataUrl: string; width: number; height: number }>((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => {
-      const dataUrl = typeof reader.result === 'string' ? reader.result : ''
-
-      if (!dataUrl) {
-        reject(new Error('Falha a ler a imagem.'))
-        return
-      }
-
-      const image = new Image()
-      image.onload = () =>
-        resolve({
-          dataUrl,
-          width: image.naturalWidth,
-          height: image.naturalHeight,
-        })
-      image.onerror = () => reject(new Error('Falha a ler a imagem.'))
-      image.src = dataUrl
-    }
-    reader.onerror = () => reject(reader.error ?? new Error('Falha a ler a imagem.'))
-    reader.readAsDataURL(file)
-  })
 }
 
 function parseDrawings(value: unknown): SilverStroke[] {
@@ -1831,22 +1807,30 @@ export function SilverNotebook({
       return
     }
 
-    if (!file.type.startsWith('image/')) {
+    if (!workspaceStorageKey) {
+      setSoundMessage('Não foi possível determinar o espaço seguro para a imagem.')
       event.target.value = ''
       return
     }
 
-      try {
-      const imageMeta = await readImageFileAsDataUrl(file)
+    try {
+      setSoundMessage('A PROCESSAR E ENVIAR IMAGEM…')
+      const uploaded = await uploadSharedImage({
+        subjectKind: 'gm-profile',
+        subjectId: workspaceStorageKey,
+        mediaKind: 'notebook',
+        slot: crypto.randomUUID(),
+      }, file, 'general')
       updateActivePage((page) => ({
         ...page,
         stickies: [
           ...page.stickies,
-          buildSpawnSticky('image', imageMeta.dataUrl, imageMeta.width, imageMeta.height),
+          buildSpawnSticky('image', uploaded.reference, uploaded.media.display.width, uploaded.media.display.height),
         ],
       }))
-    } catch {
-      // Ignora silenciosamente; o Silver pode voltar a tentar.
+      setSoundMessage('IMAGEM SINCRONIZADA')
+    } catch (error) {
+      setSoundMessage(error instanceof Error ? error.message : 'Falha ao enviar a imagem.')
     } finally {
       event.target.value = ''
     }
@@ -2899,8 +2883,8 @@ export function SilverNotebook({
                           <div className="relative mt-2">
                             {sticky.imageData ? (
                               <>
-                                <img
-                                  src={sticky.imageData}
+                                <SharedMediaImage
+                                  source={sticky.imageData}
                                   alt={sticky.title}
                                   className="block h-auto w-full"
                                 />
@@ -3607,7 +3591,7 @@ export function SilverNotebook({
           <input
             ref={boardImageInputRef}
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
             onChange={(event) => void handleBoardImageUpload(event)}
             className="hidden"
           />

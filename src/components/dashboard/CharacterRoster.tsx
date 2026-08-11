@@ -6,6 +6,7 @@ import { getCharacterVitals } from '../../lib/utils'
 import { EmptyState } from '../common/EmptyState'
 import { Panel } from '../common/Panel'
 import { StatusBadge } from '../common/StatusBadge'
+import { SharedMediaImage } from '../shared/SharedMediaImage'
 
 interface CharacterRosterProps {
   characters: Character[]
@@ -59,8 +60,9 @@ export function CharacterRoster({
             <article key={character.id} className="hud-panel rounded-[24px] p-4">
               <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div className="flex items-center gap-4">
-                  <img
-                    src={character.portraitUrl}
+                  <SharedMediaImage
+                    source={character.portraitUrl}
+                    variant="thumbnail"
                     alt={character.alias}
                     className="h-20 w-20 bg-black object-cover"
                   />

@@ -1,4 +1,4 @@
-import { BookOpenText, ChevronDown, ChevronLeft, ChevronRight, Cpu, Folder, FolderOpen, GripVertical, LogOut, Pencil, Plus, RefreshCcw, Save, Search, Share2, StickyNote, X } from 'lucide-react'
+import { BookOpenText, ChevronDown, ChevronLeft, ChevronRight, Cpu, Folder, FolderOpen, GripVertical, LogOut, Network, Pencil, Plus, RefreshCcw, Save, Search, Share2, StickyNote, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { CyberwareCatalogManager } from '../components/character/CyberwareCatalogManager'
@@ -2021,6 +2021,10 @@ export function SheetWorkspacePage() {
     navigate('/', { replace: true })
   }, [hasPendingUnsavedChanges, navigate, saving, signOut])
 
+ const handleOpenNet = useCallback(() => {
+  window.open('/app/net', '_blank', 'noopener,noreferrer')
+}, [])
+
   const applyProfileDisplayName = useCallback((targetProfileId: string, nextDisplayName: string) => {
     setProfiles((current) =>
       current.map((entry) =>
@@ -2149,7 +2153,16 @@ export function SheetWorkspacePage() {
               </span>
             </p>
           </div>
-
+          <button
+            type="button"
+            onClick={handleOpenNet}
+            className="signal-button mt-2 inline-flex w-full items-center justify-center gap-2 px-3 py-2 text-xs"
+            data-variant="ghost"
+          >
+            <Network size={14} />
+            THE NET
+          </button>
+          
           <button
             type="button"
             onClick={() => void handleSignOut()}
@@ -2789,6 +2802,10 @@ export function SheetWorkspacePage() {
               <>
                 <PdfSheetEditor
                   fieldData={sheetEditorFieldData}
+                  mediaScope={{
+                    subjectKind: isNpcProfile(selectedProfile) ? 'npc-card' : 'profile-sheet',
+                    subjectId: selectedProfile.id,
+                  }}
                   onFieldChange={(fieldName, value) => {
                     setDraftFields((current) => {
                       if (!isKarmaFieldAlias(fieldName)) {
@@ -2817,6 +2834,10 @@ export function SheetWorkspacePage() {
 
                 <RelationsBoard
                   data={relationsData}
+                  mediaScope={{
+                    subjectKind: isNpcProfile(selectedProfile) ? 'npc-card' : 'profile-sheet',
+                    subjectId: selectedProfile.id,
+                  }}
                   canEdit={canEdit}
                   tone={relationsTone}
                   canShare={canManageRelationsShare}

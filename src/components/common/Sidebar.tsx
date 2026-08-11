@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom'
 import type { Character, Profile } from '../../types/domain'
 import { cn } from '../../lib/utils'
 import { StatusBadge } from './StatusBadge'
+import { SharedMediaImage } from '../shared/SharedMediaImage'
 
 interface SidebarProps {
   profile: Profile
@@ -73,8 +74,9 @@ export function Sidebar({ profile, character }: SidebarProps) {
             <div className="grid h-full md:grid-cols-[105px_1fr]">
               <div className="flex items-center justify-center border-b border-white/10 bg-black/35 p-3 md:border-b-0 md:border-r md:border-white/10">
                 {profile.avatarUrl ? (
-                  <img
-                    src={profile.avatarUrl}
+                  <SharedMediaImage
+                    source={profile.avatarUrl}
+                    variant="thumbnail"
                     alt={profile.displayName}
                     className="h-full min-h-[120px] w-full object-cover"
                   />

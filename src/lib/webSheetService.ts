@@ -789,6 +789,117 @@ type FetchSheetSnapshotOptions = {
   cacheMaxAgeMs?: number
 }
 
+export interface SheetSummaryRecord {
+  readonly profileId: string
+  readonly fieldData: Record<string, string>
+  readonly updatedAt: string
+}
+
+export interface SheetSummaryBatchResult {
+  readonly summaries: ReadonlyMap<string, SheetSummaryRecord | null>
+  /** Query failures only. A successful query with no sheet is represented by null. */
+  readonly unavailableProfileIds: readonly string[]
+}
+
+const NET_IDENTITY_SUMMARY_FIELDS = [
+  'NOME',
+  'FOTO2',
+  'FOTO',
+  'IDADE',
+  'SEXO',
+  'OCUPAÇÃO',
+  'OCUPACAO',
+  'CIDADE',
+] as const
+
+function compactIdentitySummaryFieldData(value: Record<string, unknown> | string | null | undefined) {
+  const normalized = normalizeFieldData(value ?? null)
+  return Object.fromEntries(
+    NET_IDENTITY_SUMMARY_FIELDS.flatMap((key) => {
+      const fieldValue = normalized[key]
+      return fieldValue ? [[key, fieldValue]] : []
+    }),
+  ) as Record<string, string>
+}
+
+function chunkIds(ids: readonly string[], size = 100): string[][] {
+  const chunks: string[][] = []
+  for (let index = 0; index < ids.length; index += size) {
+    chunks.push(ids.slice(index, index + size))
+  }
+  return chunks
+}
+
+/**
+ * Bounded, authorised summary hydration for THE NET identity surfaces. The
+ * Sheet Workspace schema keeps these facts inside field_data, so this service
+ * narrows the returned client representation to identity-summary fields.
+ */
+export async function fetchSheetSummaryBatch(
+  profiles: readonly Pick<Profile, 'id' | 'email'>[],
+): Promise<SheetSummaryBatchResult> {
+  const client = ensureSupabase()
+  const profileIds = profiles
+    .filter((profile) => !profile.email.startsWith(NPC_EMAIL_PREFIX))
+    .map((profile) => profile.id)
+  const npcIds = profiles
+    .filter((profile) => profile.email.startsWith(NPC_EMAIL_PREFIX))
+    .map((profile) => profile.id)
+  const summaries = new Map<string, SheetSummaryRecord | null>()
+  const unavailableProfileIds: string[] = []
+
+  const requests = [
+    ...chunkIds(profileIds).map(async (ids) => {
+      logSupabaseFetch({ functionName: 'fetchSheetSummaryBatch', table: 'character_sheet_forms' })
+      const { data, error } = await client
+        .from('character_sheet_forms')
+        .select('profile_id, field_data, updated_at')
+        .in('profile_id', ids)
+      if (error) throw { ids, error }
+      return {
+        ids,
+        records: ((data ?? []) as Pick<SheetRow, 'profile_id' | 'field_data' | 'updated_at'>[]).map((row) => ({
+          profileId: row.profile_id,
+          fieldData: compactIdentitySummaryFieldData(row.field_data),
+          updatedAt: row.updated_at ?? new Date().toISOString(),
+        })),
+      }
+    }),
+    ...chunkIds(npcIds).map(async (ids) => {
+      logSupabaseFetch({ functionName: 'fetchSheetSummaryBatch', table: 'npc_cards' })
+      const { data, error } = await client
+        .from('npc_cards')
+        .select('id, field_data, updated_at')
+        .in('id', ids)
+      if (error) throw { ids, error }
+      return {
+        ids,
+        records: ((data ?? []) as Pick<NpcCardRow, 'id' | 'field_data' | 'updated_at'>[]).map((row) => ({
+          profileId: row.id,
+          fieldData: compactIdentitySummaryFieldData(row.field_data),
+          updatedAt: row.updated_at ?? new Date().toISOString(),
+        })),
+      }
+    }),
+  ]
+
+  const results = await Promise.allSettled(requests)
+  for (const result of results) {
+    if (result.status === 'rejected') {
+      const reason = result.reason as { ids?: unknown }
+      if (Array.isArray(reason?.ids)) unavailableProfileIds.push(...reason.ids.filter((id): id is string => typeof id === 'string'))
+      continue
+    }
+    const found = new Set(result.value.records.map((record) => record.profileId))
+    for (const record of result.value.records) summaries.set(record.profileId, record)
+    for (const id of result.value.ids) {
+      if (!found.has(id)) summaries.set(id, null)
+    }
+  }
+
+  return { summaries, unavailableProfileIds }
+}
+
 export async function fetchSheetSnapshot(
   profile: Profile,
   options: FetchSheetSnapshotOptions = {},

@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import { getCyberwareDisplayName } from '../../lib/cyberwareCatalog'
 import { getCyberwareIconCandidates, getCyberwareIconFallbackLabel } from '../../lib/cyberwareIcons'
 import type { Cyberware } from '../../types/cyberware'
+import { SharedMediaImage } from '../shared/SharedMediaImage'
+import { isSharedMediaReference } from '../../lib/media/mediaReference'
 
 interface CyberwareIconProps {
   cyberware: Cyberware
@@ -32,6 +34,17 @@ export function CyberwareIcon({
   const currentSrc = candidates[candidateIndex]
 
   if (currentSrc) {
+    if (isSharedMediaReference(currentSrc)) {
+      return (
+        <SharedMediaImage
+          source={currentSrc}
+          variant="thumbnail"
+          alt={alt || displayName}
+          className={className}
+          fallback={<span className={fallbackClassName} style={{ color: accentColor, filter: glowFilter }}>{fallbackLabel}</span>}
+        />
+      )
+    }
     return (
       <img
         src={currentSrc}

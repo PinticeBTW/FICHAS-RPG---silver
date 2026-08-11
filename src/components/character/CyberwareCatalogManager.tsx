@@ -1,4 +1,5 @@
 import { ImagePlus, Plus, Trash2, X } from 'lucide-react'
+import { useState } from 'react'
 import { CyberwareIcon } from './CyberwareIcon'
 import {
   buildSheetCyberwaresByGroup,
@@ -15,6 +16,7 @@ import {
   cyberwareSheetZones,
 } from '../../lib/cyberwareSheetLayout'
 import type { Cyberware, CyberwareGroupId } from '../../types/cyberware'
+import { uploadSharedImage } from '../../lib/media/mediaStorage'
 
 const cyberwareZoneOptions = cyberwareSheetZones.map((zone) => ({
   value: zone.id,
@@ -65,19 +67,27 @@ function CyberwareCatalogCard({
   const displayName = getCyberwareDisplayName(entry)
   const viewerIds = resolveCyberwareViewerProfileIds(entry) ?? playerOptions.map((option) => option.id)
   const equipperIds = resolveCyberwareEquipperProfileIds(entry) ?? playerOptions.map((option) => option.id)
+  const [iconUploadState, setIconUploadState] = useState<'idle' | 'processing' | 'uploading'>('idle')
+  const [iconUploadError, setIconUploadError] = useState<string | null>(null)
 
-  const handleUploadIcon = (file: File | null) => {
-    if (!file) {
-      return
+  const handleUploadIcon = async (file: File | null) => {
+    if (!file) return
+    setIconUploadError(null)
+    setIconUploadState('processing')
+    try {
+      setIconUploadState('uploading')
+      const uploaded = await uploadSharedImage({
+        subjectKind: 'global',
+        subjectId: 'global',
+        mediaKind: 'cyberware',
+        slot: entry.id,
+      }, file, 'small-ui')
+      onChange({ icon: uploaded.reference })
+    } catch (error) {
+      setIconUploadError(error instanceof Error ? error.message : 'Falha no upload do ícone.')
+    } finally {
+      setIconUploadState('idle')
     }
-
-    const reader = new FileReader()
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        onChange({ icon: reader.result })
-      }
-    }
-    reader.readAsDataURL(file)
   }
 
   return (
@@ -200,10 +210,16 @@ function CyberwareCatalogCard({
               <input
                 id={fileInputId}
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
                 className="hidden"
-                onChange={(event) => handleUploadIcon(event.target.files?.[0] ?? null)}
+                onChange={(event) => {
+                  void handleUploadIcon(event.target.files?.[0] ?? null)
+                  event.target.value = ''
+                }}
               />
+
+              {iconUploadState !== 'idle' ? <span className="text-xs text-amber-200">{iconUploadState === 'processing' ? 'A PROCESSAR IMAGEM' : 'A ENVIAR IMAGEM'}</span> : null}
+              {iconUploadError ? <span role="alert" className="text-xs text-rose-300">{iconUploadError}</span> : null}
 
               <input
                 type="text"

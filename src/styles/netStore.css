@@ -1,0 +1,174 @@
+.net-store {
+  --store-line: rgba(245, 241, 214, 0.11);
+  --store-muted: rgba(226, 231, 240, 0.57);
+  --store-surface: #0b0d0d;
+
+  display: grid;
+  position: relative;
+  grid-template-columns: 196px minmax(0, 1fr) minmax(286px, 0.72fr);
+  min-height: 100%;
+  overflow: hidden;
+  background: #090a09;
+  color: #f5f1d6;
+  font-family: var(--font-body);
+}
+
+.net-store button,
+.net-store input { font: inherit; }
+
+.net-store__navigation {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-right: 1px solid var(--store-line);
+  background: #0d0f0e;
+}
+
+.net-store__brand { padding: 22px 18px 20px; border-bottom: 1px solid var(--store-line); }
+.net-store__brand > svg { color: #f3e600; }
+.net-store__brand h1,
+.net-store__catalogue-header h2,
+.net-store__inspection h2,
+.net-store-confirmation h2 {
+  margin: 9px 0 0;
+  font-family: var(--font-display);
+  font-size: 1.72rem;
+  font-weight: 600;
+  letter-spacing: 0.055em;
+  line-height: 0.94;
+  text-transform: uppercase;
+}
+.net-store__brand p { margin: 7px 0 0; color: var(--store-muted); font-family: var(--font-mono); font-size: 0.45rem; letter-spacing: 0.12em; text-transform: uppercase; }
+
+.net-store__navigation nav { display: grid; padding: 10px 8px; gap: 2px; }
+.net-store__navigation nav button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 35px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(226, 231, 240, 0.63);
+  font-family: var(--font-mono);
+  font-size: 0.48rem;
+  letter-spacing: 0.1em;
+  text-align: left;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.net-store__navigation nav button:hover,
+.net-store__navigation nav button:focus-visible { border-color: rgba(243, 230, 0, 0.35); background: rgba(243, 230, 0, 0.05); color: #f5f1d6; outline: none; }
+.net-store__navigation nav button[data-active='true'] { border-color: rgba(243, 230, 0, 0.46); background: rgba(243, 230, 0, 0.1); color: #fff05f; }
+
+.net-store__catalogue-status { display: grid; gap: 7px; margin-top: auto; padding: 16px 18px; border-top: 1px solid var(--store-line); }
+.net-store__catalogue-status > span,
+.net-store__catalogue-status small { color: var(--store-muted); font-family: var(--font-mono); font-size: 0.41rem; letter-spacing: 0.1em; text-transform: uppercase; }
+.net-store__catalogue-status strong { display: flex; align-items: center; gap: 7px; color: #dce2e9; font-family: var(--font-mono); font-size: 0.47rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.net-store__catalogue-status i { width: 6px; height: 6px; border-radius: 50%; background: #f3e600; box-shadow: 0 0 10px rgba(243, 230, 0, 0.48); }
+
+.net-store__catalogue { display: grid; grid-template-rows: auto minmax(0, 1fr); min-width: 0; background: #090a09; }
+.net-store__catalogue-header { display: flex; align-items: end; justify-content: space-between; gap: 16px; padding: 22px 22px 16px; border-bottom: 1px solid var(--store-line); }
+.net-store__catalogue-header h2 { font-size: 1.55rem; }
+.net-store__catalogue-header p { margin: 7px 0 0; color: var(--store-muted); font-size: 0.77rem; }
+.net-store__search { display: flex; align-items: center; gap: 8px; width: min(240px, 44%); min-width: 180px; padding: 0 9px; border: 1px solid rgba(245, 241, 214, 0.14); border-radius: 7px; background: #050605; color: rgba(243, 230, 0, 0.83); }
+.net-store__search:focus-within { border-color: rgba(243, 230, 0, 0.58); box-shadow: 0 0 0 2px rgba(243, 230, 0, 0.1); }
+.net-store__search input { width: 100%; min-width: 0; height: 34px; border: 0; outline: 0; background: transparent; color: #f5f1d6; font-size: 0.76rem; }
+.net-store__search input::placeholder { color: rgba(226, 231, 240, 0.38); }
+.net-store__search button { display: grid; width: 23px; height: 23px; place-items: center; border: 0; border-radius: 4px; background: transparent; color: var(--store-muted); cursor: pointer; }
+.net-store__search button:hover, .net-store__search button:focus-visible { color: #f3e600; background: rgba(243, 230, 0, 0.1); outline: none; }
+
+.net-store__catalogue-body { min-height: 0; overflow: auto; padding: 18px 22px 24px; }
+.net-store__featured { display: grid; gap: 7px; width: 100%; margin-bottom: 17px; padding: 20px; border: 1px solid rgba(178, 111, 255, 0.24); border-radius: 8px; background: #101015; box-shadow: inset 0 1px 0 rgb(178, 111, 255); color: #f5f1d6; text-align: left; cursor: pointer; }
+.net-store__featured:hover, .net-store__featured:focus-visible, .net-store__featured[data-selected='true'] { border-color: rgba(178, 111, 255, 0.66); background: #15121c; outline: none; }
+.net-store__featured > span, .net-store__featured small { color: rgba(218, 204, 239, 0.62); font-family: var(--font-mono); font-size: 0.45rem; letter-spacing: 0.12em; text-transform: uppercase; }
+.net-store__featured strong { font-family: var(--font-display); font-size: 1.85rem; letter-spacing: 0.06em; line-height: .92; }
+.net-store__featured p { max-width: 390px; margin: 0; color: rgba(245, 241, 214, 0.77); font-size: .86rem; line-height: 1.4; }
+.net-store__featured small { display: inline-flex; align-items: center; gap: 5px; color: rgba(245, 241, 214, 0.7); }
+
+.net-store__list { display: grid; border-top: 1px solid var(--store-line); }
+.net-store__row { --store-app-rgb: 243, 230, 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 67px; padding: 10px 3px; border: 0; border-bottom: 1px solid var(--store-line); background: transparent; color: #f5f1d6; text-align: left; cursor: pointer; }
+.net-store__row:hover, .net-store__row:focus-visible, .net-store__row[data-selected='true'] { background: rgba(var(--store-app-rgb), 0.055); outline: none; }
+.net-store__row:focus-visible { box-shadow: inset 2px 0 0 rgb(var(--store-app-rgb)); }
+.net-store__row-icon, .net-store__inspection-icon { display: grid; place-items: center; color: rgb(var(--store-app-rgb)); }
+.net-store__row-icon { width: 38px; height: 38px; border: 1px solid rgba(var(--store-app-rgb), 0.38); border-radius: 7px; background: rgba(var(--store-app-rgb), 0.09); }
+.net-store__row-copy { display: grid; gap: 4px; min-width: 0; }
+.net-store__row-copy strong { font-family: var(--font-mono); font-size: .6rem; letter-spacing: .1em; }
+.net-store__row-copy small { overflow: hidden; color: var(--store-muted); font-size: .68rem; text-overflow: ellipsis; white-space: nowrap; }
+.net-store__status { flex: 0 0 auto; color: rgba(226, 231, 240, .57); font-family: var(--font-mono); font-size: .4rem; letter-spacing: .1em; text-transform: uppercase; }
+.net-store__status[data-status='installed'] { color: #fff05f; }
+.net-store__status[data-status='system'] { color: #53b5ff; }
+.net-store__status[data-status='soon'] { color: #ff9da9; }
+.net-store__empty { display: grid; min-height: 245px; place-content: center; justify-items: center; gap: 8px; color: var(--store-muted); text-align: center; }
+.net-store__empty strong { color: #f5f1d6; font-family: var(--font-mono); font-size: .57rem; letter-spacing: .1em; text-transform: uppercase; }
+.net-store__empty p { margin: 0; font-size: .76rem; }
+
+.net-store__inspection { display: flex; flex-direction: column; min-width: 0; padding: 22px; border-left: 1px solid var(--store-line); background: #0d0f0e; }
+.net-store__inspection-title { --store-app-rgb: 243, 230, 0; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 11px; }
+.net-store__inspection-icon { width: 43px; height: 43px; border: 1px solid rgba(var(--store-app-rgb), .52); border-radius: 8px; background: rgba(var(--store-app-rgb), .1); }
+.net-store__inspection h2 { margin: 0; font-size: 1.62rem; }
+.net-store__inspection-title p { margin: 5px 0 0; color: var(--store-muted); font-family: var(--font-mono); font-size: .43rem; letter-spacing: .11em; text-transform: uppercase; }
+.net-store__inspection-state { display: flex; justify-content: space-between; gap: 12px; padding: 15px 0; border-bottom: 1px solid var(--store-line); }
+.net-store__inspection-state > span:last-child { color: var(--store-muted); font-family: var(--font-mono); font-size: .4rem; letter-spacing: .1em; text-transform: uppercase; }
+.net-store__description { margin: 17px 0; color: rgba(245, 241, 214, .77); font-size: .84rem; line-height: 1.48; }
+.net-store__metadata { display: grid; margin: 0; border-top: 1px solid var(--store-line); }
+.net-store__metadata div { display: flex; justify-content: space-between; gap: 16px; padding: 9px 0; border-bottom: 1px solid var(--store-line); }
+.net-store__metadata dt { color: var(--store-muted); font-family: var(--font-mono); font-size: .41rem; letter-spacing: .1em; text-transform: uppercase; }
+.net-store__metadata dd { display: inline-flex; align-items: center; gap: 5px; margin: 0; color: #e8e9dd; font-size: .69rem; text-align: right; }
+.net-store__features { padding: 17px 0; border-bottom: 1px solid var(--store-line); }
+.net-store__features h3 { margin: 0 0 10px; color: var(--store-muted); font-family: var(--font-mono); font-size: .42rem; letter-spacing: .12em; text-transform: uppercase; }
+.net-store__features ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.net-store__features li { display: flex; align-items: center; gap: 7px; color: rgba(245, 241, 214, .76); font-size: .73rem; }
+.net-store__features svg { color: #f3e600; }
+.net-store__system-note { margin-top: 16px; color: var(--store-muted); font-size: .71rem; line-height: 1.42; }
+.net-store__actions { display: grid; gap: 8px; margin-top: auto; padding-top: 20px; }
+.net-store__primary-button, .net-store__ghost-button, .net-store__danger-button { display: inline-flex; min-height: 37px; align-items: center; justify-content: center; gap: 7px; border-radius: 7px; font-family: var(--font-mono); font-size: .48rem; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; }
+.net-store__primary-button { border: 1px solid #f3e600; background: #f3e600; color: #090a09; }
+.net-store__primary-button > svg { color: currentColor; stroke: currentColor; }
+.net-store__primary-button:hover, .net-store__primary-button:focus-visible { background: #fff05f; color: #090a09; box-shadow: 0 0 0 2px rgba(243, 230, 0, .18); outline: none; }
+.net-store__primary-button:disabled { border-color: rgba(243, 230, 0, .42); background: rgba(243, 230, 0, .28); color: rgba(9, 10, 9, .62); cursor: not-allowed; }
+.net-store__ghost-button { border: 1px solid rgba(245, 241, 214, .18); background: transparent; color: rgba(245, 241, 214, .73); }
+.net-store__ghost-button:hover, .net-store__ghost-button:focus-visible { border-color: rgba(245, 241, 214, .55); color: #f5f1d6; outline: none; }
+.net-store__danger-button { border: 1px solid rgba(255, 84, 104, .46); background: rgba(255, 84, 104, .08); color: #ff9da9; }
+.net-store__danger-button:hover, .net-store__danger-button:focus-visible { border-color: #ff5468; background: rgba(255, 84, 104, .15); outline: none; }
+.net-store__actions progress { width: 100%; height: 7px; accent-color: #f3e600; }
+.net-store__actions > span { color: #fff05f; font-family: var(--font-mono); font-size: .43rem; letter-spacing: .1em; text-align: center; text-transform: uppercase; }
+
+.net-store-confirmation { position: absolute; z-index: 8; inset: 0; display: grid; place-items: center; padding: 18px; background: rgba(0, 0, 0, .58); }
+.net-store-confirmation__dialog { width: min(410px, 100%); padding: 20px; border: 1px solid rgba(245, 241, 214, .22); border-radius: 10px; background: #111312; box-shadow: 0 30px 90px rgba(0, 0, 0, .55); }
+.net-store-confirmation__dialog > div > span { color: #ff9da9; font-family: var(--font-mono); font-size: .42rem; letter-spacing: .12em; text-transform: uppercase; }
+.net-store-confirmation__dialog h2 { font-size: 1.42rem; }
+.net-store-confirmation__dialog p { margin: 12px 0 0; color: rgba(245, 241, 214, .72); font-size: .82rem; line-height: 1.45; }
+.net-store-confirmation__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+.net-store-confirmation__actions button { padding: 0 12px; }
+
+@media (max-width: 1040px) {
+  .net-store { grid-template-columns: 174px minmax(0, 1fr); }
+  .net-store__inspection { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, .8fr); gap: 0 22px; border-top: 1px solid var(--store-line); border-left: 0; }
+  .net-store__inspection-title, .net-store__inspection-state, .net-store__description, .net-store__metadata, .net-store__features, .net-store__system-note, .net-store__actions { grid-column: 1; }
+  .net-store__inspection-title { grid-row: 1; }
+  .net-store__inspection-state { grid-column: 2; grid-row: 1; align-self: center; border-bottom: 0; }
+  .net-store__actions { grid-column: 2; grid-row: 2 / span 4; align-self: end; margin-top: 0; }
+}
+
+@media (max-width: 720px) {
+  .net-store { display: block; overflow: auto; }
+  .net-store__navigation { display: block; border-right: 0; border-bottom: 1px solid var(--store-line); }
+  .net-store__brand { padding: 15px 16px 12px; }
+  .net-store__brand h1 { font-size: 1.45rem; }
+  .net-store__navigation nav { display: flex; overflow-x: auto; padding: 7px 10px; }
+  .net-store__navigation nav button { flex: 0 0 auto; }
+  .net-store__catalogue-status { display: none; }
+  .net-store__catalogue { display: block; }
+  .net-store__catalogue-header { align-items: stretch; flex-direction: column; padding: 17px 16px 13px; }
+  .net-store__search { width: 100%; }
+  .net-store__catalogue-body { overflow: visible; padding: 14px 16px 18px; }
+  .net-store__inspection { display: flex; padding: 18px 16px; }
+  .net-store__inspection-state { border-bottom: 1px solid var(--store-line); }
+  .net-store__actions { margin-top: 20px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .net-store *, .net-store *::before, .net-store *::after { scroll-behavior: auto !important; transition: none !important; }
+}
