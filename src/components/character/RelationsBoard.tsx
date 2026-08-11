@@ -8,7 +8,10 @@ import {
   makeGroupId,
 } from '../../lib/relationsTypes'
 import { ImageCropDialog } from '../shared/ImageCropDialog'
-import { readFileAsDataUrl } from '../shared/imageFile'
+import { SharedMediaImage } from '../shared/SharedMediaImage'
+import { resolveSharedMediaUrl, uploadSharedImage } from '../../lib/media/mediaStorage'
+import type { SharedMediaScope } from '../../lib/media/mediaTypes'
+import { validateImageInput } from '../../lib/media/imageOptimization'
 
 // ─── Tone colour system ───────────────────────────────────────────────────────
 
@@ -252,34 +255,56 @@ function RelationPips({ value }: { value: number }) {
 function PortraitUpload({
   value,
   canEdit,
+  mediaScope,
+  slot,
   onChange,
   size = 'full',
 }: {
   value?: string
   canEdit: boolean
-  onChange: (dataUrl: string) => void
+  mediaScope: Pick<SharedMediaScope, 'subjectKind' | 'subjectId'>
+  slot: string
+  onChange: (reference: string) => void
   size?: 'full' | 'thumb'
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [cropSource, setCropSource] = useState<string | null>(null)
+  const [uploadError, setUploadError] = useState<string | null>(null)
 
-  const handleFile = async (file: File) => {
-    const dataUrl = await readFileAsDataUrl(file)
-    setCropSource(dataUrl)
+  const closeCrop = () => {
+    if (cropSource?.startsWith('blob:')) URL.revokeObjectURL(cropSource)
+    setCropSource(null)
+  }
+  const handleFile = (file: File) => {
+    setUploadError(null)
+    const validationError = validateImageInput(file, 'avatar')
+    if (validationError) {
+      setUploadError(validationError)
+      return
+    }
+    setCropSource(URL.createObjectURL(file))
+  }
+  const editCurrent = async () => {
+    setUploadError(null)
+    try {
+      setCropSource(await resolveSharedMediaUrl(value, 'display') ?? value ?? null)
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : 'A imagem não pôde ser aberta.')
+    }
   }
 
   return (
     <div className="group/portrait relative h-full w-full overflow-hidden" style={{ background: BG_CARD }}>
       {value ? (
         <>
-          <img src={value} className="absolute inset-0 h-full w-full object-cover" alt="" />
+          <SharedMediaImage source={value} className="absolute inset-0 h-full w-full object-cover" alt="" />
           {canEdit && (
             <div
               className="absolute right-1 top-1 flex gap-1 opacity-0 transition group-hover/portrait:opacity-100"
             >
               <button
                 type="button"
-                onClick={() => setCropSource(value)}
+                onClick={() => void editCurrent()}
                 className="rounded p-1"
                 style={{ background: 'rgba(0,0,0,0.7)' }}
                 title="Ajustar foto"
@@ -323,7 +348,7 @@ function PortraitUpload({
         <input
           ref={inputRef}
           type="file"
-          accept="image/*"
+          accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
           className="hidden"
           onChange={(e) => {
             const file = e.target.files?.[0]
@@ -334,6 +359,7 @@ function PortraitUpload({
           }}
         />
       )}
+      {uploadError ? <span role="alert" className="absolute bottom-1 left-1 right-1 bg-black/80 px-2 py-1 text-[10px] text-rose-300">{uploadError}</span> : null}
       {cropSource ? (
         <ImageCropDialog
           source={cropSource}
@@ -343,10 +369,11 @@ function PortraitUpload({
           outputWidth={960}
           outputHeight={1200}
           accentColor={CYAN}
-          onCancel={() => setCropSource(null)}
-          onConfirm={(dataUrl) => {
-            onChange(dataUrl)
-            setCropSource(null)
+          onCancel={closeCrop}
+          onConfirm={async (blob) => {
+            const uploaded = await uploadSharedImage({ ...mediaScope, mediaKind: 'relation', slot }, blob, 'avatar')
+            onChange(uploaded.reference)
+            closeCrop()
           }}
         />
       ) : null}
@@ -438,6 +465,7 @@ function NpcCardView({
   canEdit,
   canShare,
   selectedForShare,
+  mediaScope,
   onBack,
   onSave,
   onDelete,
@@ -447,6 +475,7 @@ function NpcCardView({
   canEdit: boolean
   canShare: boolean
   selectedForShare: boolean
+  mediaScope: Pick<SharedMediaScope, 'subjectKind' | 'subjectId'>
   onBack: () => void
   onSave: (updated: RelationNpc) => void
   onDelete: () => void
@@ -542,6 +571,8 @@ function NpcCardView({
           <PortraitUpload
             value={d.image}
             canEdit={editing}
+            mediaScope={mediaScope}
+            slot={d.id}
             onChange={(img) => set('image', img)}
             size="full"
           />
@@ -744,7 +775,7 @@ function NpcSlot({
         }}
       >
         {npc.image ? (
-          <img src={npc.image} className="absolute inset-0 h-full w-full object-cover" alt={npc.name} />
+          <SharedMediaImage source={npc.image} variant="thumbnail" className="absolute inset-0 h-full w-full object-cover" alt={npc.name} loading="lazy" decoding="async" />
         ) : (
           <div
             style={{
@@ -929,6 +960,7 @@ function actionBtnStyle(color: string): React.CSSProperties {
 interface RelationsBoardProps {
   data: RelationsData
   canEdit: boolean
+  mediaScope: Pick<SharedMediaScope, 'subjectKind' | 'subjectId'>
   tone?: RelationsTone
   canShare?: boolean
   selectedShareNpcId?: string | null
@@ -941,6 +973,7 @@ type BoardView = 'grid' | 'card'
 export function RelationsBoard({
   data,
   canEdit,
+  mediaScope,
   tone = 'blue',
   canShare = false,
   selectedShareNpcId = null,
@@ -1155,6 +1188,7 @@ export function RelationsBoard({
           <NpcCardView
             npc={selectedNpc}
             canEdit={canEdit}
+            mediaScope={mediaScope}
             canShare={canShare}
             selectedForShare={selectedShareNpcId === selectedNpc.id}
             onBack={backToGrid}

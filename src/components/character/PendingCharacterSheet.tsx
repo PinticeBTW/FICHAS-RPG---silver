@@ -1,4 +1,5 @@
 import type { Profile } from '../../types/domain'
+import { SharedMediaImage } from '../shared/SharedMediaImage'
 
 interface PendingCharacterSheetProps {
   profile: Profile
@@ -30,8 +31,9 @@ export function PendingCharacterSheet({
             <div className="sheet-cell grid min-h-[250px] overflow-hidden md:grid-cols-[0.9fr_1.1fr]">
               <div className="flex items-center justify-center border-b border-white/10 bg-black/35 p-4 md:border-b-0 md:border-r md:border-white/10">
                 {profile.avatarUrl ? (
-                  <img
-                    src={profile.avatarUrl}
+                  <SharedMediaImage
+                    source={profile.avatarUrl}
+                    variant="thumbnail"
                     alt={profile.displayName}
                     className="h-full min-h-[180px] w-full object-cover"
                   />

@@ -21,7 +21,7 @@ interface ImageCropDialogProps {
   outputHeight?: number
   accentColor?: string
   onCancel: () => void
-  onConfirm: (dataUrl: string) => void
+  onConfirm: (blob: Blob) => void | Promise<void>
 }
 
 export function ImageCropDialog({
@@ -49,6 +49,8 @@ export function ImageCropDialog({
   const [zoom, setZoom] = useState(1)
   const [offset, setOffset] = useState({ x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
+  const [processing, setProcessing] = useState(false)
+  const [processingError, setProcessingError] = useState<string | null>(null)
 
   const previewSize = useMemo(() => {
     const maxLongEdge = 380
@@ -148,7 +150,7 @@ export function ImageCropDialog({
     setIsDragging(false)
   }
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     const image = imageRef.current
 
     if (!image || !naturalSize.width || !naturalSize.height || !displayedWidth || !displayedHeight) {
@@ -184,7 +186,20 @@ export function ImageCropDialog({
       canvas.height,
     )
 
-    onConfirm(canvas.toDataURL('image/jpeg', 0.72))
+    setProcessing(true)
+    setProcessingError(null)
+    try {
+      const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob(
+        (value) => value ? resolve(value) : reject(new Error('Falha a preparar a imagem.')),
+        'image/webp',
+        0.96,
+      ))
+      await onConfirm(blob)
+    } catch (error) {
+      setProcessingError(error instanceof Error ? error.message : 'Falha a preparar a imagem.')
+    } finally {
+      setProcessing(false)
+    }
   }
 
   return (
@@ -200,6 +215,7 @@ export function ImageCropDialog({
           <button
             type="button"
             onClick={onCancel}
+            disabled={processing}
             className="signal-button inline-flex h-10 w-10 items-center justify-center p-0 text-sm"
             data-variant="ghost"
             title="Fechar"
@@ -258,6 +274,8 @@ export function ImageCropDialog({
             </div>
           </div>
 
+          {processingError ? <p role="alert" className="text-sm text-rose-300">{processingError}</p> : null}
+
           <div className="space-y-4 rounded-[24px] border border-white/10 bg-black/25 p-4">
             <div>
               <p className="panel-title text-stone-400">Zoom</p>
@@ -314,14 +332,16 @@ export function ImageCropDialog({
               <button
                 type="button"
                 onClick={handleConfirm}
+                disabled={processing}
                 className="signal-button inline-flex items-center gap-2 px-4 py-2 text-sm"
               >
                 <Check size={14} />
-                Usar foto
+                {processing ? 'A processar…' : 'Usar foto'}
               </button>
               <button
                 type="button"
                 onClick={onCancel}
+                disabled={processing}
                 className="signal-button inline-flex items-center gap-2 px-4 py-2 text-sm"
                 data-variant="ghost"
               >

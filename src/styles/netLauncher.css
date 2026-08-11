@@ -1,0 +1,292 @@
+.net-launcher {
+  position: fixed;
+  z-index: 39;
+  bottom: 76px;
+  left: 50%;
+
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+
+  width: min(720px, calc(100vw - 28px));
+  max-height: min(700px, calc(100dvh - 154px));
+
+  overflow: hidden;
+
+  border: 1px solid rgba(239, 216, 143, 0.22);
+  border-radius: 16px;
+
+  background: linear-gradient(155deg, rgba(25, 28, 35, 0.96), rgba(7, 9, 13, 0.97));
+  box-shadow: 0 26px 80px rgba(0, 0, 0, 0.56), inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 60px rgba(227, 193, 96, 0.08);
+
+  color: #f2f4f8;
+  font-family: var(--font-mono);
+
+  transform: translateX(-50%);
+
+  backdrop-filter: blur(28px) saturate(1.25);
+  animation: net-launcher-in 160ms ease-out;
+}
+
+.net-launcher__topline,
+.net-launcher__user {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.net-launcher__topline {
+  padding: 13px 16px 10px;
+
+  color: rgba(239, 216, 143, 0.9);
+  font-size: 0.5rem;
+  letter-spacing: 0.14em;
+}
+
+.net-launcher__topline span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.net-launcher__topline small {
+  color: rgba(210, 220, 235, 0.42);
+  font-size: 0.4rem;
+}
+
+.net-launcher__search {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+
+  margin: 0 12px;
+  padding: 0 11px;
+
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 9px;
+
+  background: rgba(0, 0, 0, 0.2);
+  color: rgba(239, 216, 143, 0.78);
+}
+
+.net-launcher__search input {
+  width: 100%;
+  min-width: 0;
+  height: 38px;
+
+  border: 0;
+  outline: 0;
+
+  background: transparent;
+  color: #f6f7fa;
+  font: inherit;
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+}
+
+.net-launcher__search input::placeholder {
+  color: rgba(202, 211, 224, 0.36);
+}
+
+.net-launcher__search:focus-within {
+  border-color: rgba(239, 216, 143, 0.45);
+  box-shadow: 0 0 0 3px rgba(227, 193, 96, 0.08);
+}
+
+.net-launcher__search button {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(215, 224, 236, 0.58);
+  cursor: pointer;
+}
+
+.net-launcher__search button:hover,
+.net-launcher__search button:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.net-launcher__content {
+  min-height: 0;
+  padding: 12px;
+  overflow: auto;
+}
+
+.net-launcher__section + .net-launcher__section {
+  margin-top: 14px;
+}
+
+.net-launcher__section h2 {
+  margin: 0 0 7px 4px;
+  color: rgba(201, 212, 227, 0.42);
+  font-size: 0.42rem;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+}
+
+.net-launcher__results {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.net-launcher__item {
+  --launcher-app-rgb: 227, 193, 96;
+
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+
+  min-height: 58px;
+  padding: 9px 10px;
+
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.025);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: 140ms ease;
+}
+
+.net-launcher__item:hover,
+.net-launcher__item[data-selected='true'],
+.net-launcher__item:focus-visible {
+  border-color: rgba(var(--launcher-app-rgb), 0.42);
+  background: rgba(var(--launcher-app-rgb), 0.09);
+  outline: none;
+}
+
+.net-launcher__item--system {
+  --launcher-app-rgb: 227, 193, 96;
+}
+
+.net-launcher__app-icon {
+  display: grid;
+  width: 31px;
+  height: 31px;
+  place-items: center;
+
+  border: 1px solid rgba(var(--launcher-app-rgb), 0.38);
+  border-radius: 8px;
+  background: rgba(var(--launcher-app-rgb), 0.14);
+  color: rgb(var(--launcher-app-rgb));
+}
+
+.net-launcher__item-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.net-launcher__item-copy strong {
+  overflow: hidden;
+  color: rgba(246, 248, 251, 0.9);
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.net-launcher__item-copy small {
+  overflow: hidden;
+  color: rgba(202, 212, 226, 0.45);
+  font-size: 0.4rem;
+  letter-spacing: 0.06em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.net-launcher__state,
+.net-launcher__soon {
+  color: rgba(202, 212, 226, 0.42);
+  font-size: 0.36rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.net-launcher__state[data-state='running'] { color: #76e9b1; }
+.net-launcher__state[data-state='minimized'] { color: #f0d875; }
+.net-launcher__soon { color: rgba(239, 216, 143, 0.7); }
+
+.net-launcher__empty {
+  display: grid;
+  min-height: 180px;
+  place-content: center;
+  justify-items: center;
+  gap: 8px;
+  color: rgba(205, 215, 228, 0.48);
+  text-align: center;
+}
+
+.net-launcher__empty strong { color: rgba(243, 246, 250, 0.78); font-size: 0.62rem; }
+.net-launcher__empty span { font-size: 0.45rem; }
+
+.net-launcher__user {
+  gap: 9px;
+  padding: 10px 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.net-launcher__user img,
+.net-launcher__avatar {
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.net-launcher__avatar {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  background: rgba(227, 193, 96, 0.16);
+  color: #f0d875;
+  font-size: 0.42rem;
+}
+
+.net-launcher__user > span:not(.net-launcher__avatar) {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+
+.net-launcher__user strong,
+.net-launcher__user small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.net-launcher__user strong { color: rgba(247, 249, 252, 0.85); font-size: 0.52rem; }
+.net-launcher__user small { color: rgba(203, 213, 228, 0.44); font-size: 0.4rem; }
+.net-launcher__user i { color: #76e9b1; font-size: 0.36rem; font-style: normal; letter-spacing: 0.08em; }
+
+@keyframes net-launcher-in { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%); } }
+
+@media (max-width: 760px) {
+  .net-launcher {
+    bottom: 72px;
+    width: calc(100vw - 20px);
+    max-height: min(680px, calc(100dvh - 142px));
+  }
+
+  .net-launcher__results { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 470px) {
+  .net-launcher__user i { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .net-launcher,
+  .net-launcher__item { transition: none; animation: none; }
+}

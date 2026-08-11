@@ -10,6 +10,7 @@ import type { AuthFormInput, Profile } from '../types/domain'
 import { fetchAuthProfile } from '../lib/dataService'
 import { isSupabaseEnabled, supabase, SUPABASE_CONFIG_ERROR } from '../lib/supabase'
 import { logSupabaseFetch } from '../lib/supabaseQueries'
+import { clearSharedMediaCache } from '../lib/media/mediaCache'
 
 interface AuthContextValue {
   profile: Profile | null
@@ -38,6 +39,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(isSupabaseEnabled)
+
+  useEffect(() => {
+    clearSharedMediaCache()
+  }, [session?.user.id])
 
   useEffect(() => {
     if (!isSupabaseEnabled || !supabase) {

@@ -1,0 +1,55 @@
+import type { NetEntity } from './netWorldTypes'
+
+// Ghost in the Net and Ghost Grid remain distinct identities pending explicit narrative confirmation.
+export const netEntities: readonly NetEntity[] = [
+  {
+    id: 'person-adrian',
+    type: 'person',
+    displayName: 'Adrian Vale',
+    shortName: 'Adrian',
+    aliases: ['Adrian'],
+    organisationIds: [],
+    handlesByApp: { echo: '@adrian', pulse: 'adrian', iden: 'adrian' },
+    canonicalDistrictId: 'district-neon-row',
+    verificationAuthorityId: 'org-netwatch',
+  },
+  {
+    id: 'person-maya',
+    type: 'person',
+    displayName: 'Maya Serrin',
+    shortName: 'Maya',
+    aliases: ['Maya'],
+    organisationIds: [],
+    handlesByApp: { echo: '@maya', pulse: 'maya', iden: 'maya' },
+    canonicalDistrictId: 'district-old-quarter',
+    verificationAuthorityId: 'org-netwatch',
+  },
+  {
+    id: 'identity-ghost-in-the-net',
+    type: 'unresolved',
+    displayName: 'Ghost in the Net',
+    aliases: [],
+    organisationIds: [],
+    handlesByApp: { pulse: 'ghost_in_the_net', iden: 'ghost_in_the_net' },
+  },
+  {
+    id: 'person-sable',
+    type: 'person',
+    displayName: 'Sable',
+    aliases: [],
+    organisationIds: [],
+    handlesByApp: { echo: '@sable', iden: 'sable' },
+    canonicalDistrictId: 'district-chrome-docks',
+    verificationAuthorityId: 'org-netwatch',
+  },
+  {
+    id: 'person-kenji',
+    type: 'person',
+    displayName: 'Kenji',
+    aliases: [],
+    organisationIds: [],
+    handlesByApp: { echo: '@kenji_v', iden: 'kenji_v' },
+    canonicalDistrictId: 'district-04',
+    verificationAuthorityId: 'org-netwatch',
+  },
+] as const

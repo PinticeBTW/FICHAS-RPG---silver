@@ -4,6 +4,7 @@ import { buildAttributeSummary, formatTimestamp, getCharacterVitals } from '../.
 import { MetricCard } from '../common/MetricCard'
 import { Panel } from '../common/Panel'
 import { StatusBadge } from '../common/StatusBadge'
+import { SharedMediaImage } from '../shared/SharedMediaImage'
 
 interface CharacterHeaderProps {
   character: Character
@@ -16,8 +17,8 @@ export function CharacterHeader({ character }: CharacterHeaderProps) {
     <Panel className="rounded-[32px]">
       <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
         <div className="flex flex-col gap-6 md:flex-row">
-          <img
-            src={character.portraitUrl}
+          <SharedMediaImage
+            source={character.portraitUrl}
             alt={character.alias}
             className="h-48 w-full rounded-[28px] object-cover md:h-56 md:w-48"
           />

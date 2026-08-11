@@ -1,0 +1,131 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-08T13:59:54Z",
+  "title": "Design System: RPGSILVER",
+  "extensions": {
+    "colorMeta": {
+      "acid-500": {
+        "role": "primary",
+        "displayName": "Public Grid Acid",
+        "canonical": "#f3e600",
+        "tonalRamp": ["#2b2900", "#504b00", "#756e00", "#9b9100", "#c2b700", "#f3e600", "#fff05f", "#fffbd6"]
+      },
+      "signal-blue": {
+        "role": "secondary",
+        "displayName": "Verification Blue",
+        "canonical": "#53b5ff",
+        "tonalRamp": ["#071b2a", "#103653", "#19537d", "#2472a7", "#3594d2", "#53b5ff", "#9bd4ff", "#e3f3ff"]
+      },
+      "signal-red": {
+        "role": "tertiary",
+        "displayName": "Signal Red",
+        "canonical": "#ff5468",
+        "tonalRamp": ["#2c0910", "#56121f", "#812032", "#ad3046", "#d94257", "#ff5468", "#ff9cab", "#ffe4e8"]
+      },
+      "void-990": {
+        "role": "neutral",
+        "displayName": "Deep Void",
+        "canonical": "#050505",
+        "tonalRamp": ["#050505", "#090909", "#101010", "#141414", "#2a2a2a", "#4f4f4f", "#888888", "#d9d9d9"]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Public Paper",
+        "canonical": "#f5f1d6",
+        "tonalRamp": ["#292820", "#504e40", "#787563", "#9e9a82", "#c4c0a5", "#f5f1d6", "#faf7e8", "#fffdf5"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Civic Display", "purpose": "System, sheet, and application hierarchy." },
+      "body": { "displayName": "Operational Body", "purpose": "Readable narrative, forms, and editorial content." },
+      "label": { "displayName": "Grid Mono", "purpose": "Metadata, controls, status, and system grammar." }
+    },
+    "shadows": [
+      { "name": "hud-lift", "value": "0 24px 60px rgba(0, 0, 0, 0.36)", "purpose": "Active authored panel only." },
+      { "name": "window-lift", "value": "0 30px 90px rgba(0, 0, 0, 0.55)", "purpose": "Movable application-window hierarchy." },
+      { "name": "taskbar-lift", "value": "0 18px 60px rgba(0, 0, 0, 0.46)", "purpose": "Persistent OS-shell separation." },
+      { "name": "launcher-lift", "value": "0 26px 80px rgba(0, 0, 0, 0.56)", "purpose": "Temporary launcher focus." }
+    ],
+    "motion": [
+      { "name": "control-standard", "value": "140ms ease", "purpose": "Launcher item and compact control state changes." },
+      { "name": "control-lift", "value": "180ms ease", "purpose": "Signal-button hover and focus response." },
+      { "name": "launcher-enter", "value": "160ms ease-out", "purpose": "Launcher entrance; disabled for reduced motion." }
+    ],
+    "breakpoints": [
+      { "name": "desktop-condensed", "value": "1180px" },
+      { "name": "narrow-workspace", "value": "760px" },
+      { "name": "compact-mobile", "value": "470px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Signal Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "High-certainty primary system action.",
+      "html": "<button class=\"ds-signal-button\">SAVE CHANGES</button>",
+      "css": ".ds-signal-button { border: 1px solid rgba(243,230,0,.84); background: linear-gradient(180deg,#f3e600,#dcc600); color:#090909; padding:.625rem 1rem; font-family:Teko,sans-serif; font-size:1.02rem; font-weight:600; letter-spacing:.08em; text-transform:uppercase; cursor:pointer; transition:transform 180ms ease,filter 180ms ease,box-shadow 180ms ease; box-shadow:0 12px 24px rgba(243,230,0,.12); } .ds-signal-button:hover { transform:translateY(-1px); filter:brightness(1.04); box-shadow:0 14px 28px rgba(243,230,0,.18); } .ds-signal-button:focus-visible { outline:2px solid #fff05f; outline-offset:2px; }"
+    },
+    {
+      "name": "Input Shell",
+      "kind": "input",
+      "refersTo": "input-default",
+      "description": "Dark operational input with a tight visible focus state.",
+      "html": "<input class=\"ds-input-shell\" placeholder=\"SEARCH THE GRID\" />",
+      "css": ".ds-input-shell { width:100%; border:1px solid rgba(243,230,0,.14); background:rgba(4,4,4,.9); color:#f5f1d6; padding:.625rem 1rem; font-family:Archivo,sans-serif; outline:none; transition:border-color 160ms ease,background-color 160ms ease,box-shadow 160ms ease; } .ds-input-shell:focus { border-color:rgba(243,230,0,.36); background:rgba(12,12,12,.96); box-shadow:0 0 0 1px rgba(243,230,0,.16); } .ds-input-shell::placeholder { color:#78716c; }"
+    },
+    {
+      "name": "HUD Panel",
+      "kind": "card",
+      "refersTo": "window-shell",
+      "description": "Authored high-hierarchy panel with clipped technical corners.",
+      "html": "<section class=\"ds-hud-panel\"><span class=\"ds-hud-kicker\">PUBLIC GRID</span><strong>RESTRICTED ACCESS</strong></section>",
+      "css": ".ds-hud-panel { position:relative; overflow:hidden; display:grid; gap:8px; border:1px solid rgba(243,230,0,.18); background:linear-gradient(180deg,rgba(21,21,21,.96),rgba(10,10,10,.96)); color:#f5f1d6; padding:24px; clip-path:polygon(0 0,calc(100% - 22px) 0,100% 22px,100% 100%,18px 100%,0 calc(100% - 18px)); box-shadow:0 24px 60px rgba(0,0,0,.36),inset 0 1px 0 rgba(255,255,255,.02); } .ds-hud-kicker { color:rgba(243,230,0,.82); font:600 .68rem JetBrains Mono,monospace; letter-spacing:.28em; } .ds-hud-panel strong { font:600 2.15rem/.92 Teko,sans-serif; letter-spacing:.05em; }"
+    },
+    {
+      "name": "Window Chrome",
+      "kind": "custom",
+      "refersTo": "window-shell",
+      "description": "Movable VEIL OS application shell with a tactile title bar.",
+      "html": "<section class=\"ds-window\"><header>IDEN <button aria-label=\"Close\">×</button></header><div>IDENTITY SYSTEM</div></section>",
+      "css": ".ds-window { overflow:hidden; border:1px solid rgba(227,193,96,.28); border-radius:16px; background:linear-gradient(160deg,rgba(15,11,21,.95),rgba(6,5,10,.97)); color:#f4f6fa; box-shadow:0 30px 90px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.04); } .ds-window header { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-bottom:1px solid rgba(255,255,255,.08); font:600 .62rem JetBrains Mono,monospace; letter-spacing:.08em; } .ds-window > div { padding:24px; font:500 .5rem JetBrains Mono,monospace; color:rgba(227,193,96,.72); } .ds-window button { width:24px; height:24px; border:1px solid rgba(255,255,255,.08); border-radius:6px; background:rgba(255,255,255,.03); color:#f4f6fa; cursor:pointer; } .ds-window button:hover,.ds-window button:focus-visible { background:rgba(255,255,255,.09); outline:1px solid rgba(227,193,96,.6); }"
+    },
+    {
+      "name": "Launcher Result",
+      "kind": "nav",
+      "refersTo": "taskbar",
+      "description": "Compact application or system action in the floating launcher.",
+      "html": "<button class=\"ds-launcher-item\"><span class=\"ds-launcher-icon\">◈</span><span><strong>IDEN</strong><small>IDENTITY</small></span><em>RUNNING</em></button>",
+      "css": ".ds-launcher-item { display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:10px; width:100%; min-height:58px; border:1px solid rgba(255,255,255,.07); border-radius:9px; background:rgba(255,255,255,.025); color:#f2f4f8; padding:9px 10px; text-align:left; cursor:pointer; transition:140ms ease; } .ds-launcher-item:hover,.ds-launcher-item:focus-visible { border-color:rgba(227,193,96,.42); background:rgba(227,193,96,.09); outline:none; } .ds-launcher-icon { display:grid; width:31px; height:31px; place-items:center; border:1px solid rgba(227,193,96,.38); border-radius:8px; color:#f0d875; } .ds-launcher-item strong,.ds-launcher-item small,.ds-launcher-item em { display:block; font-family:JetBrains Mono,monospace; font-style:normal; letter-spacing:.08em; } .ds-launcher-item strong { font-size:.58rem; } .ds-launcher-item small,.ds-launcher-item em { color:rgba(202,212,226,.45); font-size:.4rem; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "VEIL OS // New Vega Civic System",
+    "overview": "RPGSILVER is a dark, authored civic interface for a fictional city. Its shared shell reads as durable public infrastructure: precise, institutional, and slightly industrial. VEIL OS keeps the desktop and wallpaper open and breathable, while VEGA MESH supplies the restrained language of local authority and secure city routing.",
+    "keyCharacteristics": [
+      "Void-black infrastructure with acid-yellow signal color and restrained operational blue/red status accents.",
+      "Teko display headings, Archivo body copy, and JetBrains Mono for labels, metadata, and system language.",
+      "Depth reserved for active or floating hierarchy; default surfaces stay materially quiet.",
+      "Distinct application identities without a flattened component language."
+    ],
+    "rules": [
+      { "name": "The Signal, Not Scenery Rule", "body": "Acid, blue, red, and app accents must explain hierarchy, state, ownership, or action. Do not spray them across a surface as atmosphere.", "section": "colors" },
+      { "name": "The Three Voices Rule", "body": "Use display for hierarchy, body for reading, and mono for system grammar. Do not make every sentence look like a terminal label.", "section": "typography" },
+      { "name": "The State-Only Depth Rule", "body": "Do not make every panel float, glow, blur, or look like glass. Elevation must communicate active hierarchy or a temporary system layer.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do preserve VEIL OS as an open desktop with purposeful floating system layers.",
+      "Do use Public Grid Acid, Verification Blue, Signal Red, and app accents to explain state, authority, or interaction.",
+      "Do maintain the display/body/mono hierarchy and compact operational label language.",
+      "Do let individual VEIL OS applications retain meaningful visual identities.",
+      "Do preserve responsive, keyboard-accessible, focus-visible, and reduced-motion behavior."
+    ],
+    "donts": [
+      "Don't flatten ECHO, PULSE, IDEN, NVN, or LOOP into the same component language.",
+      "Don't cover every surface with cards, blur, glow, gradients, or decorative neon.",
+      "Don't turn the desktop into a dense dashboard or sacrifice wallpaper and breathing room for unused widgets.",
+      "Don't add generic SaaS bento layouts, oversized hero typography, or decoration without an operational purpose.",
+      "Don't use elevated/glass surfaces where no active hierarchy or state transition exists."
+    ]
+  }
+}

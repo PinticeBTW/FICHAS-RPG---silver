@@ -10,7 +10,7 @@ function hasExplicitExtension(value: string) {
 }
 
 function isAbsoluteIconPath(value: string) {
-  return /^(?:https?:|data:|\/)/i.test(value)
+  return /^(?:https?:|data:|rpg-media:|\/)/i.test(value)
 }
 
 export function getCyberwareIconKey(cyberware: Cyberware) {
