@@ -14,6 +14,7 @@ function isNetWorldAppId(appId: NetAppAccount['appId']): appId is NetWorldAppId 
     && appId !== 'altara-messenger'
     && appId !== 'altara-bank'
     && appId !== 'altara-news'
+    && appId !== 'altara-music'
     && appId !== 'altara-store'
     && appId !== 'altara-settings'
 }

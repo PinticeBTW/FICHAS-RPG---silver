@@ -17,6 +17,7 @@ export const netAppAccountPolicies = [
   { appId: 'altara-messenger', mode: 'none' },
   { appId: 'altara-bank', mode: 'none' },
   { appId: 'altara-news', mode: 'none' },
+  { appId: 'altara-music', mode: 'none' },
   { appId: 'altara-store', mode: 'none' },
   { appId: 'altara-settings', mode: 'none' },
 ] as const satisfies readonly NetAppAccountPolicy[]

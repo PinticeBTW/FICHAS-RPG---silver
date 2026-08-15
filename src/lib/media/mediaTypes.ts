@@ -11,6 +11,7 @@ export type SharedMediaSubjectKind =
   | 'gm-profile'
   | 'nvn-article'
   | 'altara-news-article'
+  | 'altara-music-artwork'
   | 'global'
 
 export interface SharedMediaScope {

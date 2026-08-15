@@ -30,6 +30,9 @@ import { AltaraBankApp, type AltaraBankMode } from './altara/AltaraBankApp'
 import { AltaraStoreApp } from './altara/AltaraStoreApp'
 import { AltaraMessengerApp } from './altara/AltaraMessengerApp'
 import { AltaraNewsApp, type AltaraNewsMode } from './altara/AltaraNewsApp'
+import { AltaraMusicApp, type AltaraMusicMode } from './altara/AltaraMusicApp'
+import { AltaraMusicAudioEngine } from './altara/AltaraMusicAudioEngine'
+import { useAltaraMusicPlayer } from './altara/useAltaraMusicPlayer'
 import {
   altaraAppCatalog,
   getAltaraAppDefinition,
@@ -227,12 +230,16 @@ export function AltaraOsGateway({
     && runtimeSystemState.system.installedOptionalAppIds.includes('altara-bank')
   const installedAltaraNews = runtimeSystemState.status === 'ready'
     && runtimeSystemState.system.installedOptionalAppIds.includes('altara-news')
+  const installedAltaraMusic = runtimeSystemState.status === 'ready'
+    && runtimeSystemState.system.installedOptionalAppIds.includes('altara-music')
   const altaraBankMode: AltaraBankMode = gmSystemMode
     ? 'gm-admin'
     : 'personal'
   const altaraBankAvailable = gmSystemMode || installedAltaraBank
   const altaraNewsMode: AltaraNewsMode = gmSystemMode ? 'newsroom' : 'reader'
   const altaraNewsAvailable = gmSystemMode || installedAltaraNews
+  const altaraMusicMode: AltaraMusicMode = gmSystemMode ? 'studio' : 'reader'
+  const altaraMusicAvailable = gmSystemMode || installedAltaraMusic
   const altaraBankContextKey = [
     profile?.id ?? 'anonymous',
     osSession.actorMode,
@@ -240,11 +247,17 @@ export function AltaraOsGateway({
     resolvedIdentityLinkId ?? 'system',
     gmPersona.session?.sessionGeneration ?? 'none',
   ].join(':')
+  const altaraMusicContextKey = `${altaraBankContextKey}:${installedAltaraMusic ? 'installed' : 'uninstalled'}`
+  const altaraMusicPlayer = useAltaraMusicPlayer(
+    altaraMusicContextKey,
+    !gmSystemMode && shellReady && installedAltaraMusic ? resolvedIdentityLinkId : undefined,
+  )
   const availableApps = useMemo(() => altaraAppCatalog.filter(
     (app) => app.systemApp
       || (app.id === 'altara-bank' && altaraBankAvailable)
-      || (app.id === 'altara-news' && altaraNewsAvailable),
-  ), [altaraBankAvailable, altaraNewsAvailable])
+      || (app.id === 'altara-news' && altaraNewsAvailable)
+      || (app.id === 'altara-music' && altaraMusicAvailable),
+  ), [altaraBankAvailable, altaraMusicAvailable, altaraNewsAvailable])
   const availableAppIdSet = useMemo(
     () => new Set<AltaraAppId>(availableApps.map((app) => app.id)),
     [availableApps],
@@ -287,6 +300,10 @@ export function AltaraOsGateway({
   useEffect(() => {
     if (!altaraNewsAvailable) closeWindow('altara-news')
   }, [altaraNewsAvailable, closeWindow])
+
+  useEffect(() => {
+    if (!altaraMusicAvailable) closeWindow('altara-music')
+  }, [altaraMusicAvailable, closeWindow])
 
   useEffect(() => {
     const previousTitle = document.title
@@ -368,6 +385,31 @@ export function AltaraOsGateway({
     setNotice('NEWS // REMOVED')
   }
 
+  const installAltaraMusic = async () => {
+    if (!runtimeMutationsAllowed) {
+      throw new Error('A controlled ALTARA runtime identity is required for installation changes.')
+    }
+    if (identitySystem.state.status !== 'ready') {
+      throw new Error('The active identity system profile is not ready.')
+    }
+    const installed = await identitySystem.setAppInstalled('altara-music', true)
+    if (!installed) throw new Error('The installation was not confirmed.')
+    setNotice('ALTARA MUSIC // INSTALL COMPLETE')
+  }
+
+  const uninstallAltaraMusic = async () => {
+    if (!runtimeMutationsAllowed) {
+      throw new Error('A controlled ALTARA runtime identity is required for installation changes.')
+    }
+    if (identitySystem.state.status !== 'ready') {
+      throw new Error('The active identity system profile is not ready.')
+    }
+    const removed = await identitySystem.setAppInstalled('altara-music', false)
+    if (!removed) throw new Error('The removal was not confirmed.')
+    closeWindow('altara-music')
+    setNotice('ALTARA MUSIC // REMOVED')
+  }
+
   const uploadWallpaper: Parameters<typeof AltaraSettingsApp>[0]['onUpload'] = async (file, fit, position) => {
     if (!runtimeMutationsAllowed) throw new Error('A controlled ALTARA runtime identity is required.')
     const saved = await identitySystem.setWallpaper(file, fit, position)
@@ -423,6 +465,7 @@ export function AltaraOsGateway({
         if (event.target === event.currentTarget) setLauncherOpen(false)
       }}
     >
+      <AltaraMusicAudioEngine {...altaraMusicPlayer} />
       <div className="altara-os__wallpaper" aria-hidden="true">
         {customWallpaper ? (
           <img
@@ -613,6 +656,15 @@ export function AltaraOsGateway({
               onUninstall: uninstallAltaraNews,
               onOpen: () => openWindow('altara-news'),
             },
+            {
+              id: 'altara-music',
+              installed: installedAltaraMusic,
+              running: Boolean(windowManager.windows['altara-music']?.open),
+              disclosure: 'Remove the app? Liked songs, playlists, and listening history will remain intact.',
+              onInstall: installAltaraMusic,
+              onUninstall: uninstallAltaraMusic,
+              onOpen: () => openWindow('altara-music'),
+            },
           ]}
           disabled={!runtimeMutationsAllowed || identitySystem.mutating || identitySystem.state.status !== 'ready'}
           error={gmSystemMode
@@ -635,6 +687,24 @@ export function AltaraOsGateway({
           identitySessionKey={altaraBankContextKey}
           expectedIdentityLinkId={altaraNewsMode === 'reader' ? resolvedIdentityLinkId : undefined}
           identityName={identityName}
+          onNotice={setNotice}
+        />
+      </NetAppWindow>
+
+      <NetAppWindow
+        title="ALTARA MUSIC"
+        subtitle="ALTARA // GLOBAL MUSIC NETWORK"
+        icon={getAltaraAppDefinition('altara-music').icon}
+        accentRgb={getAltaraAppDefinition('altara-music').accentRgb}
+        {...windowManager.getManagedProps('altara-music')}
+      >
+        <AltaraMusicApp
+          key={`music:${altaraMusicContextKey}:${altaraMusicMode}`}
+          mode={altaraMusicMode}
+          enabled={Boolean(windowManager.windows['altara-music']?.open && shellReady)}
+          expectedIdentityLinkId={altaraMusicMode === 'reader' ? resolvedIdentityLinkId : undefined}
+          identityName={identityName}
+          player={altaraMusicPlayer}
           onNotice={setNotice}
         />
       </NetAppWindow>
