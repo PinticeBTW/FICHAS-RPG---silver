@@ -4,12 +4,12 @@ import type { Profile } from '../../../types/domain'
 import {
   clearGmPersona,
   fetchGmPersona,
+  notifyNetGmControlChanged,
   setGmPersona,
 } from '../../../lib/netGmPersonaService'
 import type { NetIdentityLink } from '../../../lib/netIdentityService'
 import { getNetIdentityLinkFromDirectoryCandidate } from '../../../lib/netGmIdentityDirectoryService'
 import { resolveNetGmPersonaState } from './netGmPersonaResolver'
-import { getNetIdentitySubjectId } from './netIdentitySelectors'
 import type {
   NetGmPersonaSession,
   NetGmPersonaState,
@@ -30,6 +30,7 @@ export interface NetGmPersonaController {
     subject: NetGmPersonaSubject,
     mode: NetSelectableGmPersonaMode,
   ) => Promise<boolean>
+  readonly controlIdentity: (subject: NetGmPersonaSubject) => Promise<boolean>
   readonly clearPersona: () => Promise<boolean>
 }
 
@@ -61,6 +62,7 @@ export function useNetGmPersona(
   const [changeError, setChangeError] = useState<string | undefined>()
   const profileIdRef = useRef<string | null>(profile?.id ?? null)
   const changingRef = useRef(false)
+  const requestGenerationRef = useRef(0)
 
   useEffect(() => {
     profileIdRef.current = profileId ?? null
@@ -68,6 +70,7 @@ export function useNetGmPersona(
 
   useEffect(() => {
     let cancelled = false
+    const requestGeneration = ++requestGenerationRef.current
     changingRef.current = false
     setChanging(false)
     setChangeError(undefined)
@@ -86,7 +89,11 @@ export function useNetGmPersona(
     setLoadState({ status: 'loading', profileId: expectedProfileId })
     void fetchGmPersona()
       .then((session) => {
-        if (cancelled || profileIdRef.current !== expectedProfileId) return
+        if (
+          cancelled
+          || profileIdRef.current !== expectedProfileId
+          || requestGeneration !== requestGenerationRef.current
+        ) return
         setLoadState({
           status: 'ready',
           profileId: expectedProfileId,
@@ -94,7 +101,11 @@ export function useNetGmPersona(
         })
       })
       .catch(() => {
-        if (cancelled || profileIdRef.current !== expectedProfileId) return
+        if (
+          cancelled
+          || profileIdRef.current !== expectedProfileId
+          || requestGeneration !== requestGenerationRef.current
+        ) return
         setLoadState({
           status: 'error',
           profileId: expectedProfileId,
@@ -107,10 +118,14 @@ export function useNetGmPersona(
 
   const refresh = useCallback(async (): Promise<void> => {
     const expectedProfileId = profileIdRef.current
-    if (!expectedProfileId || profileRole !== 'gm') return
+    if (!expectedProfileId || profileRole !== 'gm' || changingRef.current) return
+    const requestGeneration = ++requestGenerationRef.current
     try {
       const session = await fetchGmPersona()
-      if (profileIdRef.current !== expectedProfileId) return
+      if (
+        profileIdRef.current !== expectedProfileId
+        || requestGeneration !== requestGenerationRef.current
+      ) return
       setLoadState({
         status: 'ready',
         profileId: expectedProfileId,
@@ -127,8 +142,14 @@ export function useNetGmPersona(
     let cancelled = false
     const expectedProfileId = profileId
     const refreshPersona = () => {
+      if (changingRef.current) return
+      const requestGeneration = ++requestGenerationRef.current
       void fetchGmPersona().then((session) => {
-        if (cancelled || profileIdRef.current !== expectedProfileId) return
+        if (
+          cancelled
+          || profileIdRef.current !== expectedProfileId
+          || requestGeneration !== requestGenerationRef.current
+        ) return
         setLoadState({
           status: 'ready',
           profileId: expectedProfileId,
@@ -153,12 +174,19 @@ export function useNetGmPersona(
     const expectedProfileId = profileIdRef.current
     if (!expectedProfileId || profileRole !== 'gm' || changingRef.current) return false
 
+    // Invalidate mount/focus reads that began before this authoritative
+    // mutation. Their response must never replace the RPC result afterwards.
+    const mutationGeneration = ++requestGenerationRef.current
     changingRef.current = true
     setChanging(true)
     setChangeError(undefined)
     try {
       const session = await operation()
-      if (profileIdRef.current !== expectedProfileId || session.gmProfileId !== expectedProfileId) {
+      if (
+        profileIdRef.current !== expectedProfileId
+        || mutationGeneration !== requestGenerationRef.current
+        || session.gmProfileId !== expectedProfileId
+      ) {
         return false
       }
       setLoadState({
@@ -166,6 +194,10 @@ export function useNetGmPersona(
         profileId: expectedProfileId,
         session,
       })
+      // Every authoritative control mutation invalidates the routing snapshot.
+      // The event carries no authority; the routing RPC decides whether the
+      // effective shell changes or remains the same.
+      notifyNetGmControlChanged()
       return true
     } catch (error) {
       if (profileIdRef.current === expectedProfileId) {
@@ -187,6 +219,11 @@ export function useNetGmPersona(
     mode: NetSelectableGmPersonaMode,
   ) => runChange(() => setGmPersona(subject, mode)), [runChange])
 
+  const controlIdentity = useCallback(
+    (subject: NetGmPersonaSubject) => runChange(() => setGmPersona(subject, 'take-control')),
+    [runChange],
+  )
+
   const clearPersona = useCallback(
     () => runChange(clearGmPersona),
     [runChange],
@@ -204,36 +241,12 @@ export function useNetGmPersona(
       return link ? [link] : []
     })
   }, [candidates, profile?.id, profile?.role])
-  const invalidSessionTarget = Boolean(
-    profile?.role === 'gm'
-    && session
-    && session.mode !== 'none'
-    && candidates.status === 'ready'
-    && candidates.authenticatedProfileId === profile.id
-    && !candidates.candidates.some((candidate) => (
-      candidate.subject.kind !== 'character'
-      && candidate.subject.kind === session.subject.kind
-      && getNetIdentitySubjectId(candidate.subject) === getNetIdentitySubjectId(session.subject)
-    )),
-  )
-  const invalidCompromisedTarget = Boolean(
-    profile?.role === 'gm'
-    && session?.mode === 'compromised-session'
-    && candidates.status === 'ready'
-    && candidates.authenticatedProfileId === profile.id
-    && !identityLinks.some((link) => (
-      link.identityKind === 'player'
-      && link.playability === 'playable'
-      && link.subject.kind === session.subject.kind
-      && getNetIdentitySubjectId(link.subject) === getNetIdentitySubjectId(session.subject)
-    )),
-  )
 
-  useEffect(() => {
-    if (!invalidSessionTarget && !invalidCompromisedTarget) return
-    void runChange(clearGmPersona)
-  }, [invalidCompromisedTarget, invalidSessionTarget, runChange])
-
+  // The compact GM directory is presentation data and may be refreshing or
+  // temporarily incomplete during an OS shell transition. It must never clear
+  // a server-authoritative persona session. The persona RPC validates every
+  // target on entry, and database triggers clear sessions whose source record
+  // is actually deleted.
   const state = useMemo<NetGmPersonaState>(() => {
     if (loadState.status === 'loading') return { status: 'loading' }
     if (loadState.status === 'error') return { status: 'error', reason: loadState.reason }
@@ -250,6 +263,7 @@ export function useNetGmPersona(
     refresh,
     ...(changeError ? { error: changeError } : {}),
     setPersona,
+    controlIdentity,
     clearPersona,
   }
 }

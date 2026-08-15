@@ -316,8 +316,15 @@ function assertIncidentId(incidentId: string) {
   }
 }
 
-export async function fetchNetNvnLiveDesk(): Promise<NetNvnLiveDesk> {
-  const { data, error } = await client().rpc('fetch_net_nvn_live_desk')
+export async function fetchNetNvnLiveDesk(
+  expectedIdentityLinkId: string,
+): Promise<NetNvnLiveDesk> {
+  if (!UUID_PATTERN.test(expectedIdentityLinkId)) {
+    throw new NetNvnLiveRequestError('authentication-required', 'The NVN runtime identity is unavailable.')
+  }
+  const { data, error } = await client().rpc('fetch_net_nvn_live_desk', {
+    requested_expected_identity_link_id: expectedIdentityLinkId,
+  })
   if (error) throw mapError('NVN live coverage could not be loaded', error)
   if (!isRecord(data)) return invalidResponse('The NVN live server returned an invalid payload.')
   const updates = parseUpdates(data.updates)

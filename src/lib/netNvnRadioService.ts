@@ -311,9 +311,16 @@ async function rpcControl(name: string, args?: Record<string, unknown>): Promise
   return parseControl(data)
 }
 
-export async function fetchNetNvnRadioTuneState(): Promise<NetNvnRadioTuneSample> {
+export async function fetchNetNvnRadioTuneState(
+  expectedIdentityLinkId: string,
+): Promise<NetNvnRadioTuneSample> {
+  if (!UUID_PATTERN.test(expectedIdentityLinkId)) {
+    throw new NetNvnRadioError('authentication-required', 'The NVN runtime identity is unavailable.')
+  }
   const requestStartedAt = performance.now()
-  const { data, error } = await client().rpc('fetch_net_nvn_radio_tune_state')
+  const { data, error } = await client().rpc('fetch_net_nvn_radio_tune_state', {
+    requested_expected_identity_link_id: expectedIdentityLinkId,
+  })
   const responseReceivedAt = performance.now()
   if (error) throw mapError('NVN Live Broadcast could not synchronize', error)
   return { state: parseTuneState(data), requestStartedAt, responseReceivedAt }

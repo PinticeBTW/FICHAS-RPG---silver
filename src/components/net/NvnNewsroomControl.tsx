@@ -8,7 +8,6 @@ import {
   RotateCcw,
   Save,
   ShieldCheck,
-  X,
 } from 'lucide-react'
 import {
   useEffect,
@@ -50,7 +49,7 @@ import {
   type NetNvnGmArticleMediaInput,
   type NetNvnGmLifecycleAction,
 } from '../../lib/netNvnTypes'
-import { useNetDialog } from './netDialogStack'
+import { NewsPlatformConfirmation } from './news/NewsPlatformConfirmation'
 import {
   NVN_BYLINE_KIND_LABELS,
   NVN_CATEGORY_LABELS,
@@ -349,34 +348,17 @@ export function NvnNewsroomConfirmation({
   readonly onConfirm: () => void
   readonly onCancel: () => void
 }) {
-  const { dialogRef, onFocusCapture } = useNetDialog<HTMLDivElement>(onCancel)
   return (
-    <div className="nvn-newsroom-dialog-backdrop" onMouseDown={(event) => {
-      if (event.target === event.currentTarget) onCancel()
-    }}>
-      <div
-        ref={dialogRef}
-        className="nvn-newsroom-dialog"
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby="nvn-newsroom-confirm-title"
-        tabIndex={-1}
-        onFocusCapture={onFocusCapture}
-      >
-        <header>
-          <ShieldCheck size={17} aria-hidden="true" />
-          <strong id="nvn-newsroom-confirm-title">{title}</strong>
-          <button type="button" aria-label="Close confirmation" onClick={onCancel}>
-            <X size={15} aria-hidden="true" />
-          </button>
-        </header>
-        <p>{body}</p>
-        <footer>
-          <button type="button" data-net-dialog-initial-focus onClick={onCancel}>Cancel</button>
-          <button type="button" data-tone={tone} onClick={onConfirm}>{confirmLabel}</button>
-        </footer>
-      </div>
-    </div>
+    <NewsPlatformConfirmation
+      className="nvn-newsroom-dialog-backdrop"
+      dialogClassName="nvn-newsroom-dialog"
+      title={title}
+      body={body}
+      confirmLabel={confirmLabel}
+      tone={tone === 'standard' ? 'default' : tone}
+      onConfirm={onConfirm}
+      onCancel={onCancel}
+    />
   )
 }
 

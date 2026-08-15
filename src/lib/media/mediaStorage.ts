@@ -20,7 +20,7 @@ import {
 
 const SIGNED_URL_SECONDS = 60 * 60
 const SIGNED_URL_CACHE_MS = 55 * 60 * 1000
-// Draft/public lifecycle can change during a live newsroom session. Keep NVN
+// Draft/public lifecycle can change during a live newsroom session. Keep news
 // capability URLs short-lived so a previously issued URL ages out promptly
 // after an article is returned to Draft; every fresh sign is still server-RLS checked.
 const NVN_SIGNED_URL_SECONDS = 5 * 60
@@ -39,7 +39,7 @@ function mediaResolutionError(sourceError: unknown, fallbackMessage: string): Er
 }
 
 function signedUrlPolicy(path: string) {
-  return path.startsWith('nvn-article/')
+  return path.startsWith('nvn-article/') || path.startsWith('altara-news-article/')
     ? { seconds: NVN_SIGNED_URL_SECONDS, cacheMs: NVN_SIGNED_URL_CACHE_MS }
     : { seconds: SIGNED_URL_SECONDS, cacheMs: SIGNED_URL_CACHE_MS }
 }

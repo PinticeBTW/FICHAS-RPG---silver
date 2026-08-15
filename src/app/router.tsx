@@ -2,7 +2,6 @@ import { lazy, Suspense, type ReactNode } from 'react'
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { ProtectedRoute, PublicOnlyRoute } from '../components/common/RouteGuards'
 import { LoadingScreen } from '../components/common/LoadingScreen'
-import { VeilEarlyAccessGate } from '../components/net/VeilEarlyAccessGate'
 
 const AppLayout = lazy(() =>
   import('../layouts/AppLayout').then((module) => ({
@@ -16,9 +15,9 @@ const SheetWorkspacePage = lazy(() =>
   })),
 )
 
-const NetHubPage = lazy(() =>
-  import('../pages/NetHubPage').then((module) => ({
-    default: module.NetHubPage,
+const NetOsEntryPage = lazy(() =>
+  import('../pages/NetOsEntryPage').then((module) => ({
+    default: module.NetOsEntryPage,
   })),
 )
 
@@ -92,9 +91,7 @@ export const router = createBrowserRouter([
           {
             path: 'net',
             element: routeElement(
-              <VeilEarlyAccessGate>
-                <NetHubPage />
-              </VeilEarlyAccessGate>,
+              <NetOsEntryPage />,
             ),
           },
 

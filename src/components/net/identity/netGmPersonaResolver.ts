@@ -114,6 +114,15 @@ export function resolveNetGmPersonaState(input: {
     }
   }
 
+  if (session.mode === 'take-control') {
+    return {
+      status: 'controlled',
+      authenticatedProfileId: profile.id,
+      mode: 'take-control',
+      identity,
+    }
+  }
+
   return {
     status: 'active',
     authenticatedProfileId: profile.id,

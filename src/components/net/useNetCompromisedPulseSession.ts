@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 
-import { fetchNetAppAccount } from '../../lib/netAppAccountService'
+import { fetchNetAppAccountsForInspection } from '../../lib/netAppAccountService'
 import {
   getNetAppAccountAvatar,
   getNetAppAccountDisplayHandle,
@@ -120,9 +120,10 @@ export function useNetCompromisedPulseSession(
       identityKind: 'player',
     }
 
-    void fetchNetAppAccount('pulse', identityLinkId)
-      .then((account) => {
+    void fetchNetAppAccountsForInspection(identityLinkId)
+      .then((accounts) => {
         if (cancelled) return
+        const account = accounts.find((candidate) => candidate.appId === 'pulse') ?? null
         if (!account) {
           setState({
             status: 'unavailable',

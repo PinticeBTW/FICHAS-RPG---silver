@@ -4,6 +4,7 @@ import {
   clearNetIdentityWallpaper,
   fetchNetIdentitySystem,
   setNetIdentityAppInstalled,
+  setNetIdentityWallpaperPreset,
   updateNetIdentityWallpaperPresentation,
   uploadNetIdentityWallpaper,
   type NetIdentitySystemSnapshot,
@@ -30,6 +31,7 @@ export interface NetIdentitySystemController {
     fit: WallpaperFit,
     position: WallpaperPosition,
   ) => Promise<boolean>
+  readonly setWallpaperPreset: (presetId: string) => Promise<boolean>
   readonly clearWallpaper: () => Promise<boolean>
   readonly reload: () => void
 }
@@ -143,6 +145,7 @@ export function useNetIdentitySystem(identityLinkId?: string): NetIdentitySystem
       position,
       ...(system.wallpaper?.path ? { previousPath: system.wallpaper.path } : {}),
     }),
+    wallpaperPresetId: null,
     updatedAt: new Date().toISOString(),
   })), [runMutation])
 
@@ -163,9 +166,25 @@ export function useNetIdentitySystem(identityLinkId?: string): NetIdentitySystem
     }
   }), [runMutation])
 
+  const setWallpaperPreset = useCallback((presetId: string) => runMutation(async (system) => ({
+    ...system,
+    wallpaper: null,
+    wallpaperPresetId: await setNetIdentityWallpaperPreset(
+      system.identityLinkId,
+      presetId,
+      system.wallpaper?.path,
+    ),
+    updatedAt: new Date().toISOString(),
+  })), [runMutation])
+
   const clearWallpaper = useCallback(() => runMutation(async (system) => {
     await clearNetIdentityWallpaper(system.identityLinkId, system.wallpaper?.path)
-    return { ...system, wallpaper: null, updatedAt: new Date().toISOString() }
+    return {
+      ...system,
+      wallpaper: null,
+      wallpaperPresetId: null,
+      updatedAt: new Date().toISOString(),
+    }
   }), [runMutation])
 
   const reload = useCallback(() => setReloadToken((value) => value + 1), [])
@@ -187,6 +206,7 @@ export function useNetIdentitySystem(identityLinkId?: string): NetIdentitySystem
     setAppInstalled,
     setWallpaper,
     updateWallpaperPresentation,
+    setWallpaperPreset,
     clearWallpaper,
     reload,
   }

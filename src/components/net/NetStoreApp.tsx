@@ -4,6 +4,7 @@ import {
   ExternalLink,
   Grid2X2,
   HardDrive,
+  Landmark,
   Newspaper,
   Search,
   ShieldCheck,
@@ -21,6 +22,7 @@ import {
   type NetOptionalAppId,
 } from './netAppCatalog'
 import { useNetDialog } from './netDialogStack'
+import { netAppScopeAllows, type NetOsId } from '../../lib/netOsTypes'
 
 import '../../styles/netStore.css'
 
@@ -31,11 +33,13 @@ type StoreView =
   | 'identity'
   | 'news'
   | 'creator'
+  | 'finance'
   | 'installed'
 
 type InstallJob = { appId: NetOptionalAppId; progress: number } | null
 
 interface NetStoreAppProps {
+  osId: NetOsId
   installedAppIds: readonly NetAppId[]
   openAppIds: readonly NetAppId[]
   installJob: InstallJob
@@ -45,7 +49,7 @@ interface NetStoreAppProps {
   onUnavailable: (appId: NetAppId) => void
   /** Apps explicitly exposed by the shell as GM/system tools; never installations. */
   gmSystemAccessAppIds?: readonly NetAppId[]
-  /** A compromised GM mount can inspect its library but never administer it. */
+  /** Narrative compromised-session mounts remain inspection-only. */
   readOnly?: boolean
 }
 
@@ -60,6 +64,7 @@ const catalogueNavigation: ReadonlyArray<{
   { id: 'identity', label: 'Identity', icon: ShieldCheck },
   { id: 'news', label: 'News', icon: Newspaper },
   { id: 'creator', label: 'Creator', icon: Video },
+  { id: 'finance', label: 'Finance', icon: Landmark },
   { id: 'installed', label: 'Installed', icon: Check },
 ]
 
@@ -144,6 +149,7 @@ function UninstallConfirmation({
 }
 
 export function NetStoreApp({
+  osId,
   installedAppIds,
   openAppIds,
   installJob,
@@ -164,21 +170,25 @@ export function NetStoreApp({
     () => new Set(gmSystemAccessAppIds),
     [gmSystemAccessAppIds],
   )
+  const scopedCatalog = useMemo(
+    () => netAppCatalog.filter((app) => netAppScopeAllows(app.scope, osId)),
+    [osId],
+  )
 
   const visibleApps = useMemo(() => {
     if (normalizedQuery) {
-      return netAppCatalog.filter((app) => matchesQuery(app, normalizedQuery))
+      return scopedCatalog.filter((app) => matchesQuery(app, normalizedQuery))
     }
     if (view === 'installed') {
-      return netAppCatalog.filter((app) => installedSet.has(app.id))
+      return scopedCatalog.filter((app) => installedSet.has(app.id))
     }
-    return netAppCatalog.filter((app) => belongsToView(app, view))
-  }, [installedSet, normalizedQuery, view])
+    return scopedCatalog.filter((app) => belongsToView(app, view))
+  }, [installedSet, normalizedQuery, scopedCatalog, view])
 
   const effectiveSelectedId = visibleApps.some((app) => app.id === selectedId)
     ? selectedId
     : visibleApps[0]?.id ?? 'echo'
-  const selectedApp = netAppCatalog.find((app) => app.id === effectiveSelectedId) ?? netAppCatalog[0]
+  const selectedApp = scopedCatalog.find((app) => app.id === effectiveSelectedId) ?? scopedCatalog[0]
   const SelectedIcon = selectedApp.icon
 
   const isInstalled = installedSet.has(selectedApp.id)
@@ -187,7 +197,7 @@ export function NetStoreApp({
     : undefined
   const activeJob = installJob?.appId === selectedApp.id ? installJob : null
   const pendingUninstallApp = pendingUninstallId
-    ? netAppCatalog.find((app) => app.id === pendingUninstallId)
+    ? scopedCatalog.find((app) => app.id === pendingUninstallId)
     : undefined
 
   const selectView = (nextView: StoreView) => {
@@ -230,7 +240,7 @@ export function NetStoreApp({
         <div className="net-store__catalogue-status">
           <span>Catalogue status</span>
           <strong><i /> Local grid verified</strong>
-          <small>{netAppCatalog.length} VEGA MESH services indexed</small>
+          <small>{scopedCatalog.length} VEGA MESH services indexed</small>
         </div>
       </aside>
 
@@ -354,7 +364,7 @@ export function NetStoreApp({
         <div className="net-store__actions">
           {readOnly ? (
             <p className="net-store__system-note" role="status">
-              Controlled system mount // library is read only
+              Compromised session // library is read only
             </p>
           ) : activeJob ? (
             <>
@@ -384,7 +394,7 @@ export function NetStoreApp({
               ) : null}
             </>
           ) : readOnly ? (
-            <p className="net-store__system-note">Installation changes are unavailable in a controlled system mount.</p>
+            <p className="net-store__system-note">Installation changes are unavailable in a compromised session.</p>
           ) : (
             <button type="button" className="net-store__primary-button" onClick={() => onInstallApp(selectedApp.id as NetOptionalAppId)}>
               <Download size={15} aria-hidden="true" /> Install for character

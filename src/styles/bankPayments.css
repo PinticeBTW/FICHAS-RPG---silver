@@ -1,0 +1,527 @@
+.bank-payment-surface,
+.bank-receive-surface {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: clamp(24px, 4cqw, 42px);
+}
+
+.bank-payment-surface > header h2,
+.bank-receive-surface h2 {
+  margin: 0;
+  color: var(--bank-paper);
+  font-family: var(--bank-display, Teko), sans-serif;
+  font-size: clamp(2rem, 5cqw, 3rem);
+  font-weight: 600;
+  line-height: 0.92;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+.bank-payment-surface > header p,
+.bank-receive-surface > div > p {
+  max-width: 62ch;
+  margin: 10px 0 0;
+  color: var(--bank-muted);
+  line-height: 1.55;
+}
+
+.bank-payment-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.72fr);
+  gap: clamp(22px, 4cqw, 46px);
+  margin-top: 28px;
+}
+
+.bank-payment-search,
+.bank-payment-amount,
+.bank-receive-identifier {
+  border: 1px solid var(--bank-line);
+  background: var(--bank-panel);
+}
+
+.bank-payment-search,
+.bank-payment-amount {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 14px;
+  padding: 22px;
+}
+
+.bank-payment-search > label,
+.bank-payment-amount > label,
+.bank-payment-amount > span,
+.bank-receive-identifier > span {
+  color: var(--bank-muted);
+  font: 600 0.67rem/1.2 'JetBrains Mono', monospace;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.bank-payment-search > div:first-of-type,
+.bank-payment-amount > div {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--bank-line);
+  background: var(--bank-ink);
+}
+
+.bank-payment-search > div:first-of-type:focus-within,
+.bank-payment-amount > div:focus-within {
+  border-color: var(--bank-accent);
+}
+
+.bank-payment-search > div:first-of-type > svg {
+  flex: 0 0 auto;
+  margin-left: 12px;
+  color: var(--bank-muted);
+}
+
+.bank-payment-search input,
+.bank-payment-amount input {
+  min-width: 0;
+  width: 100%;
+  padding: 11px 12px;
+  border: 0;
+  outline: 0;
+  color: var(--bank-paper);
+  background: transparent;
+  font: inherit;
+}
+
+.bank-payment-search > div:first-of-type > button {
+  align-self: stretch;
+  padding: 0 14px;
+  border: 0;
+  border-left: 1px solid var(--bank-line);
+  color: var(--bank-paper);
+  background: var(--bank-panel-2);
+  cursor: pointer;
+}
+
+.bank-payment-search > small,
+.bank-receive-surface > div > small {
+  color: var(--bank-muted);
+  line-height: 1.45;
+}
+
+.bank-payment-results {
+  display: flex;
+  flex-direction: column;
+  max-height: 260px;
+  overflow: auto;
+  border-top: 1px solid var(--bank-line);
+}
+
+.bank-payment-results button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 54px;
+  padding: 9px 4px;
+  border: 0;
+  border-bottom: 1px solid var(--bank-line);
+  color: var(--bank-paper);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bank-payment-results button[aria-pressed='true'] {
+  color: var(--bank-accent-bright);
+  background: color-mix(in srgb, var(--bank-accent) 10%, transparent);
+}
+
+.bank-payment-payee-avatar {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  overflow: hidden;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--bank-accent) 36%, var(--bank-line));
+  border-radius: 50%;
+  color: var(--bank-accent-bright);
+  background: color-mix(in srgb, var(--bank-accent) 12%, var(--bank-panel-2));
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.bank-payment-payee-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bank-payment-results button > span:not(.bank-payment-payee-avatar) {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.bank-payment-results button strong,
+.bank-payment-results button small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bank-payment-results button small,
+.bank-payment-results > p {
+  color: var(--bank-muted);
+  font-size: 0.7rem;
+}
+
+.bank-payment-results > p {
+  margin: 18px 0 4px;
+}
+
+.bank-payment-amount > strong {
+  color: var(--bank-paper);
+  font-family: var(--bank-display, Teko), sans-serif;
+  font-size: 2.25rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.bank-payment-amount > div b {
+  padding-right: 12px;
+  color: var(--bank-accent-bright);
+  font: 600 0.7rem/1 'JetBrains Mono', monospace;
+}
+
+.bank-payment-amount > p {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 42px;
+  margin: 0;
+  color: var(--bank-muted);
+  font-size: 0.75rem;
+}
+
+.bank-payment-amount > p strong {
+  color: var(--bank-paper);
+  font-size: 0.9rem;
+}
+
+.bank-payment-amount > p small {
+  color: var(--bank-muted);
+}
+
+.bank-payment-selected-recipient {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 58px;
+  padding: 9px 10px;
+  border: 1px solid var(--bank-line);
+  background: color-mix(in srgb, var(--bank-accent) 6%, var(--bank-ink));
+}
+
+.bank-payment-selected-recipient > span,
+.bank-payment-dialog__recipient > span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.bank-payment-selected-recipient small,
+.bank-payment-dialog__recipient small {
+  color: var(--bank-muted);
+  font: 600 0.55rem/1.2 'JetBrains Mono', monospace;
+  letter-spacing: 0.13em;
+}
+
+.bank-payment-selected-recipient strong,
+.bank-payment-dialog__recipient strong {
+  overflow: hidden;
+  color: var(--bank-paper);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bank-payment-selected-recipient em,
+.bank-payment-dialog__recipient em {
+  overflow: hidden;
+  color: var(--bank-muted);
+  font-size: 0.67rem;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bank-payment-primary,
+.bank-receive-identifier button,
+.bank-payment-dialog footer button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 9px 15px;
+  border: 1px solid var(--bank-line);
+  color: var(--bank-paper);
+  background: var(--bank-panel-2);
+  font: 600 0.68rem/1 'JetBrains Mono', monospace;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.bank-payment-primary {
+  border-color: var(--bank-accent);
+  color: var(--bank-primary-ink);
+  background: var(--bank-accent);
+}
+
+.bank-payment-primary:disabled,
+.bank-payment-search button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.bank-payment-error {
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--bank-danger) 48%, transparent);
+  color: var(--bank-danger-text);
+  background: color-mix(in srgb, var(--bank-danger) 11%, transparent);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.bank-receive-surface {
+  display: grid;
+  place-items: center;
+}
+
+.bank-receive-surface > div {
+  width: min(100%, 650px);
+}
+
+.bank-receive-identifier {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 9px 16px;
+  margin: 28px 0 14px;
+  padding: 22px;
+}
+
+.bank-receive-identifier > span {
+  grid-column: 1;
+}
+
+.bank-receive-identifier > strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--bank-accent-bright);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: clamp(0.84rem, 2.3cqw, 1.08rem);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bank-receive-identifier > button {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.bank-payment-dialog-backdrop {
+  position: absolute;
+  z-index: 80;
+  display: grid;
+  inset: 0;
+  padding: 20px;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.68);
+}
+
+.bank-payment-dialog {
+  width: min(100%, 470px);
+  border: 1px solid var(--bank-line);
+  color: var(--bank-paper);
+  background: var(--bank-panel);
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.42);
+}
+
+.bank-payment-dialog > header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 9px;
+  padding: 13px 15px;
+  border-bottom: 1px solid var(--bank-line);
+}
+
+.bank-payment-dialog > header > span {
+  color: var(--bank-accent-bright);
+}
+
+.bank-payment-dialog > header button {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  place-items: center;
+  color: var(--bank-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.bank-payment-dialog__route {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 18px 20px 0;
+  color: var(--bank-accent-bright);
+  font: 600 0.68rem/1.3 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+}
+
+.bank-payment-dialog__recipient {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 11px;
+  margin: 18px 20px 0;
+  padding: 12px;
+  border: 1px solid var(--bank-line);
+  background: color-mix(in srgb, var(--bank-accent) 6%, var(--bank-ink));
+}
+
+.bank-payment-dialog__recipient .bank-payment-payee-avatar {
+  width: 40px;
+  height: 40px;
+}
+
+.bank-payment-dialog__fx {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  margin: 14px 20px 0;
+  padding: 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bank-accent, #c8ae7b) 9%, transparent);
+}
+
+.bank-payment-dialog__fx > span {
+  display: grid;
+  gap: 4px;
+}
+
+.bank-payment-dialog__fx > span:last-of-type {
+  text-align: right;
+}
+
+.bank-payment-dialog__fx small {
+  opacity: 0.72;
+}
+
+.bank-payment-dialog__fx p {
+  display: grid;
+  gap: 4px;
+  grid-column: 1 / -1;
+  margin: 2px 0 0;
+  text-align: center;
+}
+
+.bank-payment-dialog__fx p small {
+  font: 600 0.55rem/1.2 'JetBrains Mono', monospace;
+  letter-spacing: 0.13em;
+}
+
+.bank-payment-dialog__fx p strong {
+  color: var(--bank-accent-bright);
+  font-size: 0.78rem;
+}
+
+.bank-payment-dialog__same-currency {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 14px 20px 0;
+  padding: 14px;
+  background: color-mix(in srgb, var(--bank-accent, #c8ae7b) 9%, transparent);
+}
+
+.bank-payment-dialog__same-currency > span { display: grid; gap: 4px; }
+.bank-payment-dialog__same-currency > span:last-child { text-align: right; }
+.bank-payment-dialog__same-currency small { color: var(--bank-muted); }
+
+@media (max-width: 560px) {
+  .bank-payment-dialog__fx {
+    grid-template-columns: 1fr;
+  }
+
+  .bank-payment-dialog__fx > svg {
+    transform: rotate(90deg);
+    justify-self: center;
+  }
+
+  .bank-payment-dialog__fx > span,
+  .bank-payment-dialog__fx > span:last-of-type {
+    text-align: center;
+  }
+}
+
+.bank-payment-dialog > p,
+.bank-payment-dialog > small,
+.bank-payment-dialog > .bank-payment-error {
+  margin-right: 20px;
+  margin-left: 20px;
+}
+
+.bank-payment-dialog > p {
+  margin-top: 18px;
+  margin-bottom: 8px;
+  font-size: 1rem;
+}
+
+.bank-payment-dialog > small {
+  display: block;
+  color: var(--bank-muted);
+  line-height: 1.5;
+}
+
+.bank-payment-dialog > .bank-payment-error {
+  margin-top: 14px;
+}
+
+.bank-payment-dialog footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--bank-line);
+}
+
+.bank-payment-spin {
+  animation: bank-payment-spin 850ms linear infinite;
+}
+
+@keyframes bank-payment-spin {
+  to { transform: rotate(360deg); }
+}
+
+@container (max-width: 700px) {
+  .bank-payment-layout { grid-template-columns: 1fr; }
+}
+
+@container (max-width: 460px) {
+  .bank-payment-surface,
+  .bank-receive-surface { padding: 20px 16px; }
+  .bank-receive-identifier { grid-template-columns: 1fr; }
+  .bank-receive-identifier > button { grid-column: 1; grid-row: auto; }
+  .bank-payment-dialog footer { flex-direction: column-reverse; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bank-payment-spin { animation: none; }
+}

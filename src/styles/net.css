@@ -2833,6 +2833,16 @@
   background: rgba(243, 230, 0, 0.035);
 }
 
+.net-persona-control__session[data-mode='take-control'] {
+  border-color: rgba(132, 183, 214, 0.48);
+  background: rgba(77, 140, 180, 0.045);
+}
+
+.net-persona-control__session[data-mode='take-control'] .net-persona-control__session-label span,
+.net-persona-control__session[data-mode='take-control'] .net-persona-control__session-identity span {
+  color: rgba(168, 215, 241, 0.94);
+}
+
 .net-persona-control__session[data-mode='compromised-session'] {
   border-color: rgba(255, 84, 104, 0.48);
   background: rgba(255, 84, 104, 0.045);
@@ -2927,6 +2937,7 @@
 .net-persona-control__inspect,
 .net-persona-control__act,
 .net-persona-control__take-control,
+.net-persona-control__compromise,
 .net-persona-control__take-control-confirm,
 .net-persona-control__take-control-cancel {
   display: inline-flex;
@@ -2974,20 +2985,59 @@
 
 .net-persona-control__take-control,
 .net-persona-control__take-control-confirm {
-  border-color: rgba(255, 84, 104, 0.62);
-  background: rgba(255, 84, 104, 0.08);
-  color: #ff5468;
+  border-color: rgba(132, 183, 214, 0.62);
+  background: rgba(77, 140, 180, 0.09);
+  color: #a8d7f1;
 }
 
 .net-persona-control__take-control:hover:not(:disabled),
 .net-persona-control__take-control:focus-visible,
 .net-persona-control__take-control-confirm:hover:not(:disabled),
 .net-persona-control__take-control-confirm:focus-visible {
+  border-color: #a8d7f1;
+  background: rgba(77, 140, 180, 0.16);
+  color: #f5f1d6;
+  outline: 2px solid rgba(132, 183, 214, 0.2);
+  outline-offset: 2px;
+}
+
+.net-persona-control__compromise {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 6px 9px;
+  border-color: rgba(255, 84, 104, 0.62);
+  border-radius: 5px;
+  background: rgba(255, 84, 104, 0.08);
+  color: #ff5468;
+  font-family: var(--font-mono);
+  font-size: 0.5rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+}
+
+.net-persona-control__compromise:hover:not(:disabled),
+.net-persona-control__compromise:focus-visible {
   border-color: #ff5468;
   background: rgba(255, 84, 104, 0.14);
   color: #f5f1d6;
   outline: 2px solid rgba(255, 84, 104, 0.2);
   outline-offset: 2px;
+}
+
+.net-persona-control__take-control-confirm--compromise {
+  border-color: rgba(255, 84, 104, 0.62);
+  background: rgba(255, 84, 104, 0.08);
+  color: #ff5468;
+}
+
+.net-persona-control__take-control-confirm--compromise:hover:not(:disabled),
+.net-persona-control__take-control-confirm--compromise:focus-visible {
+  border-color: #ff5468;
+  background: rgba(255, 84, 104, 0.14);
+  outline-color: rgba(255, 84, 104, 0.2);
 }
 
 .net-persona-control__take-control-cancel:hover:not(:disabled),
@@ -3002,6 +3052,7 @@
 .net-persona-control__inspect:disabled,
 .net-persona-control__act:disabled,
 .net-persona-control__take-control:disabled,
+.net-persona-control__compromise:disabled,
 .net-persona-control__take-control-confirm:disabled,
 .net-persona-control__take-control-cancel:disabled {
   cursor: wait;
@@ -3278,6 +3329,132 @@
   color: rgba(245, 241, 214, 0.82);
   font-family: var(--font-sans);
   font-size: 0.7rem;
+}
+
+.net-persona-control__os {
+  display: grid;
+  gap: 10px;
+  padding: 13px;
+  border: 1px solid rgba(132, 183, 214, 0.2);
+  background: rgba(77, 140, 180, 0.055);
+}
+
+.net-persona-control__os > header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: rgba(164, 210, 236, 0.9);
+}
+
+.net-persona-control__os > header > div {
+  display: grid;
+  gap: 2px;
+}
+
+.net-persona-control__os > header span,
+.net-persona-control__os > header strong,
+.net-persona-control__os small,
+.net-persona-control__os p,
+.net-persona-control__os select,
+.net-persona-control__os button {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+}
+
+.net-persona-control__os > header span {
+  color: rgba(164, 184, 197, 0.66);
+  font-size: 0.58rem;
+  letter-spacing: 0.12em;
+}
+
+.net-persona-control__os > header strong {
+  color: rgba(239, 247, 252, 0.94);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+}
+
+.net-persona-control__os-action {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.net-persona-control__os-action select,
+.net-persona-control__os-action button {
+  min-height: 34px;
+  border: 1px solid rgba(154, 190, 211, 0.24);
+}
+
+.net-persona-control__os > label input {
+  width: 100%;
+  min-height: 34px;
+  padding: 0 9px;
+  border: 1px solid rgba(154, 190, 211, 0.24);
+  color: rgba(234, 244, 250, 0.92);
+  background: rgba(7, 15, 20, 0.92);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+}
+
+.net-persona-control__os-action select:focus-visible,
+.net-persona-control__os > label input:focus-visible {
+  border-color: rgba(171, 218, 244, 0.68);
+  outline: 2px solid rgba(78, 151, 194, 0.28);
+  outline-offset: 2px;
+}
+
+.net-persona-control__os-action select {
+  width: 100%;
+  padding: 0 9px;
+  color: rgba(234, 244, 250, 0.92);
+  background: rgba(7, 15, 20, 0.92);
+  font-size: 0.65rem;
+  letter-spacing: 0.07em;
+}
+
+.net-persona-control__os-action button {
+  padding: 0 11px;
+  color: rgba(184, 222, 243, 0.94);
+  background: rgba(78, 151, 194, 0.1);
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.net-persona-control__os-action button:hover:not(:disabled),
+.net-persona-control__os-action button:focus-visible {
+  border-color: rgba(171, 218, 244, 0.55);
+  background: rgba(78, 151, 194, 0.18);
+}
+
+.net-persona-control__os-action button:disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+
+.net-persona-control__os small,
+.net-persona-control__os p {
+  margin: 0;
+  color: rgba(161, 181, 194, 0.65);
+  font-size: 0.56rem;
+  line-height: 1.55;
+  letter-spacing: 0.06em;
+}
+
+.net-persona-control__os p {
+  color: rgba(255, 153, 153, 0.88);
+}
+
+.net-persona-control__os p button {
+  padding: 0;
+  color: inherit;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  background: transparent;
+  font-size: inherit;
+  font-weight: 800;
+  letter-spacing: inherit;
 }
 
 .net-persona-control__detail-actions {

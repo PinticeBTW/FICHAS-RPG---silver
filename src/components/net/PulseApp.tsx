@@ -123,6 +123,7 @@ interface PulseAppProps {
   readonly accountSessionKey: string | null
   readonly contentSessionKey: string | null
   readonly compromisedSession: NetCompromisedPulseSession
+  readonly networkAuthorityLabel?: string
   readonly onContextMismatch: () => void
   readonly onActivateAccount: (input: {
     readonly handle: string
@@ -465,6 +466,7 @@ export function PulseApp({
   accountSessionKey,
   contentSessionKey,
   compromisedSession,
+  networkAuthorityLabel = 'VEGA MESH',
   onContextMismatch,
   onActivateAccount,
 }: PulseAppProps) {
@@ -2043,7 +2045,7 @@ export function PulseApp({
         <span className="pulse-nav__self-avatar">{publishingPulseAccount?.avatarUrl ? <SharedMediaImage source={publishingPulseAccount.avatarUrl} variant="thumbnail" alt="" /> : publishingPulseAccount ? publishingPulseAccount.handle.slice(0, 1).toUpperCase() : <User size={15} />}</span>
         <span className="pulse-nav__self-copy"><strong>{selfLabel}</strong><small>{selfHandle}</small></span>
       </button>
-      <p className="pulse-nav__footnote">Authenticated through VEGA MESH</p>
+      <p className="pulse-nav__footnote">Authenticated through {networkAuthorityLabel}</p>
     </nav>
     <section className="pulse-center">{centerContent}</section>
     {deleteTarget ? <PulseDeleteConfirmation

@@ -9,6 +9,7 @@ export type NetGmPersonaSessionMode =
   | 'none'
   | 'inspect'
   | 'gm-persona'
+  | 'take-control'
   | 'compromised-session'
 export type NetSelectableGmPersonaMode = Exclude<NetGmPersonaSessionMode, 'none'>
 
@@ -48,6 +49,12 @@ export type NetGmPersonaState =
       readonly identity: NetResolvedIdentity
     }
   | {
+      readonly status: 'controlled'
+      readonly authenticatedProfileId: string
+      readonly mode: 'take-control'
+      readonly identity: NetResolvedIdentity
+    }
+  | {
       readonly status: 'compromised'
       readonly authenticatedProfileId: string
       readonly mode: 'compromised-session'
@@ -62,7 +69,7 @@ export type NetGmPersonaState =
 export interface NetActionActorContext {
   readonly authenticatedActorProfileId: string
   readonly personaSubject?: NetIdentitySubject
-  readonly mode: 'owner' | 'gm-persona' | 'inspect' | 'compromised-session'
+  readonly mode: 'owner' | 'gm-persona' | 'inspect' | 'take-control' | 'compromised-session'
 }
 
 /**
@@ -73,6 +80,6 @@ export interface NetContentAuditContext {
   readonly authenticatedActorProfileId: string
   readonly presentedAuthorAccountId?: string
   readonly personaSubject?: NetIdentitySubject
-  readonly actionMode: 'owner' | 'gm-persona' | 'inspect' | 'compromised-session'
+  readonly actionMode: 'owner' | 'gm-persona' | 'inspect' | 'take-control' | 'compromised-session'
   readonly authorizationBasis: string
 }

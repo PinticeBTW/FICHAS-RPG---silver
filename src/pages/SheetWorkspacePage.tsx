@@ -1,5 +1,5 @@
 import { BookOpenText, ChevronDown, ChevronLeft, ChevronRight, Cpu, Folder, FolderOpen, GripVertical, LogOut, Network, Pencil, Plus, RefreshCcw, Save, Search, Share2, StickyNote, X } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { CyberwareCatalogManager } from '../components/character/CyberwareCatalogManager'
 import { PdfSheetEditor } from '../components/character/PdfSheetEditor'
@@ -253,6 +253,13 @@ function buildSaveErrorMessage(error: unknown, profileToSave: Profile) {
     ].join(' ')
   }
 
+  if (
+    normalizedMessage.includes('economy_sheet_karma_invalid')
+    || normalizedMessage.includes('economy_sheet_karma_conflict')
+  ) {
+    return 'Karma invalido. Usa "-" para sem perfil ou um numero inteiro entre -1000000000 e +1000000000.'
+  }
+
   if (isNpcProfile(profileToSave)) {
     const looksLikePolicyError =
       normalizedMessage.includes('row-level security') ||
@@ -293,11 +300,52 @@ function isKarmaFieldAlias(fieldName: string) {
   return KARMA_FIELD_ALIASES.includes(fieldName as (typeof KARMA_FIELD_ALIASES)[number])
 }
 
+function isReadOnlyEconomyMirrorField(fieldName: string) {
+  return fieldName === 'CASH'
+}
+
+function normalizeSheetEconomyDraft(
+  localFields: Record<string, string>,
+  authoritativeFields: Record<string, string>,
+) {
+  const next = { ...localFields }
+
+  if (Object.prototype.hasOwnProperty.call(authoritativeFields, 'CASH')) {
+    next.CASH = authoritativeFields.CASH
+  }
+
+  const hasLocalKarma = KARMA_FIELD_ALIASES.some((alias) =>
+    Object.prototype.hasOwnProperty.call(localFields, alias),
+  )
+  const hasAuthoritativeKarma = KARMA_FIELD_ALIASES.some((alias) =>
+    Object.prototype.hasOwnProperty.call(authoritativeFields, alias),
+  )
+  if (hasLocalKarma || hasAuthoritativeKarma) {
+    const karmaSource = hasLocalKarma ? localFields : authoritativeFields
+    for (const alias of KARMA_FIELD_ALIASES) {
+      delete next[alias]
+    }
+    next.KARMA = readSheetField(karmaSource, ...KARMA_FIELD_ALIASES)
+  }
+
+  return next
+}
+
 function resolveKarmaTone(fieldData: Record<string, string>) {
   const raw = readSheetField(fieldData, ...KARMA_FIELD_ALIASES)
   const compact = raw.normalize('NFKC').trim().replace(/\s+/g, '')
 
-  if (!compact) {
+  if (!compact || compact === '-') {
+    return 'grey' as const
+  }
+  if (compact === '--') {
+    return 'red' as const
+  }
+
+  if (/^[+-]?[0-9]+$/u.test(compact)) {
+    const value = Number(compact)
+    if (value > 0) return 'blue' as const
+    if (value < 0) return 'red' as const
     return 'grey' as const
   }
 
@@ -908,10 +956,10 @@ export function SheetWorkspacePage() {
     '[]'
   const sheetEditorFieldData: Record<string, string> = useMemo(
     () => ({
-      ...draftFields,
+      ...normalizeSheetEconomyDraft(draftFields, sheet?.fieldData ?? {}),
       [CYBERWARE_CATALOG_FIELD_KEY]: globalCyberwareCatalogValue,
     }),
-    [draftFields, globalCyberwareCatalogValue],
+    [draftFields, globalCyberwareCatalogValue, sheet?.fieldData],
   )
   const relationsFieldKey = useMemo(
     () => resolveRelationsFieldKey(sheetEditorFieldData),
@@ -940,11 +988,11 @@ export function SheetWorkspacePage() {
       : UNSAVED_CHANGES_LEAVE_MESSAGE,
   )
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     sheetRef.current = sheet
   }, [sheet])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     draftFieldsRef.current = draftFields
   }, [draftFields])
 
@@ -952,7 +1000,7 @@ export function SheetWorkspacePage() {
     profileRef.current = profile
   }, [profile])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     selectedProfileRef.current = selectedProfile
   }, [selectedProfile])
 
@@ -960,7 +1008,7 @@ export function SheetWorkspacePage() {
     accessibleProfilesRef.current = accessibleProfiles
   }, [accessibleProfiles])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     isDirtyRef.current = isDirty
   }, [isDirty])
 
@@ -1157,14 +1205,19 @@ export function SheetWorkspacePage() {
 
     const cachedSheet = getCachedSheetRecord(selectedProfileId)
     const localDraft = canEdit ? readLocalDraft(selectedProfileId) : null
-    const restoredLocalDraft = localDraft ? serializeFieldData(localDraft) !== serializeFieldData(cachedSheet?.fieldData ?? {}) : false
 
     const loadSheet = async () => {
       setError(null)
 
       if (cachedSheet) {
+        const restoredDraft = localDraft
+          ? normalizeSheetEconomyDraft(localDraft, cachedSheet.fieldData)
+          : cachedSheet.fieldData
+        const restoredLocalDraft = Boolean(
+          localDraft && serializeFieldData(restoredDraft) !== serializeFieldData(cachedSheet.fieldData),
+        )
         setSheet(cachedSheet)
-        setDraftFields(localDraft ?? cachedSheet.fieldData)
+        setDraftFields(restoredDraft)
         setSyncLabel(restoredLocalDraft ? 'Rascunho local restaurado. Clica em Guardar.' : 'Ficha pronta')
         setLoadingSheet(false)
         return
@@ -1195,8 +1248,14 @@ export function SheetWorkspacePage() {
           return
         }
 
+        const restoredDraft = localDraft
+          ? normalizeSheetEconomyDraft(localDraft, nextSheet.fieldData)
+          : nextSheet.fieldData
+        const restoredLocalDraft = Boolean(
+          localDraft && serializeFieldData(restoredDraft) !== serializeFieldData(nextSheet.fieldData),
+        )
         setSheet(nextSheet)
-        setDraftFields(localDraft ?? nextSheet.fieldData)
+        setDraftFields(restoredDraft)
         setSyncLabel(restoredLocalDraft ? 'Rascunho local restaurado. Clica em Guardar.' : 'Ficha pronta')
       } catch (caughtError) {
         if (cancelled) {
@@ -1289,7 +1348,10 @@ export function SheetWorkspacePage() {
             const fieldChangedRemotely = nextValue !== previousValue
             const fieldChangedLocally = currentValue !== previousValue
 
-            if (fieldChangedRemotely && !fieldChangedLocally) {
+            if (fieldChangedRemotely && isReadOnlyEconomyMirrorField(fieldName)) {
+              mergedDraft[fieldName] = nextValue
+              mergedRemoteChanges = true
+            } else if (fieldChangedRemotely && !fieldChangedLocally) {
               mergedDraft[fieldName] = nextValue
               mergedRemoteChanges = true
             } else if (fieldChangedRemotely && fieldChangedLocally) {
@@ -1667,19 +1729,30 @@ export function SheetWorkspacePage() {
     }
 
     const profileToSave = selectedProfileRef.current
-    const draftToSave = draftFieldsRef.current
+    const draftAtSave = draftFieldsRef.current
+    const authoritativeSheetAtSave = sheetRef.current
 
-    if (!profileToSave) {
+    if (!profileToSave || !authoritativeSheetAtSave) {
       return
     }
 
-    if (!isDirtyRef.current) {
+    // The button is rendered from React state, so the click must not be
+    // rejected by an effect-lagging ref from the previous render. Recompute
+    // against the exact draft/sheet snapshots that this save will use.
+    if (
+      serializeFieldData(draftAtSave)
+      === serializeFieldData(authoritativeSheetAtSave.fieldData)
+    ) {
       setSyncLabel('Sem alteracoes por guardar')
       return
     }
 
     const saveProfileId = profileToSave.id
-    const draftSigAtSave = serializeFieldData(draftToSave)
+    const draftSigAtSave = serializeFieldData(draftAtSave)
+    const draftToSave = normalizeSheetEconomyDraft(
+      draftAtSave,
+      authoritativeSheetAtSave.fieldData,
+    )
 
     savingRef.current = true
     setSaving(true)
@@ -1693,20 +1766,16 @@ export function SheetWorkspacePage() {
             currentUpdatedAt: sheetRef.current?.updatedAt ?? null,
           })
         : await saveSheetFields(profileToSave.id, draftToSave)
-      const optimisticSavedSheet = {
-        ...savedSheet,
-        fieldData: draftToSave,
-      }
 
       if (selectedProfileRef.current?.id === saveProfileId) {
-        setSheet(optimisticSavedSheet)
+        setSheet(savedSheet)
         setDraftFields((current) => {
           const currentSig = serializeFieldData(current)
 
           // If user made changes during the save, preserve them
           if (currentSig !== draftSigAtSave) return current
 
-          return current
+          return savedSheet.fieldData
         })
         setSyncLabel('Guardado manualmente')
       }
@@ -2125,8 +2194,22 @@ export function SheetWorkspacePage() {
   return (
     <main className={isSilverWorkspace ? 'w-full min-w-0' : 'mx-auto w-full min-w-0 max-w-[2800px]'}>
       {error ? (
-        <div className="mt-2 border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
-          {error}
+        <div
+          className="sticky top-2 z-50 mt-2 flex flex-wrap items-center justify-between gap-3 border border-rose-500/30 bg-[#241014] px-4 py-3 text-sm text-rose-100 shadow-lg shadow-black/30"
+          role="alert"
+          aria-live="assertive"
+        >
+          <span>{error}</span>
+          {canEdit && isDirty && !saving ? (
+            <button
+              type="button"
+              onClick={() => void handleSave()}
+              className="signal-button shrink-0 px-3 py-1.5 text-xs"
+              data-tone="danger"
+            >
+              Tentar guardar novamente
+            </button>
+          ) : null}
         </div>
       ) : null}
 
@@ -2808,22 +2891,23 @@ export function SheetWorkspacePage() {
                   }}
                   onFieldChange={(fieldName, value) => {
                     setDraftFields((current) => {
-                      if (!isKarmaFieldAlias(fieldName)) {
-                        return {
-                          ...current,
-                          [fieldName]: value,
+                      if (isReadOnlyEconomyMirrorField(fieldName)) {
+                        return current
+                      }
+
+                      if (isKarmaFieldAlias(fieldName)) {
+                        const next = { ...current }
+                        for (const alias of KARMA_FIELD_ALIASES) {
+                          delete next[alias]
                         }
+                        next.KARMA = value
+                        return next
                       }
 
-                      const next: Record<string, string> = {
+                      const next = {
                         ...current,
-                        KARMA: value,
+                        [fieldName]: value,
                       }
-
-                      for (const alias of KARMA_FIELD_ALIASES) {
-                        next[alias] = value
-                      }
-
                       return next
                     })
                   }}

@@ -28,6 +28,8 @@ interface NvnAppProps {
   onNotice: (message: string) => void
   accessMode: NetAppAccessMode
   isWindowOpen: boolean
+  expectedIdentityLinkId?: string
+  identitySessionKey: string
   onOpenApp?: (appId: string) => void
 }
 
@@ -36,7 +38,13 @@ const NVN_GM_DEFAULT_WORKSPACE =
     ? 'newsroom'
     : 'reader'
 
-export function NvnApp({ onNotice, accessMode, isWindowOpen }: NvnAppProps) {
+export function NvnApp({
+  onNotice,
+  accessMode,
+  isWindowOpen,
+  expectedIdentityLinkId,
+  identitySessionKey,
+}: NvnAppProps) {
   const isGmSystemAccess = accessMode === 'gm-system'
   const [gmWorkspace, setGmWorkspace] = useState<NvnWorkspace>(NVN_GM_DEFAULT_WORKSPACE)
   const [newsroomDirty, setNewsroomDirty] = useState(false)
@@ -53,11 +61,20 @@ export function NvnApp({ onNotice, accessMode, isWindowOpen }: NvnAppProps) {
     : isLiveControl
       ? liveControlDirty
       : false
-  const realtime = useNetNvnRealtime(isWindowOpen)
-  const radio = useNetNvnRadio(isWindowOpen, realtime.radioInvalidationVersion)
+  const readerEnabled = isWindowOpen && !isGmSystemAccess && Boolean(expectedIdentityLinkId)
+  const realtimeEnabled = isWindowOpen
+    && (isGmSystemAccess || Boolean(expectedIdentityLinkId))
+  const realtime = useNetNvnRealtime(realtimeEnabled)
+  const radio = useNetNvnRadio(
+    readerEnabled,
+    realtime.radioInvalidationVersion,
+    expectedIdentityLinkId,
+    identitySessionKey,
+  )
   const reader = useNetNvnReader(
-    isWindowOpen && !isAnyGmControl,
+    readerEnabled && !isAnyGmControl,
     realtime.articleInvalidationVersion,
+    expectedIdentityLinkId,
   )
   const pageLoading = reader.pageStatus !== 'ready' && !reader.pageError
   const isSearchView =
@@ -67,7 +84,14 @@ export function NvnApp({ onNotice, accessMode, isWindowOpen }: NvnAppProps) {
 
   let centerContent: ReactNode
 
-  if (reader.selectedArticleId) {
+  if (!isGmSystemAccess && !expectedIdentityLinkId) {
+    centerContent = (
+      <NvnReaderFeedback
+        title="NVN identity unavailable"
+        detail="A current VEIL runtime identity with NVN installed is required. GM System, INSPECT, and compromised sessions do not inherit a fictional reader."
+      />
+    )
+  } else if (reader.selectedArticleId) {
     if (reader.detailStatus === 'ready' && reader.detail) {
       centerContent = (
         <>
@@ -121,8 +145,9 @@ export function NvnApp({ onNotice, accessMode, isWindowOpen }: NvnAppProps) {
   } else if (reader.nav === 'live') {
     centerContent = (
       <NvnLiveDesk
-        enabled={isWindowOpen && !isAnyGmControl}
+        enabled={readerEnabled && !isAnyGmControl}
         realtimeInvalidationVersion={realtime.liveInvalidationVersion}
+        expectedIdentityLinkId={expectedIdentityLinkId}
         radio={radio}
       />
     )
@@ -283,6 +308,7 @@ export function NvnApp({ onNotice, accessMode, isWindowOpen }: NvnAppProps) {
     !reader.selectedArticleId && reader.nav !== 'live' && reader.nav !== 'archive'
 
   const openReader = (nav: NvnReaderNav) => {
+    if (isGmSystemAccess) return
     if (isAnyGmControl && activeControlDirty) {
       setRequestedDestination({ workspace: 'reader', nav })
       return

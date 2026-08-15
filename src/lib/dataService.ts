@@ -500,28 +500,25 @@ export async function saveCharacterStats(characterId: string, payload: Character
 
   logSupabaseFetch({ functionName: 'saveCharacterStats', table: 'character_stats' })
 
-  const { error } = await supabase.from('character_stats').upsert(
-    {
-      character_id: characterId,
-      hp_current: payload.hpCurrent,
-      hp_max: payload.hpMax,
-      ram_current: payload.ramCurrent,
-      ram_max: payload.ramMax,
-      karma: payload.karma,
-      cyberpsychosis: payload.cyberpsychosis,
-      humanity: payload.humanity,
-      armor: payload.armor,
-      initiative: payload.initiative,
-      reflex: payload.reflex,
-      tech: payload.tech,
-      cool: payload.cool,
-      body: payload.body,
-      intelligence: payload.intelligence,
-      empathy: payload.empathy,
-      luck: payload.luck,
-    },
-    { onConflict: 'character_id' },
-  )
+  const { error } = await supabase.rpc('save_character_stats_bidirectional_v2', {
+    p_character_id: characterId,
+    p_hp_current: payload.hpCurrent,
+    p_hp_max: payload.hpMax,
+    p_ram_current: payload.ramCurrent,
+    p_ram_max: payload.ramMax,
+    p_karma: payload.karma,
+    p_cyberpsychosis: payload.cyberpsychosis,
+    p_humanity: payload.humanity,
+    p_armor: payload.armor,
+    p_initiative: payload.initiative,
+    p_reflex: payload.reflex,
+    p_tech: payload.tech,
+    p_cool: payload.cool,
+    p_body: payload.body,
+    p_intelligence: payload.intelligence,
+    p_empathy: payload.empathy,
+    p_luck: payload.luck,
+  })
 
   if (error) {
     throw error

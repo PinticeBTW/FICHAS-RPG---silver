@@ -95,7 +95,7 @@ export function NvnSidebar({
             </button>
           </div>
         ) : null}
-        {NAV_ITEMS.map((item) => {
+        {!isGmSystemAccess ? NAV_ITEMS.map((item) => {
           const Icon = item.icon
           return (
             <button
@@ -109,7 +109,7 @@ export function NvnSidebar({
               <span>{item.label}</span>
             </button>
           )
-        })}
+        }) : null}
       </div>
 
       <p className="nvn-sidebar__footnote">

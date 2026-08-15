@@ -1,4 +1,4 @@
-import { ChevronDown, ImagePlus, Link2, Lock, Pencil, Play, X } from 'lucide-react'
+import { ChevronDown, ChevronsUpDown, ImagePlus, Link2, Lock, Pencil, Play, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy } from 'pdfjs-dist'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
@@ -17,6 +17,8 @@ import {
   type SheetLayoutBox,
 } from '../../lib/pdfSheetLayoutConfig'
 import { pdfSheetPageSizes, pdfSheetTemplateFields, type PdfSheetTemplateField } from '../../lib/pdfSheetTemplate'
+import type { SheetEconomySubjectKind } from '../../lib/sheetEconomyService'
+import { useSheetEconomySources } from './useSheetEconomySources'
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl
 
@@ -34,12 +36,62 @@ const TEMPLATE_URLS: Record<string, string> = {
 }
 
 const KARMA_FIELD_ALIASES = ['KARMA', 'Karma', 'karma', 'K4rma', 'K4RMA'] as const
+const SHEET_MONEY_SOURCE_STORAGE_PREFIX = 'rpgsilver-sheet-money-source:'
+
+type SheetMoneySourceId = 'vlt' | 'vox-bank' | 'shneider-bank' | 'altara-bank'
+
+interface SheetMoneySourcePresentation {
+  readonly id: SheetMoneySourceId
+  readonly label: 'CASH' | 'VOX BANK' | 'SHNEIDER' | 'ALTARA BANK'
+  readonly value: string
+  readonly available: boolean
+  readonly status: 'ready' | 'loading' | 'error' | 'unavailable'
+  readonly title: string
+}
+
+const DEFAULT_SHEET_MONEY_SOURCE: SheetMoneySourcePresentation = {
+  id: 'vlt',
+  label: 'CASH',
+  value: '',
+  available: true,
+  status: 'ready',
+  title: 'Read-only VLT wallet balance',
+}
+
+const noopMoneySourceToggle = () => undefined
+
+function readStoredMoneySource(storageKey: string): SheetMoneySourceId {
+  if (!storageKey || typeof window === 'undefined') return 'vlt'
+  try {
+    const stored = window.localStorage.getItem(storageKey)
+    return stored === 'vox-bank' || stored === 'shneider-bank' ? stored : 'vlt'
+  } catch {
+    return 'vlt'
+  }
+}
+
+function storeMoneySource(storageKey: string, sourceId: SheetMoneySourceId) {
+  if (!storageKey || typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(storageKey, sourceId)
+  } catch {
+    // A blocked preference store must never block the sheet itself.
+  }
+}
 
 function karmaToColor(karma: string): 'blue' | 'grey' | 'red' {
   const normalized = karma.normalize('NFKC').trim()
   const compact = normalized.replace(/\s+/g, '')
 
-  if (!compact) return 'grey'
+  if (!compact || compact === '-') return 'grey'
+  if (compact === '--') return 'red'
+
+  if (/^[+-]?[0-9]+$/u.test(compact)) {
+    const value = Number(compact)
+    if (value > 0) return 'blue'
+    if (value < 0) return 'red'
+    return 'grey'
+  }
 
   if (/[+\uFF0B\uFE62]/u.test(compact)) return 'blue'
   if (/[-\u2010\u2011\u2012\u2013\u2014\uFE63\uFF0D\u2212|\uFF5C]/u.test(compact)) return 'red'
@@ -1035,6 +1087,9 @@ function TemplatePdfPage({
   cyberwareViewerProfileId,
   mediaScope,
   tone,
+  moneySource = DEFAULT_SHEET_MONEY_SOURCE,
+  canSelectMoneySource = false,
+  onToggleMoneySource = noopMoneySourceToggle,
 }: {
   pageNumber: number
   templateUrl: string
@@ -1045,6 +1100,9 @@ function TemplatePdfPage({
   cyberwareViewerProfileId: string | null
   mediaScope: Pick<SharedMediaScope, 'subjectKind' | 'subjectId'>
   tone: 'blue' | 'red' | 'grey'
+  moneySource?: SheetMoneySourcePresentation
+  canSelectMoneySource?: boolean
+  onToggleMoneySource?: () => void
 }) {
   const pageSize = pdfSheetPageSizes[pageNumber - 1]
   const pageRef = useRef<HTMLElement | null>(null)
@@ -1360,7 +1418,8 @@ function TemplatePdfPage({
   const renderField = (field: PdfSheetTemplateField, sectionBox?: SheetLayoutBox) => {
     const fieldBox = { x: field.x, y: field.y, width: field.width, height: field.height }
     const wrapperStyle = buildBoxStyle(fieldBox, pageSize, sectionBox)
-    const inputClassName = getFieldInputClassName(field, canEdit)
+    const fieldCanEdit = canEdit
+    const inputClassName = getFieldInputClassName(field, fieldCanEdit)
     const inputStyle = field.name === 'CIDADE'
       ? { ...buildFieldInputStyle(field), ...buildDebugInputStyle(), fontFamily: 'CyberwayRiders, sans-serif' }
       : { ...buildFieldInputStyle(field), ...buildDebugInputStyle() }
@@ -1377,6 +1436,106 @@ function TemplatePdfPage({
       inputStyle.paddingRight = 'calc(18px * var(--sheet-scale, 1))'
     }
     const fieldKey = `${field.page}-${field.name}-${field.widgetIndex}`
+
+    if (field.name === 'CASH') {
+      const sourceDisplayClassName = getFieldInputClassName(field, false)
+      const sourceBackground = tone === 'blue'
+        ? 'rgba(4, 23, 35, 0.92)'
+        : tone === 'red'
+          ? 'rgba(37, 8, 13, 0.92)'
+          : 'rgba(24, 24, 22, 0.92)'
+
+      return (
+        <div
+          key={fieldKey}
+          className="absolute overflow-hidden"
+          style={{
+            ...(sectionBox
+              ? { inset: 0 }
+              : wrapperStyle),
+            background: sourceBackground,
+            boxShadow: 'inset 0 0 0 calc(1px * var(--sheet-scale, 1)) rgba(255,255,255,0.74)',
+          }}
+          data-sheet-money-source={moneySource.id}
+          title={moneySource.title}
+        >
+          <span
+            className={`pointer-events-none absolute inset-y-0 left-0 z-10 flex w-[55%] items-center justify-center font-display leading-none tracking-[0.04em] ${
+              moneySource.status === 'error' ? 'text-rose-200' : 'text-white/70'
+            }`}
+            style={{
+              fontSize: moneySource.id === 'vlt' || moneySource.id === 'altara-bank'
+                ? 'calc(18px * var(--sheet-scale, 1))'
+                : moneySource.id === 'vox-bank'
+                  ? 'calc(12px * var(--sheet-scale, 1))'
+                  : 'calc(9px * var(--sheet-scale, 1))',
+            }}
+          >
+            {moneySource.label}{moneySource.id === 'altara-bank' ? '' : ':'}
+          </span>
+          <span
+            className="pointer-events-none absolute inset-y-0 left-[55%] z-10 w-px bg-white/70"
+            aria-hidden="true"
+          />
+          {canSelectMoneySource ? (
+            <button
+              type="button"
+              onClick={onToggleMoneySource}
+              className="absolute right-0 top-0 z-20 flex items-center justify-center text-white/70 transition-colors hover:bg-white/10 hover:text-white focus-visible:bg-white/15 focus-visible:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/90"
+              style={{
+                width: 'calc(17px * var(--sheet-scale, 1))',
+                height: 'calc(15px * var(--sheet-scale, 1))',
+                minWidth: '24px',
+                minHeight: '24px',
+              }}
+              aria-label="Show next financial account balance"
+              title="Switch account display"
+            >
+              <ChevronsUpDown size="calc(8px * var(--sheet-scale, 1))" strokeWidth={2} />
+            </button>
+          ) : null}
+          <span
+            className={`${sourceDisplayClassName} select-none`}
+            style={{
+              ...inputStyle,
+              inset: '0 0 0 55%',
+              width: '45%',
+              padding: 'calc(8px * var(--sheet-scale, 1)) calc(2px * var(--sheet-scale, 1)) 0',
+              fontSize: moneySource.status === 'ready'
+                ? 'calc(19px * var(--sheet-scale, 1))'
+                : 'calc(9px * var(--sheet-scale, 1))',
+            }}
+            aria-label={`${moneySource.label} balance`}
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            {moneySource.value}
+          </span>
+        </div>
+      )
+    }
+
+    if (field.name === 'KARMA') {
+      return (
+        <div key={fieldKey} className="absolute overflow-hidden" style={wrapperStyle}>
+          <input
+            value={readKarmaValue(fieldData)}
+            readOnly={!canEdit}
+            spellCheck={false}
+            autoComplete="off"
+            inputMode="text"
+            maxLength={12}
+            onChange={(event) => onFieldChange('KARMA', event.target.value)}
+            className={getFieldInputClassName(field, canEdit)}
+            style={inputStyle}
+            aria-label="Karma reputation"
+            title={canEdit
+              ? 'Edit authoritative VLT Karma reputation'
+              : 'Authoritative VLT Karma reputation'}
+          />
+        </div>
+      )
+    }
 
     if (field.name === 'SEXO') {
       const value = fieldData['SEXO'] ?? ''
@@ -1492,7 +1651,7 @@ function TemplatePdfPage({
         <div key={fieldKey} className="absolute overflow-hidden" style={wrapperStyle}>
           <textarea
             value={value}
-            readOnly={!canEdit}
+            readOnly={!fieldCanEdit}
             spellCheck={false}
             onChange={(event) => onFieldChange(field.name, event.target.value)}
             className={`${inputClassName} resize-none`}
@@ -1506,7 +1665,7 @@ function TemplatePdfPage({
       <div key={fieldKey} className="absolute overflow-hidden" style={wrapperStyle}>
         <input
           value={value}
-          readOnly={!canEdit}
+          readOnly={!fieldCanEdit}
           spellCheck={false}
           inputMode={isNumericField(field) ? 'numeric' : 'text'}
           onChange={(event) => onFieldChange(field.name, event.target.value)}
@@ -1776,6 +1935,160 @@ export function PdfSheetEditor({
   const color = karmaToColor(readKarmaValue(fieldData))
   const gender = sexoToGender(fieldData['SEXO'] ?? '')
   const templateUrl = TEMPLATE_URLS[`${color}-${gender}`] ?? TEMPLATE_URLS['grey-m']
+  const sheetEconomySubject = useMemo(() => {
+    if (
+      mediaScope.subjectId === 'preview' ||
+      (mediaScope.subjectKind !== 'profile-sheet' && mediaScope.subjectKind !== 'npc-card')
+    ) {
+      return null
+    }
+
+    return {
+      subjectKind: mediaScope.subjectKind as SheetEconomySubjectKind,
+      subjectId: mediaScope.subjectId,
+    }
+  }, [mediaScope.subjectId, mediaScope.subjectKind])
+  const moneySourceStorageKey = sheetEconomySubject
+    ? `${SHEET_MONEY_SOURCE_STORAGE_PREFIX}${sheetEconomySubject.subjectKind}:${sheetEconomySubject.subjectId}`
+    : ''
+  const storedMoneySource = useMemo(
+    () => readStoredMoneySource(moneySourceStorageKey),
+    [moneySourceStorageKey],
+  )
+  const [moneySourceSelection, setMoneySourceSelection] = useState<{
+    storageKey: string
+    sourceId: SheetMoneySourceId
+  }>({ storageKey: '', sourceId: 'vlt' })
+  const selectedMoneySourceId = moneySourceSelection.storageKey === moneySourceStorageKey
+    ? moneySourceSelection.sourceId
+    : storedMoneySource
+  const sheetEconomy = useSheetEconomySources(
+    sheetEconomySubject,
+    Boolean(sheetEconomySubject),
+  )
+  const moneySources = useMemo<readonly SheetMoneySourcePresentation[]>(() => {
+    if (sheetEconomySubject && !sheetEconomy.payload) {
+      const failed = sheetEconomy.status === 'error'
+      return [{
+        id: 'vlt',
+        label: 'CASH',
+        value: failed ? 'UNAVAILABLE' : 'SYNC...',
+        available: false,
+        status: failed ? 'error' : 'loading',
+        title: failed
+          ? `Financial access could not be resolved: ${sheetEconomy.error ?? 'Try again.'}`
+          : 'Resolving the authoritative financial source for this identity.',
+      }]
+    }
+
+    if (sheetEconomy.payload?.primaryOsId === 'altara') {
+      const altaraAccount = sheetEconomy.payload.altaraBank
+      const currency = sheetEconomy.payload.homeCurrency
+      const currencyLabel = currency
+        ? (altaraAccount?.balanceAmount === 1 ? currency.singularLabel : currency.pluralLabel)
+        : ''
+      return [{
+        id: 'altara-bank',
+        label: 'ALTARA BANK',
+        value: altaraAccount ? `${altaraAccount.balanceAmount} ${currencyLabel}` : '—',
+        available: Boolean(altaraAccount),
+        status: altaraAccount ? 'ready' : 'unavailable',
+        title: altaraAccount
+          ? `Read-only ${currency?.displayName ?? 'home-currency'} balance from ALTARA BANK. New Vega VG remains separate.`
+          : currency
+            ? `No active ALTARA BANK ${currency.currencyCode} account is available.`
+            : 'Currency assignment required. Silver must set a home currency.',
+      }]
+    }
+
+    const voxAccount = sheetEconomy.payload?.voxBank ?? null
+    const shneiderAccount = sheetEconomy.payload?.shneiderBank ?? null
+    const voxHasConfirmedValue = Boolean(voxAccount)
+    const voxStatus = voxHasConfirmedValue
+      ? 'ready'
+      : sheetEconomy.status === 'loading'
+        ? 'loading'
+        : sheetEconomy.status === 'error'
+          ? 'error'
+          : 'unavailable'
+    const voxValue = voxAccount
+      ? `${voxAccount.balanceAmount}vG`
+      : voxStatus === 'loading'
+        ? 'SYNC...'
+        : voxStatus === 'error'
+          ? 'UNAVAILABLE'
+          : 'NO ACCOUNT'
+    const shneiderHasConfirmedValue = Boolean(shneiderAccount)
+    const shneiderStatus = shneiderHasConfirmedValue
+      ? 'ready'
+      : sheetEconomy.status === 'loading'
+        ? 'loading'
+        : sheetEconomy.status === 'error'
+          ? 'error'
+          : 'unavailable'
+    const shneiderValue = shneiderAccount
+      ? `${shneiderAccount.balanceAmount}vG`
+      : shneiderStatus === 'loading'
+        ? 'SYNC...'
+        : shneiderStatus === 'error'
+          ? 'UNAVAILABLE'
+          : 'NO ACCOUNT'
+
+    return [
+      {
+        id: 'vlt',
+        label: 'CASH',
+        value: fieldData.CASH ?? '',
+        available: true,
+        status: 'ready',
+        title: 'Read-only VLT wallet balance. Use VLT or Economy Control to change it.',
+      },
+      {
+        id: 'vox-bank',
+        label: 'VOX BANK',
+        value: voxValue,
+        available: voxHasConfirmedValue,
+        status: voxStatus,
+        title: sheetEconomy.error
+          ? `VOX BANK could not be refreshed: ${sheetEconomy.error}`
+          : voxHasConfirmedValue
+            ? 'VOX BANK balance. Deposit or withdraw in the VOX BANK app.'
+            : 'No VOX BANK account. Viewing this source does not open one.',
+      },
+      {
+        id: 'shneider-bank',
+        label: 'SHNEIDER',
+        value: shneiderValue,
+        available: shneiderHasConfirmedValue,
+        status: shneiderStatus,
+        title: sheetEconomy.error
+          ? `SHNEIDER BANK could not be refreshed: ${sheetEconomy.error}`
+          : shneiderHasConfirmedValue
+            ? 'SHNEIDER BANK balance. Use the bank app to move or pay vG.'
+            : 'No SHNEIDER BANK account. Viewing this source does not open one.',
+      },
+    ]
+  }, [
+    fieldData.CASH,
+    sheetEconomy.error,
+    sheetEconomy.payload,
+    sheetEconomySubject,
+    sheetEconomy.status,
+  ])
+  const selectedMoneySource = moneySources.find(
+    (source) => source.id === selectedMoneySourceId,
+  ) ?? moneySources[0]
+  const handleToggleMoneySource = () => {
+    if (!sheetEconomySubject || !moneySourceStorageKey || moneySources.length < 2) return
+    const sourceOrder = moneySources.map((source) => source.id)
+    const currentIndex = sourceOrder.indexOf(selectedMoneySourceId)
+    const nextSourceId = sourceOrder[(currentIndex + 1) % sourceOrder.length]
+    setMoneySourceSelection({
+      storageKey: moneySourceStorageKey,
+      sourceId: nextSourceId,
+    })
+    storeMoneySource(moneySourceStorageKey, nextSourceId)
+  }
 
   return (
     <div className="grid grid-cols-2 gap-4">
@@ -1791,6 +2104,9 @@ export function PdfSheetEditor({
             cyberwareViewerProfileId={cyberwareViewerProfileId}
             mediaScope={mediaScope}
             tone={color}
+            moneySource={selectedMoneySource}
+            canSelectMoneySource={Boolean(sheetEconomySubject) && moneySources.length > 1}
+            onToggleMoneySource={handleToggleMoneySource}
           />
         </div>
       ))}
@@ -1824,6 +2140,10 @@ export function PdfSheetPreview({
         cyberwareViewerProfileId={null}
         mediaScope={{ subjectKind: 'profile-sheet', subjectId: 'preview' }}
         tone={color}
+        moneySource={{
+          ...DEFAULT_SHEET_MONEY_SOURCE,
+          value: fieldData.CASH ?? '',
+        }}
       />
     </div>
   )
