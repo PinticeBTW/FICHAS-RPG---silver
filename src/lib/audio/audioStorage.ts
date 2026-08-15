@@ -111,7 +111,7 @@ export async function inspectRpgAudioFile(file: File): Promise<NetNvnRadioAudioM
 export async function buildRpgAudioObjectPath(
   clipId: string,
   metadata: NetNvnRadioAudioMetadata,
-  namespace: 'nvn-radio' | 'altara-news-broadcast' = 'nvn-radio',
+  namespace: 'nvn-radio' | 'altara-news-broadcast' | 'altara-music' = 'nvn-radio',
 ): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', await metadata.file.arrayBuffer())
   const hash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')

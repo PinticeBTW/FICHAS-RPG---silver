@@ -5,6 +5,7 @@ import {
   Landmark,
   MessagesSquare,
   Newspaper,
+  Music2,
   Settings2,
   Store,
   Video,
@@ -35,6 +36,7 @@ export type NetAppId =
   | 'altara-messenger'
   | 'altara-bank'
   | 'altara-news'
+  | 'altara-music'
   | 'altara-store'
   | 'altara-settings'
 
@@ -47,9 +49,10 @@ export type NetOptionalAppId =
   | 'shneider-bank'
   | 'altara-bank'
   | 'altara-news'
+  | 'altara-music'
 export type NetCatalogueStatus = 'available' | 'coming-soon'
 export type NetAppAccessMode = 'player' | 'gm-system'
-export type NetGmSystemEntryPoint = 'signal-control' | 'newsroom-control' | 'economy-control' | 'reader'
+export type NetGmSystemEntryPoint = 'signal-control' | 'newsroom-control' | 'music-studio' | 'economy-control' | 'reader'
 
 export interface NetGmSystemAccessDefinition {
   readonly entryPoint: NetGmSystemEntryPoint
@@ -385,6 +388,35 @@ export const netAppCatalog: readonly NetAppDefinition[] = [
     },
   },
   {
+    id: 'altara-music',
+    scope: 'altara-only',
+    name: 'ALTARA MUSIC',
+    owner: 'ALTARA',
+    category: 'MUSIC',
+    description: 'ALTARA-native artists, releases, curated collections, and private listening libraries across the global network.',
+    shortDescription: 'Native music platform',
+    searchAliases: ['music', 'artists', 'albums', 'releases', 'playlists', 'audio'],
+    accentRgb: '214, 181, 121',
+    icon: Music2,
+    systemApp: false,
+    removable: true,
+    available: true,
+    catalogueStatus: 'available',
+    version: '1.0',
+    installSize: 'System service',
+    features: ['Native artists and releases', 'Curated collections', 'Private playlists and likes'],
+    defaultWindow: { width: 1180, height: 760, minWidth: 580, minHeight: 450 },
+    subtitle: 'ALTARA // GLOBAL MUSIC NETWORK',
+    onlineNotice: 'ALTARA MUSIC // LISTENING SESSION READY',
+    gmSystemAccess: {
+      entryPoint: 'music-studio',
+      statusLabel: 'MUSIC STUDIO',
+      actionLabel: 'Open MUSIC STUDIO',
+      description: 'GM System opens world-catalogue administration without creating a fictional listening identity.',
+      onlineNotice: 'ALTARA MUSIC // STUDIO CONTROL ONLINE',
+    },
+  },
+  {
     id: 'altara-store',
     scope: 'altara-only',
     name: 'ALTARA STORE',
@@ -442,6 +474,7 @@ export const optionalNetAppIds = [
   'shneider-bank',
   'altara-bank',
   'altara-news',
+  'altara-music',
 ] as const satisfies readonly NetOptionalAppId[]
 
 export function getNetAppDefinition(id: string): NetAppDefinition | undefined {

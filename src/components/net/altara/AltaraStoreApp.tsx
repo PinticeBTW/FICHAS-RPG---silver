@@ -11,7 +11,7 @@ import { useState, type CSSProperties } from 'react'
 import { getAltaraAppDefinition, type AltaraAppId } from './altaraAppCatalog'
 
 export interface AltaraStoreProduct {
-  readonly id: Extract<AltaraAppId, 'altara-bank' | 'altara-news'>
+  readonly id: Extract<AltaraAppId, 'altara-bank' | 'altara-news' | 'altara-music'>
   readonly installed: boolean
   readonly running: boolean
   readonly disclosure: string
@@ -76,7 +76,11 @@ export function AltaraStoreApp({
                 <span>{app.description}</span>
                 <div>
                   <small>{product.installed ? <><Check size={12} aria-hidden="true" /> INSTALLED</> : 'AVAILABLE'}</small>
-                  <small>{app.category === 'NEWS' ? 'GLOBAL EDITION' : 'PERSONAL BANKING'}</small>
+                  <small>{app.category === 'NEWS'
+                    ? 'GLOBAL EDITION'
+                    : app.category === 'MUSIC'
+                      ? 'GLOBAL CATALOGUE'
+                      : 'PERSONAL BANKING'}</small>
                 </div>
               </div>
 
@@ -107,7 +111,7 @@ export function AltaraStoreApp({
         {(localError ?? error) ? (
           <p className="altara-store__error" role="alert"><AlertTriangle size={13} aria-hidden="true" /> {localError ?? error}</p>
         ) : (
-          <p className="altara-store__disclosure">Installation adds only the selected application launcher state. Removing an app never deletes financial accounts, saved articles, history, or world content.</p>
+          <p className="altara-store__disclosure">Installation adds only the selected application launcher state. Removing an app never deletes accounts, saved articles, music libraries, listening history, or world content.</p>
         )}
       </div>
     </section>
