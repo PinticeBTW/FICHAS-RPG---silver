@@ -8,6 +8,7 @@ type LiveDeskPhase = 'idle' | 'loading' | 'ready' | 'failed'
 export function useNetNvnLiveDesk(
   enabled: boolean,
   realtimeInvalidationVersion: number,
+  expectedIdentityLinkId?: string,
 ) {
   const [phase, setPhase] = useState<LiveDeskPhase>('idle')
   const [desk, setDesk] = useState<NetNvnLiveDesk | null>(null)
@@ -22,13 +23,13 @@ export function useNetNvnLiveDesk(
   }, [desk])
 
   const load = useCallback(async (preserveConfirmed: boolean) => {
-    if (!enabled) return
+    if (!enabled || !expectedIdentityLinkId) return
     const sequence = ++requestSequenceRef.current
     if (preserveConfirmed && deskRef.current) setRefreshing(true)
     else setPhase('loading')
     setError(null)
     try {
-      const loaded = await fetchNetNvnLiveDesk()
+      const loaded = await fetchNetNvnLiveDesk(expectedIdentityLinkId)
       if (requestSequenceRef.current !== sequence) return
       deskRef.current = loaded
       setDesk(loaded)
@@ -46,10 +47,10 @@ export function useNetNvnLiveDesk(
       }
       setError('The authoritative NVN live ledger could not be reached. Check the connection and retry.')
     }
-  }, [enabled])
+  }, [enabled, expectedIdentityLinkId])
 
   useEffect(() => {
-    if (!enabled) {
+    if (!enabled || !expectedIdentityLinkId) {
       requestSequenceRef.current += 1
       return undefined
     }
@@ -57,17 +58,17 @@ export function useNetNvnLiveDesk(
     return () => {
       requestSequenceRef.current += 1
     }
-  }, [enabled, load])
+  }, [enabled, expectedIdentityLinkId, load])
 
   useEffect(() => {
-    if (!enabled) {
+    if (!enabled || !expectedIdentityLinkId) {
       lastRealtimeVersionRef.current = realtimeInvalidationVersion
       return
     }
     if (realtimeInvalidationVersion <= lastRealtimeVersionRef.current) return
     lastRealtimeVersionRef.current = realtimeInvalidationVersion
     void load(Boolean(deskRef.current))
-  }, [enabled, load, realtimeInvalidationVersion])
+  }, [enabled, expectedIdentityLinkId, load, realtimeInvalidationVersion])
 
   return {
     phase,

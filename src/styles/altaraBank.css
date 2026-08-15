@@ -1,0 +1,517 @@
+.altara-bank {
+  --bank-ink: #0b0c0e;
+  --bank-panel: #131416;
+  --bank-panel-2: #1a1b1e;
+  --bank-paper: #f1ede4;
+  --bank-muted: #9f9b93;
+  --bank-line: rgba(229, 210, 171, 0.16);
+  --bank-accent: #d5bb85;
+  --bank-accent-bright: #ead3a4;
+  --bank-primary-ink: #17130c;
+  --bank-danger: #bb6754;
+  --bank-danger-text: #e9b1a4;
+  --bank-display: var(--font-display, Inter);
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--bank-paper);
+  background: #0b0c0e;
+  container-type: inline-size;
+}
+
+.altara-bank button,
+.altara-bank input,
+.altara-bank textarea,
+.altara-bank select {
+  font: inherit;
+}
+
+.altara-bank button { cursor: pointer; }
+.altara-bank button:disabled { cursor: not-allowed; opacity: 0.46; }
+.altara-bank button:focus-visible,
+.altara-bank input:focus-visible,
+.altara-bank textarea:focus-visible,
+.altara-bank select:focus-visible {
+  outline: 2px solid rgba(229, 205, 157, 0.82);
+  outline-offset: 2px;
+}
+
+.altara-bank-header {
+  display: flex;
+  min-height: 72px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 12px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.075);
+  background: #111214;
+}
+
+.altara-bank-header__brand,
+.altara-bank-header__context {
+  display: flex;
+  align-items: center;
+}
+
+.altara-bank-header__brand { gap: 12px; }
+.altara-bank-header__brand > span {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgba(213, 187, 133, 0.45);
+  color: var(--bank-accent-bright);
+  transform: rotate(45deg);
+}
+.altara-bank-header__brand > span svg { transform: rotate(-45deg); }
+.altara-bank-header__brand div { display: grid; gap: 2px; }
+.altara-bank-header p,
+.altara-bank-overview p,
+.altara-bank-onboarding main p,
+.altara-bank-ledger > header p,
+.altara-bank-gm p,
+.altara-bank-nav,
+.altara-bank-account-register dt {
+  margin: 0;
+  color: rgba(224, 204, 163, 0.66);
+  font: 650 0.58rem/1.2 var(--font-mono, ui-monospace, monospace);
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+.altara-bank-header h1 {
+  margin: 0;
+  color: #f2eee5;
+  font-size: 1.12rem;
+  font-weight: 470;
+  letter-spacing: 0.035em;
+}
+.altara-bank-header__context {
+  min-width: 180px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  text-align: right;
+}
+.altara-bank-header__context small,
+.altara-bank-header__context span {
+  color: rgba(255, 255, 255, 0.46);
+  font: 620 0.54rem/1.2 var(--font-mono, ui-monospace, monospace);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+.altara-bank-header__context strong { font-size: 0.74rem; font-weight: 620; }
+.altara-bank-header__context span::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: #8bb59f;
+}
+.altara-bank-header__context span[data-status='disconnected']::before { background: #b86958; }
+.altara-bank-header__context span[data-status='connecting']::before { background: var(--bank-accent); }
+
+.altara-bank-nav {
+  display: flex;
+  min-height: 42px;
+  align-items: stretch;
+  padding: 0 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  background: #0f1012;
+}
+.altara-bank-nav button {
+  padding: 0 14px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: rgba(255, 255, 255, 0.5);
+  background: transparent;
+  text-transform: uppercase;
+}
+.altara-bank-nav button[aria-current='page'] {
+  border-bottom-color: var(--bank-accent);
+  color: var(--bank-paper);
+}
+.altara-bank-nav > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  color: rgba(255, 255, 255, 0.42);
+}
+.altara-bank-nav > span::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #8bb59f; }
+.altara-bank-nav > span[data-status='disconnected']::before { background: #b86958; }
+
+.altara-bank-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  border-bottom: 1px solid rgba(187, 103, 84, 0.25);
+  color: #e2a899;
+  background: rgba(92, 39, 29, 0.3);
+  font-size: 0.68rem;
+}
+.altara-bank-banner button { margin-left: auto; border: 0; color: inherit; background: transparent; text-decoration: underline; }
+
+.altara-bank-overview {
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  grid-template-columns: minmax(280px, 1.25fr) minmax(240px, 0.75fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 16px;
+  overflow: auto;
+  padding: clamp(20px, 3.5cqw, 36px);
+}
+
+.altara-bank-balance,
+.altara-bank-account-register,
+.altara-bank-recent,
+.altara-bank-onboarding main,
+.altara-bank-directory,
+.altara-bank-gm__detail,
+.altara-bank-gm__empty {
+  border: 1px solid var(--bank-line);
+  background: #121315;
+}
+
+.altara-bank-balance {
+  min-height: 220px;
+  padding: clamp(24px, 4cqw, 42px);
+  background: #121315;
+}
+.altara-bank-balance > strong {
+  display: block;
+  margin-top: 20px;
+  color: #f3eee4;
+  font-size: clamp(3rem, 8cqw, 5.5rem);
+  font-weight: 330;
+  line-height: 0.9;
+  letter-spacing: -0.06em;
+}
+.altara-bank-balance > span { display: block; margin-top: 13px; color: var(--bank-muted); font-size: 0.7rem; }
+.altara-bank-balance > div { display: flex; gap: 8px; margin-top: 27px; }
+
+.altara-bank-primary,
+.altara-bank-balance button,
+.altara-bank-load-more,
+.altara-bank-state button,
+.altara-bank-gm__empty button,
+.altara-bank-dialog footer button {
+  display: inline-flex;
+  min-height: 37px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 14px;
+  border: 1px solid var(--bank-line);
+  color: var(--bank-paper);
+  background: #1a1b1e;
+  font: 650 0.59rem/1 var(--font-mono, ui-monospace, monospace);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.altara-bank-primary { border-color: var(--bank-accent); color: #17130c; background: var(--bank-accent); }
+
+.altara-bank-account-register { padding: 22px; }
+.altara-bank-account-register dl { display: grid; margin: 17px 0 0; }
+.altara-bank-account-register dl div { display: grid; gap: 5px; padding: 11px 0; border-top: 1px solid rgba(255, 255, 255, 0.065); }
+.altara-bank-account-register dd { min-width: 0; margin: 0; overflow: hidden; color: #e7e2d9; font-size: 0.72rem; text-overflow: ellipsis; white-space: nowrap; }
+.altara-bank-account-register dd i { display: inline-block; width: 6px; height: 6px; margin-right: 5px; border-radius: 50%; background: #8bb59f; }
+
+.altara-bank-recent { grid-column: 1 / -1; min-height: 260px; overflow: auto; }
+.altara-bank-recent > header,
+.altara-bank-ledger > header,
+.altara-bank-gm__ledger > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 15px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.065);
+}
+.altara-bank-recent > header div { display: grid; gap: 4px; }
+.altara-bank-recent > header strong { font-size: 0.72rem; font-weight: 560; }
+.altara-bank-recent > header button { display: flex; align-items: center; gap: 4px; border: 0; color: var(--bank-accent-bright); background: transparent; font-size: 0.63rem; }
+
+.altara-bank-activity-list { display: flex; flex-direction: column; }
+.altara-bank-activity {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 61px;
+  padding: 10px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+}
+.altara-bank-activity > span {
+  display: grid;
+  width: 31px;
+  height: 31px;
+  place-items: center;
+  border: 1px solid rgba(139, 181, 159, 0.25);
+  color: #9ac6af;
+}
+.altara-bank-activity > span[data-direction='outgoing'] { border-color: rgba(213, 187, 133, 0.24); color: var(--bank-accent); }
+.altara-bank-activity > div { display: grid; min-width: 0; gap: 3px; }
+.altara-bank-activity strong,
+.altara-bank-activity small,
+.altara-bank-activity time { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.altara-bank-activity strong { font-size: 0.69rem; font-weight: 610; }
+.altara-bank-activity small,
+.altara-bank-activity time { color: rgba(255, 255, 255, 0.46); font-size: 0.57rem; }
+.altara-bank-activity > b { color: #9ac6af; font: 650 0.74rem/1 var(--font-mono, ui-monospace, monospace); white-space: nowrap; }
+.altara-bank-activity > b[data-direction='outgoing'] { color: var(--bank-accent-bright); }
+
+.altara-bank-empty {
+  display: grid;
+  min-height: 170px;
+  place-content: center;
+  justify-items: center;
+  padding: 24px;
+  color: rgba(255, 255, 255, 0.4);
+  text-align: center;
+}
+.altara-bank-empty strong { margin-top: 9px; color: rgba(255, 255, 255, 0.68); font-size: 0.72rem; }
+.altara-bank-empty span { margin-top: 5px; font-size: 0.62rem; }
+
+.altara-bank-ledger {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: clamp(20px, 3.5cqw, 36px);
+}
+.altara-bank-ledger > header { padding: 0 0 18px; border-bottom-color: var(--bank-line); }
+.altara-bank-ledger h2 { margin: 6px 0 0; font-size: clamp(1.35rem, 4cqw, 2rem); font-weight: 390; letter-spacing: -0.03em; }
+.altara-bank-ledger > header small { display: flex; align-items: center; gap: 6px; color: var(--bank-muted); font-size: 0.62rem; }
+.altara-bank-ledger > .altara-bank-activity-list { border-right: 1px solid var(--bank-line); border-left: 1px solid var(--bank-line); }
+.altara-bank-load-more { margin: 16px auto 0; }
+
+.altara-bank-state {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  padding: 32px;
+  color: rgba(234, 227, 214, 0.62);
+  text-align: center;
+}
+.altara-bank-state > strong { color: #f0ece3; font-size: 1rem; font-weight: 500; }
+.altara-bank-state > span { max-width: 430px; font-size: 0.68rem; line-height: 1.6; }
+.altara-bank-state[data-tone='error'] > svg { color: #c67a68; }
+
+.altara-bank-onboarding main {
+  display: grid;
+  width: min(790px, calc(100% - 40px));
+  grid-template-columns: 190px minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(28px, 5cqw, 58px);
+  margin: auto;
+  padding: clamp(28px, 5cqw, 52px);
+}
+.altara-bank-onboarding__seal {
+  display: grid;
+  width: 150px;
+  height: 150px;
+  place-content: center;
+  justify-items: center;
+  gap: 8px;
+  border: 1px solid rgba(213, 187, 133, 0.42);
+  color: var(--bank-accent-bright);
+  transform: rotate(45deg);
+}
+.altara-bank-onboarding__seal > * { transform: rotate(-45deg); }
+.altara-bank-onboarding__seal span { font: 650 0.65rem/1 var(--font-mono, ui-monospace, monospace); letter-spacing: 0.18em; }
+.altara-bank-onboarding h2 { margin: 9px 0; font-size: clamp(2rem, 5cqw, 3.25rem); font-weight: 340; line-height: 0.94; letter-spacing: -0.055em; }
+.altara-bank-onboarding main > div:last-child > span,
+.altara-bank-onboarding main > div:last-child > small { color: var(--bank-muted); font-size: 0.69rem; line-height: 1.55; }
+.altara-bank-onboarding dl { display: grid; grid-template-columns: repeat(3, 1fr); margin: 24px 0 15px; border-top: 1px solid var(--bank-line); border-bottom: 1px solid var(--bank-line); }
+.altara-bank-onboarding dl div { display: grid; gap: 6px; padding: 13px 10px; border-right: 1px solid var(--bank-line); }
+.altara-bank-onboarding dt { color: var(--bank-muted); font-size: 0.58rem; }
+.altara-bank-onboarding dd { margin: 0; font-size: 0.67rem; }
+.altara-bank-onboarding .altara-bank-primary { margin-top: 20px; }
+
+.altara-bank-inline-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 11px;
+  border: 1px solid rgba(187, 103, 84, 0.28);
+  color: #e4aa9b;
+  background: rgba(92, 39, 29, 0.22);
+  font-size: 0.64rem;
+  line-height: 1.45;
+}
+.altara-bank-inline-error button { margin-left: auto; border: 0; color: inherit; background: transparent; text-decoration: underline; }
+
+.altara-bank-npc > span {
+  display: grid;
+  width: 60px;
+  height: 60px;
+  margin-bottom: 8px;
+  place-items: center;
+  border: 1px solid rgba(213, 187, 133, 0.35);
+  color: var(--bank-accent);
+  transform: rotate(45deg);
+}
+.altara-bank-npc > span svg { transform: rotate(-45deg); }
+.altara-bank-npc h2 { margin: 0; color: var(--bank-accent-bright); font-size: 0.78rem; font-weight: 600; text-transform: uppercase; }
+.altara-bank-npc small { max-width: 510px; color: var(--bank-muted); font-size: 0.67rem; line-height: 1.6; }
+
+.altara-bank-gm__grid { display: grid; flex: 1; min-height: 0; grid-template-columns: minmax(210px, 0.68fr) minmax(400px, 1.7fr); }
+.altara-bank-directory { display: flex; min-height: 0; flex-direction: column; border-width: 0 1px 0 0; background: #101113; }
+.altara-bank-directory > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 14px; border-bottom: 1px solid var(--bank-line); }
+.altara-bank-directory > header strong { color: var(--bank-muted); font-size: 0.57rem; font-weight: 500; }
+.altara-bank-directory > form { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 7px; margin: 12px; padding-left: 9px; border: 1px solid var(--bank-line); color: var(--bank-muted); background: #090a0c; }
+.altara-bank-directory > form input { min-width: 0; padding: 9px 2px; border: 0; outline: 0; color: var(--bank-paper); background: transparent; font-size: 0.65rem; }
+.altara-bank-directory > form button { align-self: stretch; padding: 0 10px; border: 0; border-left: 1px solid var(--bank-line); color: var(--bank-accent-bright); background: #17181b; font-size: 0.58rem; }
+.altara-bank-directory__list { min-height: 0; overflow: auto; }
+.altara-bank-directory__list > p { display: flex; align-items: center; justify-content: center; gap: 7px; padding: 20px 12px; color: var(--bank-muted); text-align: center; text-transform: none; letter-spacing: normal; }
+.altara-bank-directory__list > button { display: grid; width: 100%; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 9px; padding: 11px 12px; border: 0; border-bottom: 1px solid rgba(255, 255, 255, 0.055); color: inherit; background: transparent; text-align: left; }
+.altara-bank-directory__list > button:hover,
+.altara-bank-directory__list > button[aria-current='true'] { background: rgba(213, 187, 133, 0.075); }
+.altara-bank-directory__list > button > span { display: grid; min-width: 0; gap: 3px; }
+.altara-bank-directory__list strong,
+.altara-bank-directory__list small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.altara-bank-directory__list strong { font-size: 0.67rem; }
+.altara-bank-directory__list small { color: var(--bank-muted); font-size: 0.56rem; }
+.altara-bank-directory__list b { color: var(--bank-accent-bright); font: 600 0.62rem/1 var(--font-mono, ui-monospace, monospace); white-space: nowrap; }
+.altara-bank-fx-admin { display: grid; gap: 12px; margin: 14px 12px; padding-top: 14px; border-top: 1px solid var(--bank-line); }
+.altara-bank-fx-admin > header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.altara-bank-fx-admin > header small,
+.altara-bank-fx-admin__rates { color: var(--bank-muted); font-size: 0.57rem; }
+.altara-bank-fx-admin__rates { display: grid; gap: 7px; }
+.altara-bank-fx-admin__rates article { display: grid; gap: 3px; padding: 9px 10px; border: 1px solid var(--bank-line); background: rgba(255, 255, 255, 0.018); }
+.altara-bank-fx-admin__rates article > span { justify-self: start; padding: 3px 5px; border: 1px solid rgba(213, 187, 133, 0.35); color: var(--bank-accent-bright); font-size: 0.49rem; letter-spacing: 0.12em; }
+.altara-bank-fx-admin__rates article[data-active='false'] { opacity: 0.62; }
+.altara-bank-fx-admin__rates article[data-active='false'] > span { border-color: var(--bank-line); color: var(--bank-muted); }
+.altara-bank-fx-admin__rates article strong { color: var(--bank-paper); font-size: 0.63rem; font-weight: 600; line-height: 1.4; }
+.altara-bank-fx-admin__rates article small { line-height: 1.4; }
+.altara-bank-fx-admin__rates > p { margin: 0; line-height: 1.5; }
+.altara-bank-fx-admin form { display: grid; gap: 10px; }
+.altara-bank-fx-admin__equation { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: end; gap: 6px; }
+.altara-bank-fx-admin__equation label,
+.altara-bank-fx-admin__field { display: grid; min-width: 0; gap: 5px; }
+.altara-bank-fx-admin__equation label > span,
+.altara-bank-fx-admin__field > span { color: var(--bank-muted); font: 620 0.5rem/1.2 var(--font-mono, ui-monospace, monospace); letter-spacing: 0.1em; }
+.altara-bank-fx-admin__equation > b { align-self: end; padding-bottom: 10px; color: var(--bank-accent-bright); font-size: 0.72rem; }
+.altara-bank-fx-admin input,
+.altara-bank-fx-admin select,
+.altara-bank-fx-admin textarea { min-width: 0; width: 100%; padding: 8px; border: 1px solid var(--bank-line); border-radius: 8px; color: var(--bank-paper); background: #0b0c0e; font-size: 0.6rem; }
+.altara-bank-fx-admin__equation select { text-overflow: ellipsis; }
+.altara-bank-fx-admin__preview { display: grid; gap: 4px; padding: 9px 10px; border-left: 2px solid var(--bank-accent); color: var(--bank-muted); background: rgba(213, 187, 133, 0.055); font-size: 0.56rem; line-height: 1.4; }
+.altara-bank-fx-admin__preview strong { color: var(--bank-paper); font-size: 0.63rem; }
+.altara-bank-fx-admin textarea { min-height: 54px; resize: vertical; }
+.altara-bank-fx-admin button { display: inline-flex; min-height: 34px; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--bank-accent); border-radius: 10px; color: #17130c; background: var(--bank-accent); font-weight: 700; }
+
+.altara-bank-gm__empty { display: grid; margin: 22px; place-content: center; justify-items: center; gap: 9px; color: var(--bank-muted); text-align: center; }
+.altara-bank-gm__empty strong { color: var(--bank-paper); font-size: 0.82rem; }
+.altara-bank-gm__empty span { max-width: 390px; font-size: 0.65rem; line-height: 1.55; }
+.altara-bank-gm__empty[data-tone='error'] svg { color: #c67a68; }
+.altara-bank-gm__detail { display: flex; min-width: 0; min-height: 0; flex-direction: column; margin: 18px; overflow: hidden; }
+.altara-bank-gm__detail > header { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 16px 18px; border-bottom: 1px solid var(--bank-line); }
+.altara-bank-gm__detail > header h2 { margin: 5px 0 3px; font-size: 1rem; font-weight: 520; }
+.altara-bank-gm__detail > header small { color: var(--bank-muted); font-size: 0.6rem; }
+.altara-bank-gm__detail > header > strong { font-size: clamp(1.6rem, 4cqw, 2.5rem); font-weight: 350; letter-spacing: -0.04em; }
+.altara-bank-gm__detail > .altara-bank-inline-error { margin: 10px 14px 0; }
+.altara-bank-gm__body { display: grid; flex: 1; min-height: 0; grid-template-columns: minmax(210px, 0.66fr) minmax(300px, 1.34fr); }
+.altara-bank-gm__body > form { display: flex; flex-direction: column; gap: 13px; padding: 18px; border-right: 1px solid var(--bank-line); }
+.altara-bank-gm__closed {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 8px;
+  padding: 24px;
+  border-right: 1px solid var(--bank-line);
+  color: var(--bank-muted);
+  text-align: center;
+}
+.altara-bank-gm__closed strong { color: var(--bank-paper); font-size: 0.76rem; }
+.altara-bank-gm__closed span { max-width: 230px; font-size: 0.63rem; line-height: 1.5; }
+.altara-bank-segmented { display: grid; grid-template-columns: 1fr 1fr; }
+.altara-bank-segmented button { min-height: 35px; border: 1px solid var(--bank-line); color: var(--bank-muted); background: #0c0d0f; font-size: 0.62rem; }
+.altara-bank-segmented button[aria-pressed='true'] { border-color: var(--bank-accent); color: #17130c; background: var(--bank-accent); }
+.altara-bank-gm__body label { display: grid; gap: 7px; color: var(--bank-muted); font: 620 0.57rem/1.2 var(--font-mono, ui-monospace, monospace); letter-spacing: 0.1em; }
+.altara-bank-gm__body label > div { display: flex; align-items: center; border: 1px solid var(--bank-line); background: #0b0c0e; }
+.altara-bank-gm__body input,
+.altara-bank-gm__body textarea { min-width: 0; width: 100%; padding: 10px; border: 1px solid var(--bank-line); outline: 0; color: var(--bank-paper); background: #0b0c0e; font-size: 0.67rem; }
+.altara-bank-gm__body label > div input { border: 0; }
+.altara-bank-gm__body label > div b { padding-right: 10px; color: var(--bank-accent); }
+.altara-bank-gm__body textarea { min-height: 82px; resize: vertical; line-height: 1.45; }
+.altara-bank-gm__body label > small { justify-self: end; color: rgba(255, 255, 255, 0.38); }
+.altara-bank-gm__ledger { min-width: 0; min-height: 0; overflow: auto; }
+.altara-bank-gm__ledger > header span { color: var(--bank-muted); font-size: 0.57rem; }
+.altara-bank-gm__ledger > .altara-bank-load-more { display: flex; margin: 12px auto; }
+
+.altara-bank-dialog-backdrop {
+  position: absolute;
+  z-index: 90;
+  display: grid;
+  inset: 0;
+  padding: 18px;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.72);
+}
+.altara-bank-dialog { width: min(100%, 450px); border: 1px solid var(--bank-line); background: #131416; box-shadow: 0 22px 60px rgba(0, 0, 0, 0.5); }
+.altara-bank-dialog > header { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 9px; padding: 13px 15px; border-bottom: 1px solid var(--bank-line); color: var(--bank-accent-bright); }
+.altara-bank-dialog > header button { display: grid; width: 28px; height: 28px; padding: 0; border: 0; place-items: center; color: var(--bank-muted); background: transparent; }
+.altara-bank-dialog > p { margin: 20px 20px 8px; color: var(--bank-paper); }
+.altara-bank-dialog > small { display: block; margin: 0 20px; color: var(--bank-muted); line-height: 1.5; }
+.altara-bank-dialog > .altara-bank-inline-error { margin: 14px 20px 0; }
+.altara-bank-dialog footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; padding: 14px 20px; border-top: 1px solid var(--bank-line); }
+
+.altara-bank-spin { animation: altara-bank-spin 850ms linear infinite; }
+@keyframes altara-bank-spin { to { transform: rotate(360deg); } }
+
+@container (max-width: 760px) {
+  .altara-bank-overview { grid-template-columns: 1fr; }
+  .altara-bank-recent { grid-column: 1; }
+  .altara-bank-gm__grid { grid-template-columns: minmax(180px, 0.62fr) minmax(330px, 1.38fr); }
+  .altara-bank-gm__body { display: block; overflow: auto; }
+  .altara-bank-gm__body > form,
+  .altara-bank-gm__closed { border-right: 0; border-bottom: 1px solid var(--bank-line); }
+  .altara-bank-gm__ledger { overflow: visible; }
+}
+
+@container (max-width: 560px) {
+  .altara-bank-header { min-height: 64px; padding: 10px 13px; }
+  .altara-bank-header__brand > span { width: 34px; height: 34px; }
+  .altara-bank-fx-admin__equation { grid-template-columns: 1fr; }
+  .altara-bank-fx-admin__equation > b { align-self: auto; justify-self: center; padding: 0; }
+  .altara-bank-header__brand p,
+  .altara-bank-header__context small { display: none; }
+  .altara-bank-header__context { min-width: 0; }
+  .altara-bank-nav { overflow-x: auto; padding: 0 8px; }
+  .altara-bank-nav button { flex: 0 0 auto; padding: 0 10px; }
+  .altara-bank-nav > span { display: none; }
+  .altara-bank-overview,
+  .altara-bank-ledger { padding: 16px; }
+  .altara-bank-balance { min-height: 190px; padding: 24px 20px; }
+  .altara-bank-onboarding main { display: block; overflow: auto; }
+  .altara-bank-onboarding__seal { width: 90px; height: 90px; margin: 10px auto 44px; }
+  .altara-bank-onboarding dl { grid-template-columns: 1fr; }
+  .altara-bank-onboarding dl div { border-right: 0; border-bottom: 1px solid var(--bank-line); }
+  .altara-bank-gm__grid { display: block; overflow: auto; }
+  .altara-bank-directory { min-height: 210px; border-width: 0 0 1px; }
+  .altara-bank-directory__list { max-height: 220px; }
+  .altara-bank-gm__detail,
+  .altara-bank-gm__empty { margin: 12px; }
+}
+
+@container (max-width: 420px) {
+  .altara-bank-header__context span { display: none; }
+  .altara-bank-balance > div,
+  .altara-bank-dialog footer { flex-direction: column; align-items: stretch; }
+  .altara-bank-activity { grid-template-columns: auto minmax(0, 1fr); }
+  .altara-bank-activity > b { grid-column: 2; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .altara-bank-spin { animation: none; }
+}

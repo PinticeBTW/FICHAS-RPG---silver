@@ -119,7 +119,7 @@ export const sheetPageSectionConfigs: SheetLayoutSection[] = [
     id: 'page1-cash',
     page: 1,
     label: 'Cash',
-    box: { x: 398, y: 14, width: 67, height: 43 },
+    box: { x: 319, y: 14, width: 146, height: 43 },
     clip: true,
     debugColor: 'rgba(243, 230, 0, 0.55)',
   },

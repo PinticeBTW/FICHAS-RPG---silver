@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { fetchNetIdentitySystemForInspection, type NetIdentitySystemSnapshot } from '../../../lib/netIdentitySystemService'
 import type { NetGmPersonaController } from '../identity/useNetGmPersona'
@@ -16,45 +16,48 @@ export interface NetCompromisedIdentitySystemController {
 function failureReason(error: unknown): string {
   return error instanceof Error
     ? error.message
-    : 'The compromised system profile could not be mounted.'
+    : 'The GM target system profile could not be mounted.'
 }
 
 /**
- * Read-only runtime mount for a server-confirmed compromised GM persona.
+ * Read-only mount for a server-confirmed inspect/compromised GM target.
  * This never exposes mutation operations: authorization for the target system
- * remains entirely with the normal owner-side RPCs and Storage policies.
+ * remains outside the effective runtime-identity contract.
  */
-export function useNetCompromisedIdentitySystem(
+export function useNetGmTargetIdentitySystem(
   authenticatedProfileId: string | undefined,
   gmPersona: NetGmPersonaController,
+  authoritativeIdentityLinkId?: string,
 ): NetCompromisedIdentitySystemController {
-  const targetIdentityLinkId = gmPersona.state.status === 'compromised'
+  const targetIdentityLinkId = authoritativeIdentityLinkId ?? (gmPersona.state.status === 'compromised'
     ? gmPersona.state.identity.identityLinkId
-    : undefined
+    : undefined)
   const [state, setState] = useState<NetCompromisedIdentitySystemState>({ status: 'unavailable' })
-  const expectedMountRef = useRef<string | undefined>(targetIdentityLinkId)
-
-  expectedMountRef.current = targetIdentityLinkId
 
   useEffect(() => {
     let cancelled = false
     const expectedIdentityLinkId = targetIdentityLinkId
     const expectedProfileId = authenticatedProfileId
+    const publish = (nextState: NetCompromisedIdentitySystemState) => {
+      void Promise.resolve().then(() => {
+        if (!cancelled) setState(nextState)
+      })
+    }
 
     if (!expectedIdentityLinkId || !expectedProfileId) {
-      setState({ status: 'unavailable' })
+      publish({ status: 'unavailable' })
       return () => { cancelled = true }
     }
 
-    setState({ status: 'loading', identityLinkId: expectedIdentityLinkId })
+    publish({ status: 'loading', identityLinkId: expectedIdentityLinkId })
     void fetchNetIdentitySystemForInspection(expectedIdentityLinkId)
       .then((system) => {
-        if (cancelled || expectedMountRef.current !== expectedIdentityLinkId) return
-        setState({ status: 'ready', system })
+        if (cancelled) return
+        publish({ status: 'ready', system })
       })
       .catch((error) => {
-        if (cancelled || expectedMountRef.current !== expectedIdentityLinkId) return
-        setState({
+        if (cancelled) return
+        publish({
           status: 'error',
           identityLinkId: expectedIdentityLinkId,
           reason: failureReason(error),
@@ -76,3 +79,5 @@ export function useNetCompromisedIdentitySystem(
 
   return { state: exposedState }
 }
+
+export const useNetCompromisedIdentitySystem = useNetGmTargetIdentitySystem

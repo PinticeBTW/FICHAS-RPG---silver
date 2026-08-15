@@ -1,0 +1,220 @@
+.net-gm-environment {
+  --gm-env-accent: 154, 208, 238;
+  --gm-env-surface: 8, 14, 19;
+  --gm-env-text: 236, 244, 248;
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid rgba(var(--gm-env-accent), 0.22);
+  background: rgba(var(--gm-env-surface), 0.62);
+}
+
+.altara-os .net-gm-environment {
+  --gm-env-accent: var(--altara-gold);
+  --gm-env-surface: 18, 18, 19;
+  --gm-env-text: 241, 237, 229;
+}
+
+.net-gm-environment > header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.net-gm-environment > header > span {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  color: rgba(var(--gm-env-accent), 0.92);
+  border: 1px solid rgba(var(--gm-env-accent), 0.25);
+  background: rgba(var(--gm-env-accent), 0.07);
+}
+
+.net-gm-environment > header > div,
+.net-gm-environment__status {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.net-gm-environment p,
+.net-gm-environment h3,
+.net-gm-environment small,
+.net-gm-environment strong,
+.net-gm-environment span,
+.net-gm-environment em,
+.net-gm-environment button,
+.net-gm-environment select {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  text-transform: uppercase;
+}
+
+.net-gm-environment > header p,
+.net-gm-environment > header h3,
+.net-gm-environment > header small,
+.net-gm-environment__status span,
+.net-gm-environment__status strong,
+.net-gm-environment__status em,
+.net-gm-environment__note,
+.net-gm-environment__error {
+  margin: 0;
+}
+
+.net-gm-environment > header p,
+.net-gm-environment__status span {
+  color: rgba(var(--gm-env-accent), 0.72);
+  font-size: 0.52rem;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+}
+
+.net-gm-environment > header h3 {
+  color: rgba(var(--gm-env-text), 0.94);
+  font-size: 0.78rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+}
+
+.net-gm-environment > header small {
+  color: rgba(var(--gm-env-text), 0.58);
+  font-size: 0.49rem;
+  letter-spacing: 0.08em;
+}
+
+.net-gm-environment__status {
+  padding-block: 10px;
+  border-block: 1px solid rgba(var(--gm-env-text), 0.09);
+}
+
+.net-gm-environment__status strong {
+  overflow: hidden;
+  color: rgba(var(--gm-env-text), 0.96);
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.net-gm-environment__status em {
+  color: rgba(var(--gm-env-text), 0.58);
+  font-size: 0.5rem;
+  font-style: normal;
+  letter-spacing: 0.07em;
+}
+
+.net-gm-environment__choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.net-gm-environment__choices button,
+.net-gm-environment__control button,
+.net-gm-environment__control select {
+  min-height: 34px;
+  border: 1px solid rgba(var(--gm-env-accent), 0.22);
+  color: rgba(var(--gm-env-text), 0.78);
+  background: rgba(var(--gm-env-accent), 0.045);
+  font-size: 0.53rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+}
+
+.net-gm-environment__choices button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.net-gm-environment__choices button > span {
+  width: 13px;
+}
+
+.net-gm-environment__choices button[data-active='true'] {
+  border-color: rgba(var(--gm-env-accent), 0.62);
+  color: rgb(var(--gm-env-text));
+  background: rgba(var(--gm-env-accent), 0.12);
+}
+
+.net-gm-environment button:focus-visible,
+.net-gm-environment select:focus-visible {
+  outline: 2px solid rgba(var(--gm-env-accent), 0.65);
+  outline-offset: 2px;
+}
+
+.net-gm-environment button:disabled,
+.net-gm-environment select:disabled {
+  cursor: not-allowed;
+  opacity: 0.46;
+}
+
+.net-gm-environment__note {
+  color: rgba(var(--gm-env-text), 0.6);
+  font-size: 0.55rem;
+  line-height: 1.55;
+  letter-spacing: 0.04em;
+}
+
+.net-gm-environment__control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+}
+
+.net-gm-environment__control label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.net-gm-environment__control label > span {
+  color: rgba(var(--gm-env-text), 0.55);
+  font-size: 0.48rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+}
+
+.net-gm-environment__control select {
+  width: 100%;
+  padding-inline: 9px 24px;
+  background-color: rgb(var(--gm-env-surface));
+}
+
+.net-gm-environment__control button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding-inline: 11px;
+}
+
+.net-gm-environment__error {
+  color: #f3aaa2;
+  font-size: 0.54rem;
+  line-height: 1.45;
+  letter-spacing: 0.04em;
+}
+
+@media (max-width: 620px) {
+  .net-gm-environment > header {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .net-gm-environment > header small {
+    grid-column: 1 / -1;
+  }
+
+  .net-gm-environment__control {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .net-gm-environment * {
+    scroll-behavior: auto;
+  }
+}

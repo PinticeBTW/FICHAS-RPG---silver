@@ -111,10 +111,11 @@ export async function inspectRpgAudioFile(file: File): Promise<NetNvnRadioAudioM
 export async function buildRpgAudioObjectPath(
   clipId: string,
   metadata: NetNvnRadioAudioMetadata,
+  namespace: 'nvn-radio' | 'altara-news-broadcast' = 'nvn-radio',
 ): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', await metadata.file.arrayBuffer())
   const hash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
-  return `nvn-radio/${clipId}/${hash}.${metadata.extension}`
+  return `${namespace}/${clipId}/${hash}.${metadata.extension}`
 }
 
 export async function uploadRpgAudioObject(
@@ -147,6 +148,7 @@ export async function removeRpgAudioObject(
 export async function signRpgAudioObject(
   objectPath: string,
   requestedTtlSeconds: number,
+  productLabel = 'NVN',
 ): Promise<string> {
   const ttlSeconds = Math.min(
     NET_NVN_RADIO_SIGNED_URL_MAX_TTL_SECONDS,
@@ -161,7 +163,7 @@ export async function signRpgAudioObject(
   if (error || !data?.signedUrl) {
     throw new NetNvnRadioError(
       'signing-failed',
-      `The current NVN transmission could not be opened${error?.message ? `: ${error.message}` : '.'}`,
+      `The current ${productLabel} transmission could not be opened${error?.message ? `: ${error.message}` : '.'}`,
     )
   }
   return data.signedUrl

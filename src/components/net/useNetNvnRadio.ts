@@ -12,14 +12,19 @@ import {
   type NetNvnRadioTuneSample,
   type NetNvnRadioTuneState,
 } from '../../lib/netNvnRadioTypes'
+import {
+  estimatedNewsBroadcastServerNow,
+  expectedNewsBroadcastOffsetSeconds,
+  newsBroadcastAnchor,
+  newsBroadcastSignedUrlTtlSeconds,
+  type NewsBroadcastStationAnchor,
+} from '../../lib/newsBroadcastClock'
 
 const VOLUME_STORAGE_KEY = 'net:nvn-radio:volume:v1'
 const MUTED_STORAGE_KEY = 'net:nvn-radio:muted:v1'
 const AUDIO_READY_TIMEOUT_MS = 15_000
 const DRIFT_CHECK_MS = 5_000
 const RESYNC_DRIFT_SECONDS = 1
-const BOUNDARY_SIGN_TOLERANCE_MS = 150
-
 export type NvnRadioPhase =
   | 'synchronizing'
   | 'off-air'
@@ -45,13 +50,6 @@ export interface NvnRadioController {
   readonly resynchronize: () => void
 }
 
-interface StationAnchor {
-  readonly serverNowAtReceiveMs: number
-  readonly responseReceivedAt: number
-  readonly clipStartedAtMs: number
-  readonly clipEndsAtMs: number
-}
-
 interface RadioSyncOptions {
   readonly reuseConfirmed?: boolean
   readonly boundaryRecovery?: boolean
@@ -70,34 +68,21 @@ function friendlyRadioError(error: unknown): string {
   return error instanceof Error ? error.message : 'The live NVN transmission could not be opened.'
 }
 
-function anchorFromSample(sample: NetNvnRadioTuneSample): StationAnchor | null {
-  if (!sample.state.current) return null
-  const rttMs = Math.max(0, sample.responseReceivedAt - sample.requestStartedAt)
-  return {
-    serverNowAtReceiveMs: Date.parse(sample.state.serverNow) + rttMs / 2,
+function anchorFromSample(sample: NetNvnRadioTuneSample): NewsBroadcastStationAnchor | null {
+  return newsBroadcastAnchor({
+    serverNow: sample.state.serverNow,
+    requestStartedAt: sample.requestStartedAt,
     responseReceivedAt: sample.responseReceivedAt,
-    clipStartedAtMs: Date.parse(sample.state.current.startedAt),
-    clipEndsAtMs: Date.parse(sample.state.current.endsAt),
-  }
+    current: sample.state.current,
+  })
 }
 
-function estimatedServerNow(anchor: StationAnchor): number {
-  return anchor.serverNowAtReceiveMs + Math.max(0, performance.now() - anchor.responseReceivedAt)
-}
-
-function expectedOffsetSeconds(anchor: StationAnchor, durationMs: number): number {
-  const raw = (estimatedServerNow(anchor) - anchor.clipStartedAtMs) / 1000
-  return Math.min(Math.max(raw, 0), Math.max(0, durationMs / 1000 - 0.08))
-}
-
-function signedUrlTtlSeconds(anchor: StationAnchor): number {
-  const remainingSeconds = Math.max(0, anchor.clipEndsAtMs - estimatedServerNow(anchor)) / 1000
-  return Math.min(
+function signedUrlTtlSeconds(anchor: NewsBroadcastStationAnchor): number {
+  return newsBroadcastSignedUrlTtlSeconds(
+    anchor,
+    NET_NVN_RADIO_SIGNED_URL_MIN_TTL_SECONDS,
     NET_NVN_RADIO_SIGNED_URL_MAX_TTL_SECONDS,
-    Math.max(
-      NET_NVN_RADIO_SIGNED_URL_MIN_TTL_SECONDS,
-      Math.ceil(remainingSeconds + NET_NVN_RADIO_SIGNED_URL_GRACE_SECONDS),
-    ),
+    NET_NVN_RADIO_SIGNED_URL_GRACE_SECONDS,
   )
 }
 
@@ -128,6 +113,8 @@ function waitForAudioMetadata(audio: HTMLAudioElement): Promise<void> {
 export function useNetNvnRadio(
   enabled: boolean,
   realtimeInvalidationVersion: number,
+  expectedIdentityLinkId?: string,
+  identitySessionKey?: string,
 ): NvnRadioController {
   const [phase, setPhase] = useState<NvnRadioPhase>('synchronizing')
   const [tuneState, setTuneState] = useState<NetNvnRadioTuneState | null>(null)
@@ -141,8 +128,9 @@ export function useNetNvnRadio(
   const mutedRef = useRef(muted)
   const volumeRef = useRef(volume)
   const enabledRef = useRef(enabled)
+  const identityRef = useRef(expectedIdentityLinkId)
   const operationGenerationRef = useRef(0)
-  const anchorRef = useRef<StationAnchor | null>(null)
+  const anchorRef = useRef<NewsBroadcastStationAnchor | null>(null)
   const boundaryTimerRef = useRef<number | null>(null)
   const transmissionKeyRef = useRef<string | null>(null)
   const latestSampleRef = useRef<NetNvnRadioTuneSample | null>(null)
@@ -167,9 +155,9 @@ export function useNetNvnRadio(
     transmissionKeyRef.current = null
   }, [])
 
-  const scheduleBoundary = useCallback((anchor: StationAnchor) => {
+  const scheduleBoundary = useCallback((anchor: NewsBroadcastStationAnchor) => {
     clearBoundary()
-    const remainingMs = Math.max(50, anchor.clipEndsAtMs - estimatedServerNow(anchor) + 40)
+    const remainingMs = Math.max(50, anchor.clipEndsAtMs - estimatedNewsBroadcastServerNow(anchor) + 40)
     boundaryTimerRef.current = window.setTimeout(() => {
       boundaryTimerRef.current = null
       if (enabledRef.current) void syncRef.current(tunedRef.current)
@@ -180,7 +168,8 @@ export function useNetNvnRadio(
     play: boolean,
     options: RadioSyncOptions = {},
   ) => {
-    if (!enabledRef.current) return
+    const identityLinkId = identityRef.current
+    if (!enabledRef.current || !identityLinkId) return
     const generation = ++operationGenerationRef.current
     setSyncing(initialSyncCompleteRef.current)
     if (play) setPhase('loading')
@@ -190,10 +179,12 @@ export function useNetNvnRadio(
       const reusableAnchor = reusableSample ? anchorFromSample(reusableSample) : null
       const sample = reusableSample?.state.current
         && reusableAnchor
-        && reusableAnchor.clipEndsAtMs - estimatedServerNow(reusableAnchor) >= 300
+        && reusableAnchor.clipEndsAtMs - estimatedNewsBroadcastServerNow(reusableAnchor) >= 300
         ? reusableSample
-        : await fetchNetNvnRadioTuneState()
-      if (!enabledRef.current || generation !== operationGenerationRef.current) return
+        : await fetchNetNvnRadioTuneState(identityLinkId)
+      if (!enabledRef.current
+        || generation !== operationGenerationRef.current
+        || identityRef.current !== identityLinkId) return
       latestSampleRef.current = sample
       initialSyncCompleteRef.current = true
       setTuneState(sample.state)
@@ -211,7 +202,7 @@ export function useNetNvnRadio(
         setPhase('ready-to-tune')
         return
       }
-      if (anchor.clipEndsAtMs - estimatedServerNow(anchor) < 300) {
+      if (anchor.clipEndsAtMs - estimatedNewsBroadcastServerNow(anchor) < 300) {
         setPhase('loading')
         return
       }
@@ -221,7 +212,7 @@ export function useNetNvnRadio(
       const transmissionKey = `${sample.state.current.clipId}:${sample.state.current.startedAt}`
       if (transmissionKeyRef.current === transmissionKey && audio.currentSrc) {
         anchorRef.current = anchor
-        const expected = expectedOffsetSeconds(anchor, sample.state.current.durationMs)
+        const expected = expectedNewsBroadcastOffsetSeconds(anchor, sample.state.current.durationMs)
         if (Math.abs(audio.currentTime - expected) > RESYNC_DRIFT_SECONDS) {
           audio.currentTime = expected
         }
@@ -238,11 +229,9 @@ export function useNetNvnRadio(
           signedUrlTtlSeconds(anchor),
         )
       } catch (signingError) {
-        const crossedAuthoritativeBoundary =
-          signingError instanceof NetNvnRadioError
+        const needsAuthoritativeRecovery = signingError instanceof NetNvnRadioError
           && signingError.code === 'signing-failed'
-          && estimatedServerNow(anchor) >= anchor.clipEndsAtMs - BOUNDARY_SIGN_TOLERANCE_MS
-        if (crossedAuthoritativeBoundary && !options.boundaryRecovery) {
+        if (needsAuthoritativeRecovery && !options.boundaryRecovery) {
           await syncRef.current(play, { boundaryRecovery: true })
           return
         }
@@ -254,7 +243,7 @@ export function useNetNvnRadio(
       await waitForAudioMetadata(audio)
       if (!enabledRef.current || generation !== operationGenerationRef.current) return
       anchorRef.current = anchor
-      const authoritativeOffset = expectedOffsetSeconds(anchor, sample.state.current.durationMs)
+      const authoritativeOffset = expectedNewsBroadcastOffsetSeconds(anchor, sample.state.current.durationMs)
       const playableCeiling = Number.isFinite(audio.duration)
         ? Math.max(0, audio.duration - 0.08)
         : authoritativeOffset
@@ -294,7 +283,8 @@ export function useNetNvnRadio(
 
   useEffect(() => {
     enabledRef.current = enabled
-    if (!enabled) {
+    identityRef.current = expectedIdentityLinkId
+    if (!enabled || !expectedIdentityLinkId) {
       operationGenerationRef.current += 1
       clearBoundary()
       stopAudio()
@@ -320,7 +310,7 @@ export function useNetNvnRadio(
     audio.addEventListener('error', handleAudioFailure)
     void synchronize(tunedRef.current)
     return () => audio.removeEventListener('error', handleAudioFailure)
-  }, [clearBoundary, enabled, stopAudio, synchronize])
+  }, [clearBoundary, enabled, expectedIdentityLinkId, identitySessionKey, stopAudio, synchronize])
 
   useEffect(() => {
     if (!enabled || realtimeInvalidationVersion <= 0) return
@@ -347,7 +337,7 @@ export function useNetNvnRadio(
       const anchor = anchorRef.current
       const current = tuneState?.current
       if (!audio || !anchor || !current || audio.paused) return
-      const expected = expectedOffsetSeconds(anchor, current.durationMs)
+      const expected = expectedNewsBroadcastOffsetSeconds(anchor, current.durationMs)
       if (Math.abs(audio.currentTime - expected) > RESYNC_DRIFT_SECONDS) {
         audio.currentTime = expected
       }

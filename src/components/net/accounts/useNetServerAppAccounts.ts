@@ -13,7 +13,11 @@ import {
 import { provisionNetEchoAccount } from '../../../lib/netEchoService'
 import { NetEchoContextChangedError } from '../../../lib/netEchoTypes'
 import type { NetAppAccount } from './netAppAccountTypes'
-import type { NetIdentityLink } from '../../../lib/netIdentityService'
+
+export interface NetServerAppAccountIdentityContext {
+  readonly identityLinkId: string
+  readonly entityId?: string
+}
 
 type ServerAccountEntry =
   | { readonly status: 'loading' }
@@ -37,10 +41,11 @@ function mergeAccounts(accounts: readonly NetAppAccount[]): readonly NetAppAccou
  */
 export function useNetServerAppAccounts(
   profileId: string | undefined,
-  activeIdentityLink: NetIdentityLink | undefined,
+  identityContext: NetServerAppAccountIdentityContext | undefined,
+  options: { readonly ensureAutomaticIden?: boolean } = {},
 ) {
-  const activeIdentityLinkId = activeIdentityLink?.id
-  const activeEntityId = activeIdentityLink?.entityId
+  const ensureAutomaticIden = options.ensureAutomaticIden ?? true
+  const activeIdentityLinkId = identityContext?.identityLinkId
   const [state, setState] = useState<ServerAccountState>(() => ({
     profileId: profileId ?? null,
     entries: {},
@@ -74,8 +79,10 @@ export function useNetServerAppAccounts(
     })
 
     void Promise.all([
-      fetchNetAppAccountsForIdentity(expectedLinkId, activeEntityId),
-      ensureAutomaticNetAppAccount(expectedLinkId, 'iden'),
+      fetchNetAppAccountsForIdentity(expectedLinkId),
+      ensureAutomaticIden
+        ? ensureAutomaticNetAppAccount(expectedLinkId, 'iden')
+        : Promise.resolve(null),
     ]).then(([accounts, idenAccount]) => {
       if (
         cancelled
@@ -90,7 +97,7 @@ export function useNetServerAppAccounts(
               ...current.entries,
               [expectedLinkId]: {
                 status: 'ready',
-                accounts: mergeAccounts([...accounts, idenAccount]),
+                accounts: mergeAccounts(idenAccount ? [...accounts, idenAccount] : accounts),
               },
             },
           }
@@ -119,7 +126,7 @@ export function useNetServerAppAccounts(
     })
 
     return () => { cancelled = true }
-  }, [activeEntityId, activeIdentityLinkId, profileId])
+  }, [activeIdentityLinkId, ensureAutomaticIden, profileId])
 
   const activeEntry = state.profileId === (profileId ?? null) && activeIdentityLinkId
     ? state.entries[activeIdentityLinkId]

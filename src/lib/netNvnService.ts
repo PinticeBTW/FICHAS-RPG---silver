@@ -318,10 +318,15 @@ function validatePageRequest(request: NetNvnArticlePageRequest): {
 }
 
 export async function fetchNetNvnArticlePage(
+  expectedIdentityLinkId: string,
   request: NetNvnArticlePageRequest,
 ): Promise<NetNvnArticlePage> {
+  if (!UUID_PATTERN.test(expectedIdentityLinkId)) {
+    throw new NetNvnRequestError('authentication-required', 'The NVN runtime identity is unavailable.')
+  }
   const normalized = validatePageRequest(request)
   const { data, error } = await client().rpc('fetch_net_nvn_article_page', {
+    requested_expected_identity_link_id: expectedIdentityLinkId,
     requested_mode: request.mode,
     requested_category: request.category ?? null,
     requested_search_query: normalized.searchQuery ?? null,
@@ -353,11 +358,18 @@ export async function fetchNetNvnArticlePage(
   }
 }
 
-export async function fetchNetNvnArticle(articleId: string): Promise<NetNvnArticleDetail | null> {
+export async function fetchNetNvnArticle(
+  expectedIdentityLinkId: string,
+  articleId: string,
+): Promise<NetNvnArticleDetail | null> {
+  if (!UUID_PATTERN.test(expectedIdentityLinkId)) {
+    throw new NetNvnRequestError('authentication-required', 'The NVN runtime identity is unavailable.')
+  }
   if (!UUID_PATTERN.test(articleId)) {
     throw new NetNvnRequestError('invalid-page-request', 'The NVN article reference is invalid.')
   }
   const { data, error } = await client().rpc('fetch_net_nvn_article', {
+    requested_expected_identity_link_id: expectedIdentityLinkId,
     requested_article_id: articleId,
   })
   if (error) throw mapRpcError('NVN article could not be opened', error)

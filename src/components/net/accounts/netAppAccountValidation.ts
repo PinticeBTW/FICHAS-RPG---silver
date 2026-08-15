@@ -8,6 +8,14 @@ import type { NetAppAccount } from './netAppAccountTypes'
 
 function isNetWorldAppId(appId: NetAppAccount['appId']): appId is NetWorldAppId {
   return appId !== 'net-store'
+    && appId !== 'vlt'
+    && appId !== 'vox-bank'
+    && appId !== 'shneider-bank'
+    && appId !== 'altara-messenger'
+    && appId !== 'altara-bank'
+    && appId !== 'altara-news'
+    && appId !== 'altara-store'
+    && appId !== 'altara-settings'
 }
 
 /** Dependency-free validation for tests or development tooling; it never logs. */

@@ -41,7 +41,7 @@ type SheetRow = {
   updated_at: string | null
 }
 
-type SavedSheetRow = Omit<SheetRow, 'field_data'>
+type SavedSheetRow = SheetRow
 
 type SheetShareAccessRow = {
   viewer_profile_id: string
@@ -54,7 +54,7 @@ type GlobalCyberwareCatalogRow = {
 }
 
 type SavedGlobalCyberwareCatalogRow = Pick<GlobalCyberwareCatalogRow, 'id' | 'updated_at'>
-type SavedNpcCardRow = Pick<NpcCardRow, 'id' | 'updated_at'>
+type SavedNpcCardRow = Pick<NpcCardRow, 'id' | 'field_data' | 'updated_at'>
 type SheetRealtimeTargetKind = 'profile' | 'npc'
 type SheetFieldDataPatch = {
   patch: Record<string, string>
@@ -324,14 +324,15 @@ function logNpcSave(message: string, value: unknown) {
   console.debug(`[NPC_SAVE] ${message}`, value)
 }
 
-function isNpcPatchFunctionUnavailableError(error: unknown) {
+function isSheetPatchFunctionUnavailableError(error: unknown) {
   const text = sheetSharingErrorText(error)
 
   return (
-    text.includes('patch_npc_card_field_data') ||
     text.includes('pgrst202') ||
     text.includes('42883') ||
-    text.includes('could not find the function')
+    text.includes('could not find the function') ||
+    text.includes('function public.patch_npc_card_field_data_v2 does not exist') ||
+    text.includes('function public.patch_character_sheet_field_data_v2 does not exist')
   )
 }
 
@@ -403,12 +404,12 @@ function mapSheet(row: SheetRow): WebSheetRecord {
   })
 }
 
-function mapSavedSheet(row: SavedSheetRow, fieldData: Record<string, string>): WebSheetRecord {
+function mapSavedSheet(row: SavedSheetRow): WebSheetRecord {
   return rememberCachedSheetRecord({
     id: row.id,
     profileId: row.profile_id,
     templateKey: row.template_key,
-    fieldData,
+    fieldData: normalizeFieldData(row.field_data),
     updatedAt: row.updated_at ?? new Date().toISOString(),
   })
 }
@@ -456,7 +457,7 @@ function mapNpcSheet(row: NpcCardRow): WebSheetRecord {
   })
 }
 
-function mapSavedNpcSheet(row: SavedNpcCardRow, fieldData: Record<string, string>): WebSheetRecord {
+function mapSavedNpcSheet(row: SavedNpcCardRow): WebSheetRecord {
   const updatedAt = row.updated_at ?? new Date().toISOString()
   rememberRecentLocalNpcWrite(row.id, updatedAt)
 
@@ -464,7 +465,7 @@ function mapSavedNpcSheet(row: SavedNpcCardRow, fieldData: Record<string, string
     id: row.id,
     profileId: row.id,
     templateKey: CURRENT_TEMPLATE_KEY,
-    fieldData,
+    fieldData: normalizeFieldData(row.field_data ?? null),
     updatedAt,
   })
 }
@@ -977,7 +978,7 @@ async function saveNpcSheetFullPayload(
     .from('npc_cards')
     .update(payload)
     .eq('id', npcId)
-    .select('id, updated_at')
+    .select('id, field_data, updated_at')
     .maybeSingle()
 
   logSupabasePayload(
@@ -1016,14 +1017,14 @@ async function saveNpcSheetPatchPayload(
 
   const startedAt = performance.now()
   const { data, error } = await client
-    .rpc('patch_npc_card_field_data', payload)
+    .rpc('patch_npc_card_field_data_v2', payload)
     .maybeSingle()
 
   logSupabasePayload(
     {
       functionName: 'saveNpcSheetPatchPayload',
-      operation: 'rpc:patch_npc_card_field_data',
-      table: 'patch_npc_card_field_data',
+      operation: 'rpc:patch_npc_card_field_data_v2',
+      table: 'patch_npc_card_field_data_v2',
     },
     { data, error },
     startedAt,
@@ -1050,30 +1051,33 @@ export async function saveNpcSheet(
   logSupabaseFetch({ functionName: 'saveNpcSheet', table: 'npc_cards' })
 
   if (fieldPatch && !fieldPatch.changedKeys.length) {
-    return mapSavedNpcSheet(
-      { id: npcId, updated_at: options.currentUpdatedAt ?? new Date().toISOString() },
-      normalizedFieldData,
-    )
+    return mapSavedNpcSheet({
+      id: npcId,
+      field_data: normalizedFieldData,
+      updated_at: options.currentUpdatedAt ?? new Date().toISOString(),
+    })
   }
 
   if (fieldPatch) {
     try {
       const savedPatch = await saveNpcSheetPatchPayload(npcId, fieldPatch.patch, fieldPatch.removedKeys)
-      const savedSheet = mapSavedNpcSheet(savedPatch, normalizedFieldData)
-      broadcastSheetRealtimeChange('npc', npcId, savedSheet.updatedAt, fieldPatch)
+      const savedSheet = mapSavedNpcSheet(savedPatch)
+      const canonicalPatch = buildFieldDataPatch(savedSheet.fieldData, previousFieldData)
+      broadcastSheetRealtimeChange('npc', npcId, savedSheet.updatedAt, canonicalPatch)
       return savedSheet
     } catch (error) {
-      if (!isNpcPatchFunctionUnavailableError(error)) {
+      if (!isSheetPatchFunctionUnavailableError(error)) {
         throw error
       }
 
-      logNpcSave('patch fallback:', 'patch_npc_card_field_data unavailable; using full field_data update')
+      logNpcSave('patch fallback:', 'patch_npc_card_field_data_v2 unavailable; using full field_data update')
     }
   }
 
   const savedFull = await saveNpcSheetFullPayload(npcId, normalizedFieldData)
-  const savedSheet = mapSavedNpcSheet(savedFull, normalizedFieldData)
-  broadcastSheetRealtimeChange('npc', npcId, savedSheet.updatedAt, fieldPatch)
+  const savedSheet = mapSavedNpcSheet(savedFull)
+  const canonicalPatch = buildFieldDataPatch(savedSheet.fieldData, previousFieldData)
+  broadcastSheetRealtimeChange('npc', npcId, savedSheet.updatedAt, canonicalPatch)
   return savedSheet
 }
 
@@ -1146,6 +1150,46 @@ export async function saveSheetFields(profileId: string, fieldData: Record<strin
   const fieldPatch = buildFieldDataPatch(normalizedFieldData, previousFieldData)
   logSupabaseFetch({ functionName: 'saveSheetFields', table: 'character_sheet_forms' })
 
+  if (fieldPatch && !fieldPatch.changedKeys.length) {
+    const cached = getCachedSheetRecord(profileId)
+    if (cached) return cached
+  }
+
+  if (fieldPatch) {
+    const patchStartedAt = performance.now()
+    const { data: patched, error: patchError } = await client
+      .rpc('patch_character_sheet_field_data_v2', {
+        p_profile_id: profileId,
+        p_field_patch: fieldPatch.patch,
+        p_removed_keys: fieldPatch.removedKeys,
+        p_template_key: CURRENT_TEMPLATE_KEY,
+      })
+      .maybeSingle()
+
+    logSupabasePayload(
+      {
+        functionName: 'saveSheetFields',
+        operation: 'rpc:patch_character_sheet_field_data_v2',
+        table: 'patch_character_sheet_field_data_v2',
+      },
+      { data: patched, error: patchError },
+      patchStartedAt,
+    )
+
+    if (!patchError && patched) {
+      const savedSheet = mapSavedSheet(patched as SavedSheetRow)
+      const canonicalPatch = buildFieldDataPatch(savedSheet.fieldData, previousFieldData)
+      broadcastSheetRealtimeChange('profile', profileId, savedSheet.updatedAt, canonicalPatch)
+      return savedSheet
+    }
+    if (patchError && !isSheetPatchFunctionUnavailableError(patchError)) {
+      throw patchError
+    }
+    if (!patchError) {
+      throw new Error('O Supabase bloqueou a gravacao desta ficha.')
+    }
+  }
+
   const startedAt = performance.now()
   const { data, error } = await client
     .from('character_sheet_forms')
@@ -1157,7 +1201,7 @@ export async function saveSheetFields(profileId: string, fieldData: Record<strin
       },
       { onConflict: 'profile_id' },
     )
-    .select('id, profile_id, template_key, updated_at')
+    .select('id, profile_id, template_key, field_data, updated_at')
     .single()
 
   logSupabasePayload(
@@ -1174,8 +1218,9 @@ export async function saveSheetFields(profileId: string, fieldData: Record<strin
     throw error
   }
 
-  const savedSheet = mapSavedSheet(data as SavedSheetRow, normalizedFieldData)
-  broadcastSheetRealtimeChange('profile', profileId, savedSheet.updatedAt, fieldPatch)
+  const savedSheet = mapSavedSheet(data as SavedSheetRow)
+  const canonicalPatch = buildFieldDataPatch(savedSheet.fieldData, previousFieldData)
+  broadcastSheetRealtimeChange('profile', profileId, savedSheet.updatedAt, canonicalPatch)
   return savedSheet
 }
 
@@ -1820,6 +1865,44 @@ function subscribeToSheetBroadcast(
             onChange(patchedSheet)
             return
           }
+        }
+
+        refreshRunner.scheduleRefresh()
+      },
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: kind === 'profile' ? 'character_sheet_forms' : 'npc_cards',
+        filter: `${kind === 'profile' ? 'profile_id' : 'id'}=eq.${id}`,
+      },
+      (payload) => {
+        // Account-origin mirror writes do not originate in a sheet client, so
+        // reconcile them through this existing sheet channel as well. A normal
+        // UPDATE payload avoids a second HTTP read; incomplete payloads fall
+        // back to the existing coalesced exact fetch.
+        const row = payload.new as Record<string, unknown>
+
+        if (
+          kind === 'profile'
+          && typeof row.id === 'string'
+          && typeof row.profile_id === 'string'
+          && typeof row.template_key === 'string'
+          && 'field_data' in row
+        ) {
+          onChange(mapSheet(row as SheetRow))
+          return
+        }
+        if (kind === 'npc' && typeof row.id === 'string' && 'field_data' in row) {
+          onChange(mapNpcSheet({
+            id: row.id,
+            display_name: '',
+            field_data: row.field_data as NpcCardRow['field_data'],
+            updated_at: typeof row.updated_at === 'string' ? row.updated_at : null,
+          }))
+          return
         }
 
         refreshRunner.scheduleRefresh()

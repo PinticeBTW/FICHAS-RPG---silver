@@ -79,58 +79,25 @@ export function parseNetAppAccount(value: unknown): NetAppAccount {
   }
 }
 
-const accountColumns = [
-  'id',
-  'app_id',
-  'identity_link_id',
-  'entity_id',
-  'organisation_id',
-  'handle',
-  'display_name_override',
-  'avatar_url_override',
-  'status',
-  'created_at',
-  'updated_at',
-].join(', ')
-
 function assertIdentityLinkId(identityLinkId: string): string {
   const normalized = identityLinkId.trim()
   if (!normalized) throw new Error('A server identity link is required for an application account.')
   return normalized
 }
 
-/** RLS returns only account metadata visible to the authenticated actor. */
-export async function fetchNetAppAccountsForIdentity(
+/** The server derives and locks the exact normal/control runtime identity. */
+async function fetchNetAppAccounts(
   identityLinkId: string,
-  canonicalEntityId?: string,
+  rpcName: 'fetch_net_runtime_app_accounts' | 'fetch_net_gm_inspected_app_accounts',
 ): Promise<readonly NetAppAccount[]> {
   const normalizedLinkId = assertIdentityLinkId(identityLinkId)
-  const database = client()
-  const [identityResult, entityResult] = await Promise.all([
-    database
-      .from('net_app_accounts')
-      .select(accountColumns)
-      .eq('identity_link_id', normalizedLinkId)
-      .order('created_at', { ascending: true }),
-    canonicalEntityId
-      ? database
-          .from('net_app_accounts')
-          .select(accountColumns)
-          .eq('entity_id', canonicalEntityId)
-          .order('created_at', { ascending: true })
-      : Promise.resolve({ data: [], error: null }),
-  ])
-
-  if (identityResult.error) {
-    throw new Error(`NET application accounts could not be loaded: ${identityResult.error.message}`)
+  const { data, error } = await client().rpc(rpcName, {
+    requested_expected_identity_link_id: normalizedLinkId,
+  })
+  if (error) {
+    throw new Error(`NET application accounts could not be loaded: ${error.message}`)
   }
-  if (entityResult.error) {
-    throw new Error(`Canonical NET application accounts could not be loaded: ${entityResult.error.message}`)
-  }
-  const rows = [
-    ...((identityResult.data as unknown[] | null) ?? []),
-    ...((entityResult.data as unknown[] | null) ?? []),
-  ]
+  const rows = (data as unknown[] | null) ?? []
   return rows
     // Retired application accounts can remain in deployed history. They are
     // deliberately ignored at the client boundary so one old row cannot make
@@ -139,12 +106,17 @@ export async function fetchNetAppAccountsForIdentity(
     .map(parseNetAppAccount)
 }
 
+export function fetchNetAppAccountsForIdentity(
+  identityLinkId: string,
+): Promise<readonly NetAppAccount[]> {
+  return fetchNetAppAccounts(identityLinkId, 'fetch_net_runtime_app_accounts')
+}
+
 export async function fetchNetAppAccount(
   appId: NetAppId,
   identityLinkId: string,
-  canonicalEntityId?: string,
 ): Promise<NetAppAccount | null> {
-  const accounts = await fetchNetAppAccountsForIdentity(identityLinkId, canonicalEntityId)
+  const accounts = await fetchNetAppAccountsForIdentity(identityLinkId)
   return accounts.find((account) => account.appId === appId) ?? null
 }
 
@@ -190,7 +162,6 @@ export async function createExplicitNetAppAccount(input: {
 /** Same RLS-safe read contract reserved for the future GM account-inspection surface. */
 export function fetchNetAppAccountsForInspection(
   identityLinkId: string,
-  canonicalEntityId?: string,
 ): Promise<readonly NetAppAccount[]> {
-  return fetchNetAppAccountsForIdentity(identityLinkId, canonicalEntityId)
+  return fetchNetAppAccounts(identityLinkId, 'fetch_net_gm_inspected_app_accounts')
 }

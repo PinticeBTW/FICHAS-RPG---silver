@@ -10,6 +10,7 @@ export type SharedMediaSubjectKind =
   | 'app-account'
   | 'gm-profile'
   | 'nvn-article'
+  | 'altara-news-article'
   | 'global'
 
 export interface SharedMediaScope {

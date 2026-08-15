@@ -10,7 +10,7 @@ import type {
   NetPlayableIdentityCandidate,
   NetPlayableIdentityCandidateState,
 } from './netIdentityTypes'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { SharedMediaImage } from '../../shared/SharedMediaImage'
 
 interface NetIdentitySettingsProps {
@@ -18,6 +18,7 @@ interface NetIdentitySettingsProps {
   readonly candidates: NetPlayableIdentityCandidateState
   readonly activeIdentitySession: NetActiveIdentitySession
   readonly gmPersona: NetGmPersonaController
+  readonly gmSystemEnvironmentControl?: ReactNode
   readonly accountProfile: {
     readonly displayName: string
     readonly handle: string
@@ -183,15 +184,26 @@ export function NetIdentitySettings({
   candidates,
   activeIdentitySession,
   gmPersona,
+  gmSystemEnvironmentControl,
   accountProfile,
 }: NetIdentitySettingsProps) {
-  const readyCandidates = candidates.status === 'ready' ? candidates.candidates : []
+  const readyCandidates = useMemo(
+    () => candidates.status === 'ready' ? candidates.candidates : [],
+    [candidates],
+  )
   const linkedCandidates = activeIdentitySession.availablePlayableIdentities
-  const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const currentLinkedCandidate = activeIdentitySession.activeIdentityLink
     ? linkedCandidates.find(({ link }) => link.id === activeIdentitySession.activeIdentityLink?.id)
     : undefined
   const currentCandidate = currentLinkedCandidate?.candidate
+  const selectionScope = `${candidates.status === 'ready' ? candidates.authenticatedProfileId : 'loading'}:${currentCandidate ? candidateKey(currentCandidate) : 'none'}`
+  const [selection, setSelection] = useState<{ readonly scope: string; readonly key: string | null }>({
+    scope: selectionScope,
+    key: currentCandidate ? candidateKey(currentCandidate) : null,
+  })
+  const selectedKey = selection.scope === selectionScope
+    ? selection.key
+    : currentCandidate ? candidateKey(currentCandidate) : null
   const selectedCandidate = useMemo(
     () => readyCandidates.find((candidate) => candidateKey(candidate) === selectedKey)
       ?? linkedCandidates.find(({ candidate }) => candidateKey(candidate) === selectedKey)?.candidate
@@ -200,10 +212,6 @@ export function NetIdentitySettings({
       ?? readyCandidates[0],
     [currentCandidate, linkedCandidates, readyCandidates, selectedKey],
   )
-
-  useEffect(() => {
-    setSelectedKey(currentCandidate ? candidateKey(currentCandidate) : null)
-  }, [candidates.status === 'ready' ? candidates.authenticatedProfileId : undefined, currentCandidate])
 
   if (candidates.status === 'loading') return <LoadingState />
 
@@ -237,20 +245,23 @@ export function NetIdentitySettings({
       </div>
 
       {isGm ? (
-        <NetGmPersonaSettings
-          candidates={readyCandidates}
-          controller={gmPersona}
-          authenticatedProfileId={candidates.authenticatedProfileId}
-          warning={candidates.warning}
-          onRetrySummaries={candidates.retry}
-        />
+        <>
+          {gmSystemEnvironmentControl}
+          <NetGmPersonaSettings
+            candidates={readyCandidates}
+            controller={gmPersona}
+            authenticatedProfileId={candidates.authenticatedProfileId}
+            warning={candidates.warning}
+            onRetrySummaries={candidates.retry}
+          />
+        </>
       ) : currentCandidate ? (
         <div className="net-identity-settings__current">
           <span>Active character</span>
           <CandidateRow
             candidate={currentCandidate}
             selected={candidateKey(currentCandidate) === candidateKey(selectedCandidate ?? currentCandidate)}
-            onSelect={(candidate) => setSelectedKey(candidateKey(candidate))}
+            onSelect={(candidate) => setSelection({ scope: selectionScope, key: candidateKey(candidate) })}
           />
         </div>
       ) : activeIdentity.status === 'selection-required' ? (
@@ -277,7 +288,7 @@ export function NetIdentitySettings({
               key={link.id}
               candidate={candidate}
               selected={candidateKey(candidate) === candidateKey(selectedCandidate ?? candidate)}
-              onSelect={(nextCandidate) => setSelectedKey(candidateKey(nextCandidate))}
+              onSelect={(nextCandidate) => setSelection({ scope: selectionScope, key: candidateKey(nextCandidate) })}
               {...(isActive ? { activeLabel: 'ACTIVE' } : {})}
               {...(!isActive ? {
                 action: {

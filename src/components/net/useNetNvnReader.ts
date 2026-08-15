@@ -58,27 +58,35 @@ const pageRequests = new Map<string, Promise<NetNvnArticlePage>>()
 const detailRequests = new Map<string, Promise<NetNvnArticleDetail | null>>()
 
 function requestPageOnce(
+  expectedIdentityLinkId: string,
   key: string,
   request: NetNvnArticlePageRequest,
   requestGeneration?: string,
 ) {
-  const requestKey = requestGeneration ? `${key}:generation:${requestGeneration}` : key
+  const identityKey = `${expectedIdentityLinkId}:${key}`
+  const requestKey = requestGeneration
+    ? `${identityKey}:generation:${requestGeneration}`
+    : identityKey
   const existing = pageRequests.get(requestKey)
   if (existing) return existing
-  const pending = fetchNetNvnArticlePage(request).finally(() => {
+  const pending = fetchNetNvnArticlePage(expectedIdentityLinkId, request).finally(() => {
     if (pageRequests.get(requestKey) === pending) pageRequests.delete(requestKey)
   })
   pageRequests.set(requestKey, pending)
   return pending
 }
 
-function requestDetailOnce(articleId: string, requestGeneration?: string) {
+function requestDetailOnce(
+  expectedIdentityLinkId: string,
+  articleId: string,
+  requestGeneration?: string,
+) {
   const requestKey = requestGeneration
-    ? `${articleId}:generation:${requestGeneration}`
-    : articleId
+    ? `${expectedIdentityLinkId}:${articleId}:generation:${requestGeneration}`
+    : `${expectedIdentityLinkId}:${articleId}`
   const existing = detailRequests.get(requestKey)
   if (existing) return existing
-  const pending = fetchNetNvnArticle(articleId).finally(() => {
+  const pending = fetchNetNvnArticle(expectedIdentityLinkId, articleId).finally(() => {
     if (detailRequests.get(requestKey) === pending) detailRequests.delete(requestKey)
   })
   detailRequests.set(requestKey, pending)
@@ -115,7 +123,11 @@ const EMPTY_PAGE: PageState = {
   loadingMore: false,
 }
 
-export function useNetNvnReader(enabled = true, realtimeInvalidationVersion = 0) {
+export function useNetNvnReader(
+  enabled = true,
+  realtimeInvalidationVersion = 0,
+  expectedIdentityLinkId?: string,
+) {
   const [nav, setNavState] = useState<NvnReaderNav>('top')
   const [searchInput, setSearchInputState] = useState('')
   const [settledSearch, setSettledSearch] = useState('')
@@ -176,7 +188,7 @@ export function useNetNvnReader(enabled = true, realtimeInvalidationVersion = 0)
     preserveConfirmed: boolean,
     requestGeneration?: string,
   ) => {
-    if (!enabled || !pageDescriptor) return
+    if (!enabled || !expectedIdentityLinkId || !pageDescriptor) return
     const sequence = ++pageSequence.current
     const { key, request } = pageDescriptor
 
@@ -194,7 +206,12 @@ export function useNetNvnReader(enabled = true, realtimeInvalidationVersion = 0)
     })
 
     try {
-      const page = await requestPageOnce(key, request, requestGeneration)
+      const page = await requestPageOnce(
+        expectedIdentityLinkId,
+        key,
+        request,
+        requestGeneration,
+      )
       if (sequence !== pageSequence.current) return
       setPageState({
         key,
@@ -216,10 +233,10 @@ export function useNetNvnReader(enabled = true, realtimeInvalidationVersion = 0)
         error: readableError(error),
       }))
     }
-  }, [enabled, pageDescriptor])
+  }, [enabled, expectedIdentityLinkId, pageDescriptor])
 
   useEffect(() => {
-    if (!enabled) {
+    if (!enabled || !expectedIdentityLinkId) {
       pageSequence.current += 1
       detailSequence.current += 1
       return
@@ -243,6 +260,7 @@ export function useNetNvnReader(enabled = true, realtimeInvalidationVersion = 0)
     }
   }, [
     enabled,
+    expectedIdentityLinkId,
     invalidationVersion,
     loadFirstPage,
     nav,
@@ -254,6 +272,7 @@ export function useNetNvnReader(enabled = true, realtimeInvalidationVersion = 0)
   const loadMore = useCallback(async () => {
     if (
       !enabled
+      || !expectedIdentityLinkId
       || !pageDescriptor
       || pageState.key !== pageDescriptor.key
       || !pageState.hasMore
@@ -268,7 +287,7 @@ export function useNetNvnReader(enabled = true, realtimeInvalidationVersion = 0)
     setPageState((current) => ({ ...current, loadingMore: true, error: undefined }))
 
     try {
-      const page = await requestPageOnce(requestKey, request)
+      const page = await requestPageOnce(expectedIdentityLinkId, requestKey, request)
       if (sequence !== pageSequence.current) return
       setPageState((current) => ({
         ...current,
@@ -285,14 +304,14 @@ export function useNetNvnReader(enabled = true, realtimeInvalidationVersion = 0)
         error: readableError(error),
       }))
     }
-  }, [enabled, pageDescriptor, pageState.hasMore, pageState.key, pageState.loadingMore, pageState.nextCursor])
+  }, [enabled, expectedIdentityLinkId, pageDescriptor, pageState.hasMore, pageState.key, pageState.loadingMore, pageState.nextCursor])
 
   const loadDetail = useCallback(async (
     articleId: string,
     preserveConfirmed = false,
     requestGeneration?: string,
   ) => {
-    if (!enabled) return
+    if (!enabled || !expectedIdentityLinkId) return
     const sequence = ++detailSequence.current
     setDetailState((current) => (
       preserveConfirmed && current.articleId === articleId && current.article
@@ -300,7 +319,11 @@ export function useNetNvnReader(enabled = true, realtimeInvalidationVersion = 0)
         : { articleId, status: 'loading' }
     ))
     try {
-      const article = await requestDetailOnce(articleId, requestGeneration)
+      const article = await requestDetailOnce(
+        expectedIdentityLinkId,
+        articleId,
+        requestGeneration,
+      )
       if (sequence !== detailSequence.current || selectedArticleRef.current !== articleId) return
       setDetailState(
         article
@@ -324,7 +347,7 @@ export function useNetNvnReader(enabled = true, realtimeInvalidationVersion = 0)
             }
       ))
     }
-  }, [enabled])
+  }, [enabled, expectedIdentityLinkId])
 
   useEffect(() => {
     const articleId = selectedArticleRef.current

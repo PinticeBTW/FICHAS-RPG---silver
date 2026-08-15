@@ -1,0 +1,945 @@
+.vox-bank-app {
+  --vox-ink: #061014;
+  --vox-panel: #0b171c;
+  --vox-panel-2: #102229;
+  --vox-line: rgba(153, 218, 230, 0.2);
+  --vox-cyan: #69c6dc;
+  --vox-cyan-bright: #a9e7f1;
+  --vox-paper: #eef7f8;
+  --vox-muted: #9fb9bf;
+  --vox-positive: #79d9b2;
+  --bank-ink: var(--vox-ink);
+  --bank-panel: var(--vox-panel);
+  --bank-panel-2: var(--vox-panel-2);
+  --bank-line: var(--vox-line);
+  --bank-accent: var(--vox-cyan);
+  --bank-accent-bright: var(--vox-cyan-bright);
+  --bank-paper: var(--vox-paper);
+  --bank-muted: var(--vox-muted);
+  --bank-primary-ink: #041014;
+  --bank-danger: #ef8e8e;
+  --bank-danger-text: #ffd0d0;
+  --bank-display: Teko;
+  position: relative;
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  color: var(--vox-paper);
+  background: var(--vox-ink);
+  font-family: Archivo, sans-serif;
+}
+
+.vox-bank-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 86px;
+  padding: 18px 26px 14px;
+  border-bottom: 1px solid var(--vox-line);
+  background: #081317;
+}
+
+.vox-bank-header > div:first-child {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  column-gap: 10px;
+}
+
+.vox-bank-header h1,
+.vox-bank-move h2,
+.vox-bank-ledger h2,
+.vox-bank-onboarding h2 {
+  margin: 0;
+  color: var(--vox-paper);
+  font-family: Teko, sans-serif;
+  font-weight: 600;
+  line-height: 0.9;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.vox-bank-header h1 {
+  font-size: clamp(1.8rem, 4cqw, 2.45rem);
+}
+
+.vox-bank-header > div:first-child > span {
+  grid-column: 2;
+  color: var(--vox-muted);
+  font: 600 0.6rem/1.2 'JetBrains Mono', monospace;
+  letter-spacing: 0.18em;
+}
+
+.vox-bank-header > small,
+.vox-bank-header__holder small {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--vox-muted);
+  font: 600 0.68rem/1.3 'JetBrains Mono', monospace;
+  letter-spacing: 0.14em;
+}
+
+.vox-bank-header small i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--vox-positive);
+}
+
+.vox-bank-header__holder {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  max-width: 42%;
+  text-align: right;
+}
+
+.vox-bank-header__holder > span,
+.vox-bank-balance-register > span,
+.vox-bank-yield-register span,
+.vox-bank-account-line span,
+.vox-bank-route-balance span,
+.vox-bank-move label > span,
+.vox-bank-move legend {
+  color: var(--vox-muted);
+  font: 600 0.68rem/1.2 'JetBrains Mono', monospace;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+}
+
+.vox-bank-header__holder strong {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 0.86rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vox-bank-nav {
+  display: flex;
+  align-items: stretch;
+  min-height: 43px;
+  padding: 0 26px;
+  border-bottom: 1px solid var(--vox-line);
+  background: #09161a;
+}
+
+.vox-bank-nav button {
+  position: relative;
+  padding: 0 18px;
+  border: 0;
+  color: var(--vox-muted);
+  background: transparent;
+  font: 600 0.68rem/1 'JetBrains Mono', monospace;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.vox-bank-nav button::after {
+  position: absolute;
+  right: 16px;
+  bottom: 0;
+  left: 16px;
+  height: 2px;
+  background: transparent;
+  content: '';
+}
+
+.vox-bank-nav button[aria-current='page'] {
+  color: var(--vox-paper);
+}
+
+.vox-bank-nav button[aria-current='page']::after {
+  background: var(--vox-cyan);
+}
+
+.vox-bank-nav > span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: auto;
+  color: var(--vox-muted);
+  font: 600 0.68rem/1 'JetBrains Mono', monospace;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.vox-bank-nav > span::before {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--vox-positive);
+  content: '';
+}
+
+.vox-bank-nav > span[data-status='idle']::before,
+.vox-bank-nav > span[data-status='connecting']::before {
+  background: var(--vox-muted);
+}
+
+.vox-bank-nav > span[data-status='disconnected'] {
+  color: #ffd0d0;
+}
+
+.vox-bank-nav > span[data-status='disconnected']::before {
+  background: #ef8e8e;
+}
+
+.vox-bank-overview {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 1.08fr) minmax(300px, 0.92fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.vox-bank-balance-register,
+.vox-bank-yield-register {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  padding: clamp(28px, 5cqw, 56px);
+}
+
+.vox-bank-balance-register {
+  border-right: 1px solid var(--vox-line);
+  background: #071216;
+}
+
+.vox-bank-balance-register > strong {
+  margin-top: 10px;
+  font-family: Teko, sans-serif;
+  font-size: clamp(3.6rem, 9cqw, 6rem);
+  font-weight: 500;
+  line-height: 0.82;
+  letter-spacing: -0.015em;
+  white-space: nowrap;
+}
+
+.vox-bank-balance-register > small {
+  margin-top: 14px;
+  color: var(--vox-muted);
+}
+
+.vox-bank-balance-register__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 30px;
+}
+
+.vox-bank-app button {
+  font: inherit;
+}
+
+.vox-bank-primary,
+.vox-bank-balance-register__actions button,
+.vox-bank-state button,
+.vox-bank-onboarding button,
+.vox-bank-load-more,
+.vox-bank-dialog footer button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 9px 15px;
+  border: 1px solid var(--vox-line);
+  border-radius: 7px;
+  color: var(--vox-paper);
+  background: #102027;
+  font: 600 0.68rem/1 'JetBrains Mono', monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color 150ms ease-out, border-color 150ms ease-out, transform 150ms ease-out;
+}
+
+.vox-bank-primary {
+  border-color: var(--vox-cyan);
+  color: #041014;
+  background: var(--vox-cyan);
+}
+
+.vox-bank-app button:hover:not(:disabled) {
+  border-color: var(--vox-cyan-bright);
+  transform: translateY(-1px);
+}
+
+.vox-bank-app button:focus-visible,
+.vox-bank-app input:focus-visible {
+  outline: 2px solid var(--vox-cyan-bright);
+  outline-offset: 2px;
+}
+
+.vox-bank-app button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.vox-bank-yield-register {
+  position: relative;
+  background: var(--vox-panel);
+}
+
+.vox-bank-yield-register::before {
+  position: absolute;
+  top: 24px;
+  bottom: 24px;
+  left: 0;
+  width: 1px;
+  background: var(--vox-cyan);
+  opacity: 0.45;
+  content: '';
+}
+
+.vox-bank-yield-register[data-ready='true']::before {
+  width: 2px;
+  opacity: 1;
+}
+
+.vox-bank-yield-register > header {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 5px 8px;
+  color: var(--vox-cyan-bright);
+}
+
+.vox-bank-yield-register > header small {
+  grid-column: 2;
+  color: var(--vox-muted);
+  font-size: 0.72rem;
+}
+
+.vox-bank-yield-register__amount {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin: 34px 0 24px;
+}
+
+.vox-bank-yield-register__amount strong {
+  margin: 7px 0;
+  color: var(--vox-cyan-bright);
+  font-family: Teko, sans-serif;
+  font-size: clamp(2.25rem, 5cqw, 3.4rem);
+  font-weight: 500;
+  line-height: 0.9;
+}
+
+.vox-bank-yield-register__amount small {
+  max-width: 34ch;
+  color: var(--vox-muted);
+  line-height: 1.45;
+}
+
+.vox-bank-yield-register > button {
+  align-self: flex-start;
+}
+
+.vox-bank-account-line {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid var(--vox-line);
+  background: #0a171c;
+}
+
+.vox-bank-account-line > div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 26px;
+  border-right: 1px solid var(--vox-line);
+}
+
+.vox-bank-account-line > div:last-child {
+  border-right: 0;
+}
+
+.vox-bank-account-line strong {
+  font-size: 0.85rem;
+}
+
+.vox-bank-move,
+.vox-bank-ledger {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: clamp(24px, 4cqw, 42px);
+}
+
+.vox-bank-move {
+  display: grid;
+  grid-template-columns: minmax(210px, 0.72fr) minmax(320px, 1fr);
+  gap: clamp(28px, 6cqw, 72px);
+}
+
+.vox-bank-move > header {
+  padding-top: 8px;
+}
+
+.vox-bank-move h2,
+.vox-bank-ledger h2,
+.vox-bank-onboarding h2 {
+  font-size: clamp(2rem, 5cqw, 3rem);
+}
+
+.vox-bank-move header p,
+.vox-bank-ledger header p,
+.vox-bank-onboarding p {
+  max-width: 48ch;
+  margin: 10px 0 0;
+  color: var(--vox-muted);
+  line-height: 1.55;
+}
+
+.vox-bank-move form {
+  display: flex;
+  flex-direction: column;
+  gap: 19px;
+  padding: 24px;
+  border: 1px solid var(--vox-line);
+  background: var(--vox-panel);
+}
+
+.vox-bank-move fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.vox-bank-move legend {
+  margin-bottom: 9px;
+}
+
+.vox-bank-direction {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+.vox-bank-direction button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--vox-line);
+  border-radius: 7px;
+  color: var(--vox-muted);
+  background: #09161a;
+  text-align: left;
+  cursor: pointer;
+}
+
+.vox-bank-direction button[aria-pressed='true'] {
+  border-color: var(--vox-cyan);
+  color: var(--vox-paper);
+  background: #10252c;
+}
+
+.vox-bank-direction button span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.vox-bank-direction button small {
+  color: var(--vox-muted);
+  font-size: 0.65rem;
+}
+
+.vox-bank-route-balance {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--vox-line);
+}
+
+.vox-bank-route-balance strong {
+  font-family: Teko, sans-serif;
+  font-size: 1.8rem;
+  font-weight: 500;
+}
+
+.vox-bank-move label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vox-bank-amount-input {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--vox-line);
+  border-radius: 7px;
+  background: #061014;
+}
+
+.vox-bank-amount-input:focus-within {
+  border-color: var(--vox-cyan);
+}
+
+.vox-bank-amount-input input {
+  min-width: 0;
+  width: 100%;
+  padding: 12px 14px;
+  border: 0;
+  outline: 0;
+  color: var(--vox-paper);
+  background: transparent;
+  font: 500 1.45rem/1 Teko, sans-serif;
+}
+
+.vox-bank-amount-input b {
+  padding: 0 13px;
+  color: var(--vox-cyan-bright);
+  font: 600 0.7rem/1 'JetBrains Mono', monospace;
+}
+
+.vox-bank-helper {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  color: var(--vox-muted);
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.vox-bank-ledger > header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--vox-line);
+}
+
+.vox-bank-ledger > header > small {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--vox-muted);
+  font: 600 0.68rem/1 'JetBrains Mono', monospace;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.vox-bank-activity-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.vox-bank-activity {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 13px;
+  min-height: 66px;
+  border-bottom: 1px solid var(--vox-line);
+}
+
+.vox-bank-activity__mark {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid var(--vox-line);
+  border-radius: 50%;
+  color: var(--vox-cyan-bright);
+}
+
+.vox-bank-activity__mark[data-direction='outgoing'] {
+  color: #e8c49e;
+}
+
+.vox-bank-activity > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.vox-bank-activity small,
+.vox-bank-activity time {
+  color: var(--vox-muted);
+  font-size: 0.68rem;
+}
+
+.vox-bank-activity > b {
+  color: var(--vox-positive);
+  font: 600 0.78rem/1 'JetBrains Mono', monospace;
+  white-space: nowrap;
+}
+
+.vox-bank-activity > b[data-direction='outgoing'] {
+  color: #e8c49e;
+}
+
+.vox-bank-empty,
+.vox-bank-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 220px;
+  color: var(--vox-muted);
+  text-align: center;
+}
+
+.vox-bank-state {
+  height: 100%;
+  padding: 24px;
+  color: #9fb9bf;
+  background: #061014;
+}
+
+.vox-bank-state strong,
+.vox-bank-empty strong {
+  color: var(--vox-paper, #eef7f8);
+}
+
+.vox-bank-state[data-tone='error'] svg {
+  color: #ef8e8e;
+}
+
+.vox-bank-onboarding main {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(180px, 0.62fr) minmax(320px, 1fr);
+  align-items: center;
+  gap: clamp(28px, 7cqw, 90px);
+  min-height: 0;
+  overflow: auto;
+  padding: clamp(28px, 6cqw, 64px);
+}
+
+.vox-bank-onboarding__seal {
+  position: relative;
+  display: grid;
+  justify-self: end;
+  width: clamp(150px, 24cqw, 230px);
+  aspect-ratio: 1;
+  place-items: center;
+  border: 1px solid var(--vox-cyan);
+  border-radius: 50%;
+  color: var(--vox-cyan-bright);
+}
+
+.vox-bank-onboarding__seal::after {
+  position: absolute;
+  inset: 14px;
+  border: 1px solid var(--vox-line);
+  border-radius: 50%;
+  content: '';
+}
+
+.vox-bank-onboarding__seal span {
+  position: absolute;
+  bottom: 24%;
+  font: 600 0.6rem/1 'JetBrains Mono', monospace;
+  letter-spacing: 0.22em;
+}
+
+.vox-bank-onboarding dl {
+  max-width: 520px;
+  margin: 26px 0;
+  border-top: 1px solid var(--vox-line);
+}
+
+.vox-bank-onboarding dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--vox-line);
+}
+
+.vox-bank-onboarding dt {
+  color: var(--vox-muted);
+}
+
+.vox-bank-onboarding dd {
+  margin: 0;
+  color: var(--vox-paper);
+  font-weight: 600;
+}
+
+.vox-bank-error,
+.vox-bank-refresh-error {
+  padding: 10px 12px;
+  border: 1px solid rgba(239, 142, 142, 0.42);
+  border-radius: 7px;
+  color: #ffd0d0;
+  background: rgba(75, 20, 24, 0.36);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.vox-bank-refresh-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 10px 26px 0;
+}
+
+.vox-bank-refresh-error button {
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.vox-bank-load-more {
+  margin: 18px auto 0;
+}
+
+.vox-bank-dialog-backdrop {
+  position: absolute;
+  z-index: 20;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(2, 8, 10, 0.78);
+}
+
+.vox-bank-dialog {
+  width: min(440px, 100%);
+  border: 1px solid rgba(105, 198, 220, 0.48);
+  border-radius: 12px;
+  color: var(--vox-paper);
+  background: #0b181d;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.42);
+}
+
+.vox-bank-dialog > header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--vox-line);
+}
+
+.vox-bank-dialog > header > span {
+  color: var(--vox-cyan-bright);
+}
+
+.vox-bank-dialog > header button {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  color: var(--vox-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.vox-bank-dialog__route {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 20px 18px 0;
+  color: var(--vox-cyan-bright);
+  font: 600 0.68rem/1 'JetBrains Mono', monospace;
+  letter-spacing: 0.12em;
+}
+
+.vox-bank-dialog > p,
+.vox-bank-dialog > small,
+.vox-bank-dialog > .vox-bank-error {
+  margin-right: 18px;
+  margin-left: 18px;
+}
+
+.vox-bank-dialog > p {
+  margin-top: 18px;
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.vox-bank-dialog > small {
+  display: block;
+  color: var(--vox-muted);
+  line-height: 1.45;
+}
+
+.vox-bank-dialog > .vox-bank-error {
+  margin-top: 14px;
+}
+
+.vox-bank-dialog footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  margin-top: 18px;
+  padding: 14px 18px;
+  border-top: 1px solid var(--vox-line);
+}
+
+.vox-bank-spin {
+  animation: vox-bank-spin 850ms linear infinite;
+}
+
+@keyframes vox-bank-spin {
+  to { transform: rotate(360deg); }
+}
+
+@container (max-width: 720px) {
+  .vox-bank-header {
+    min-height: 74px;
+    padding: 15px 18px 11px;
+  }
+
+  .vox-bank-header__holder {
+    max-width: 48%;
+  }
+
+  .vox-bank-header__holder > span,
+  .vox-bank-header__holder > small,
+  .vox-bank-header > div:first-child > span {
+    display: none;
+  }
+
+  .vox-bank-nav {
+    padding: 0 10px;
+  }
+
+  .vox-bank-nav button {
+    flex: 1;
+    padding: 0 8px;
+  }
+
+  .vox-bank-nav > span {
+    display: none;
+  }
+
+  .vox-bank-overview {
+    display: block;
+  }
+
+  .vox-bank-balance-register,
+  .vox-bank-yield-register {
+    min-height: 260px;
+    padding: 30px 24px;
+    border-right: 0;
+    border-bottom: 1px solid var(--vox-line);
+  }
+
+  .vox-bank-yield-register::before {
+    top: 0;
+    right: 24px;
+    bottom: auto;
+    left: 24px;
+    width: auto;
+    height: 1px;
+  }
+
+  .vox-bank-account-line {
+    grid-template-columns: 1fr;
+  }
+
+  .vox-bank-account-line > div {
+    border-right: 0;
+    border-bottom: 1px solid var(--vox-line);
+  }
+
+  .vox-bank-move {
+    display: block;
+    padding: 24px 18px;
+  }
+
+  .vox-bank-move form {
+    margin-top: 24px;
+    padding: 18px;
+  }
+
+  .vox-bank-onboarding main {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 28px 22px;
+  }
+
+  .vox-bank-onboarding__seal {
+    align-self: center;
+    justify-self: auto;
+    width: 150px;
+  }
+
+  .vox-bank-ledger {
+    padding: 24px 18px;
+  }
+}
+
+@container (max-width: 480px) {
+  .vox-bank-header > div:first-child > svg {
+    display: none;
+  }
+
+  .vox-bank-header > div:first-child {
+    grid-template-columns: auto;
+  }
+
+  .vox-bank-header h1 {
+    font-size: 1.8rem;
+  }
+
+  .vox-bank-balance-register > strong {
+    font-size: 3.4rem;
+  }
+
+  .vox-bank-balance-register__actions,
+  .vox-bank-dialog footer {
+    flex-direction: column;
+  }
+
+  .vox-bank-balance-register__actions button,
+  .vox-bank-dialog footer button {
+    width: 100%;
+  }
+
+  .vox-bank-direction {
+    grid-template-columns: 1fr;
+  }
+
+  .vox-bank-activity {
+    grid-template-columns: auto minmax(0, 1fr);
+    padding: 10px 0;
+  }
+
+  .vox-bank-activity > b {
+    grid-column: 2;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vox-bank-app button {
+    transition: none;
+  }
+
+  .vox-bank-spin {
+    animation: none;
+  }
+}

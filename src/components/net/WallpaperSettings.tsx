@@ -1,5 +1,5 @@
 import { AlertTriangle, ImagePlus, RotateCcw, Upload } from 'lucide-react'
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 
 import {
   validateWallpaperFile,
@@ -37,6 +37,7 @@ interface WallpaperSettingsProps {
   identityCandidates: NetPlayableIdentityCandidateState
   activeIdentitySession: NetActiveIdentitySession
   gmPersona: NetGmPersonaController
+  gmSystemEnvironmentControl?: ReactNode
   accountProfile: {
     readonly displayName: string
     readonly handle: string
@@ -72,6 +73,7 @@ export function WallpaperSettings({
   identityCandidates,
   activeIdentitySession,
   gmPersona,
+  gmSystemEnvironmentControl,
   accountProfile,
   universalProfile,
   systemContext,
@@ -243,6 +245,7 @@ export function WallpaperSettings({
           activeIdentitySession={activeIdentitySession}
           gmPersona={gmPersona}
           accountProfile={accountProfile}
+          gmSystemEnvironmentControl={gmSystemEnvironmentControl}
         />
       ) : <>
       <div className="net-wallpaper-settings__context" aria-live="polite">
@@ -323,7 +326,7 @@ export function WallpaperSettings({
           <p className="net-wallpaper-settings__hint">
             <ImagePlus size={13} />
             {appearanceReadOnly
-              ? 'Controlled system mount. Wallpaper changes remain unavailable.'
+              ? 'Compromised session. Wallpaper changes remain unavailable.'
               : 'PNG, JPG or WEBP, up to 10 MB.'}
           </p>
         )}

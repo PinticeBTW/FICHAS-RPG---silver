@@ -5,6 +5,8 @@ import {
   fetchNetIdentitySystemForInspection,
   type NetIdentitySystemSnapshot,
 } from '../../../lib/netIdentitySystemService'
+import { fetchNetGmIdentityOs } from '../../../lib/netOsService'
+import { netAppScopeAllows, type NetOsId } from '../../../lib/netOsTypes'
 import { wallpaperPositionToCss } from '../../../lib/netWallpaperStore'
 import {
   getNetAppDefinition,
@@ -23,6 +25,7 @@ type RemoteSnapshotState =
       readonly authenticatedProfileId: string
       readonly identityLinkId: string
       readonly snapshot: NetIdentitySystemSnapshot
+      readonly primaryOsId: NetOsId | null
     }
   | {
       readonly status: 'error'
@@ -71,17 +74,24 @@ export function NetGmRemoteSystemSnapshot({
 
   useEffect(() => {
     if (!identityLinkId) {
-      setState(null)
       return undefined
     }
 
     let cancelled = false
-    setState({ status: 'loading', authenticatedProfileId, identityLinkId })
 
-    void fetchNetIdentitySystemForInspection(identityLinkId)
-      .then((snapshot) => {
+    void Promise.all([
+      fetchNetIdentitySystemForInspection(identityLinkId),
+      fetchNetGmIdentityOs(identityLinkId),
+    ])
+      .then(([snapshot, osAssignment]) => {
         if (cancelled) return
-        setState({ status: 'ready', authenticatedProfileId, identityLinkId, snapshot })
+        setState({
+          status: 'ready',
+          authenticatedProfileId,
+          identityLinkId,
+          snapshot,
+          primaryOsId: osAssignment.primaryOsId,
+        })
       })
       .catch((error: unknown) => {
         if (cancelled) return
@@ -103,15 +113,18 @@ export function NetGmRemoteSystemSnapshot({
     && state.identityLinkId === identityLinkId
   ) ? state : null
   const snapshot = matchingState?.status === 'ready' ? matchingState.snapshot : null
+  const primaryOsId = matchingState?.status === 'ready' ? matchingState.primaryOsId : null
   const isLoading = Boolean(identityLinkId) && (!matchingState || matchingState.status === 'loading')
   const loadError = matchingState?.status === 'error' ? matchingState.reason : null
   const installedAppIds = useMemo(() => {
-    if (!snapshot) return []
+    if (!snapshot || !primaryOsId) return []
     const installed = new Set<string>(snapshot.installedOptionalAppIds)
     return netAppCatalog.filter((app) => (
-      app.available && (systemNetAppIds.includes(app.id) || installed.has(app.id))
+      app.available
+      && netAppScopeAllows(app.scope, primaryOsId)
+      && (systemNetAppIds.includes(app.id) || installed.has(app.id))
     ))
-  }, [snapshot])
+  }, [primaryOsId, snapshot])
 
   return (
     <section className="net-persona-snapshot" aria-labelledby="net-persona-snapshot-title">
@@ -143,7 +156,14 @@ export function NetGmRemoteSystemSnapshot({
         <div className="net-persona-snapshot__failure" role="alert">
           <p>SYSTEM SNAPSHOT UNAVAILABLE</p>
           <span>{loadError}</span>
-          <button type="button" onClick={() => setRequestVersion((version) => version + 1)}>
+          <button
+            type="button"
+            onClick={() => {
+              if (!identityLinkId) return
+              setState({ status: 'loading', authenticatedProfileId, identityLinkId })
+              setRequestVersion((version) => version + 1)
+            }}
+          >
             <RefreshCw size={13} />
             RETRY SNAPSHOT
           </button>
@@ -167,7 +187,7 @@ export function NetGmRemoteSystemSnapshot({
               />
             ) : (
               <div className="net-persona-snapshot__wallpaper-default" aria-label="Default THE NET wallpaper">
-                <strong>NEW VEGA</strong>
+                <strong>{primaryOsId === 'altara' ? 'ALTARA' : primaryOsId === 'veil' ? 'NEW VEGA' : 'NO OS'}</strong>
                 <span>DEFAULT SYSTEM WALLPAPER</span>
               </div>
             )}
@@ -181,7 +201,7 @@ export function NetGmRemoteSystemSnapshot({
             <div><dt>LAST UPDATE</dt><dd>{formatSnapshotTimestamp(snapshot.updatedAt)}</dd></div>
             <div><dt>WALLPAPER</dt><dd>{snapshot.wallpaper ? 'CUSTOM' : 'DEFAULT'}</dd></div>
             <div><dt>OPTIONAL APPS</dt><dd>{snapshot.installedOptionalAppIds.length}</dd></div>
-            <div><dt>SOURCE</dt><dd>NEW VEGA IDENTITY SYSTEM</dd></div>
+            <div><dt>SOURCE</dt><dd>{primaryOsId === 'altara' ? 'ALTARA OS' : primaryOsId === 'veil' ? 'NEW VEGA IDENTITY SYSTEM' : 'NO OPERATING SYSTEM'}</dd></div>
           </dl>
 
           <section className="net-persona-snapshot__applications" aria-labelledby="net-persona-snapshot-applications">

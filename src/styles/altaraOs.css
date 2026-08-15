@@ -1,0 +1,717 @@
+.altara-os {
+  --altara-gold: 219, 192, 139;
+  --altara-ink: #090a0c;
+  --altara-surface: #111315;
+  --altara-text: #f0ede6;
+  --altara-muted: #aaa69e;
+  position: relative;
+  width: 100%;
+  min-height: 100dvh;
+  overflow: hidden;
+  color: var(--altara-text);
+  background: #090b0e;
+  font-family: var(--font-body, Inter, system-ui, sans-serif);
+  isolation: isolate;
+}
+
+.altara-os button,
+.altara-os a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.altara-os button:focus-visible,
+.altara-os a:focus-visible {
+  outline: 2px solid rgba(var(--altara-gold), 0.9);
+  outline-offset: 3px;
+}
+
+.altara-os__wallpaper {
+  position: absolute;
+  z-index: -2;
+  inset: 0;
+  overflow: hidden;
+  background: #090b0f;
+  transition: background-color 220ms ease;
+}
+
+.altara-os__wallpaper > img {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.altara-os[data-custom-wallpaper='true'] .altara-os__wallpaper::before,
+.altara-os[data-custom-wallpaper='true'] .altara-os__wallpaper::after,
+.altara-os[data-custom-wallpaper='true'] .altara-os__wallpaper > i {
+  opacity: 0.32;
+}
+
+.altara-os__wallpaper::before,
+.altara-os__wallpaper::after,
+.altara-os__wallpaper i {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+}
+
+.altara-os__wallpaper::before {
+  right: -14vw;
+  bottom: -42vh;
+  width: 74vw;
+  height: 86vh;
+  border: 1px solid rgba(225, 203, 159, 0.2);
+  border-radius: 50%;
+  background: rgba(181, 142, 82, 0.12);
+  box-shadow:
+    0 0 120px rgba(213, 176, 114, 0.12),
+    inset 0 0 130px rgba(6, 7, 9, 0.65);
+  transform: rotate(-18deg);
+}
+
+.altara-os__wallpaper::after {
+  top: 18vh;
+  right: 20vw;
+  width: 1px;
+  height: 56vh;
+  background: rgba(231, 215, 182, 0.16);
+  box-shadow: 88px 0 rgba(231, 215, 182, 0.06), -88px 0 rgba(231, 215, 182, 0.06);
+  transform: rotate(32deg);
+}
+
+.altara-os__wallpaper i:nth-child(1) {
+  top: -18vh;
+  left: 18vw;
+  width: 38vw;
+  height: 38vw;
+  border-radius: 50%;
+  background: rgba(105, 116, 132, 0.08);
+  filter: blur(50px);
+}
+
+.altara-os__wallpaper i:nth-child(2) {
+  top: 14vh;
+  right: 8vw;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(235, 214, 170, 0.86);
+  box-shadow:
+    80px 70px 0 rgba(235, 214, 170, 0.3),
+    -130px 160px 0 rgba(235, 214, 170, 0.48),
+    -32px 300px 0 rgba(235, 214, 170, 0.24),
+    -280px 88px 0 rgba(235, 214, 170, 0.32);
+}
+
+.altara-os__wallpaper i:nth-child(3) {
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.09);
+  box-shadow: 0 -160px rgba(255, 255, 255, 0.025), 0 -320px rgba(255, 255, 255, 0.02);
+}
+
+.altara-os[data-wallpaper='atlas'] .altara-os__wallpaper {
+  background: #0a1016;
+}
+
+.altara-os[data-wallpaper='atlas'] .altara-os__wallpaper::before {
+  right: -6vw;
+  bottom: -50vh;
+  width: 90vw;
+  border-color: rgba(133, 172, 193, 0.2);
+  background: rgba(72, 111, 137, 0.14);
+  box-shadow: 0 0 140px rgba(79, 126, 157, 0.12), inset 0 0 150px rgba(6, 8, 11, 0.7);
+}
+
+.altara-os[data-wallpaper='silk'] .altara-os__wallpaper {
+  background: #171614;
+}
+
+.altara-os[data-wallpaper='silk'] .altara-os__wallpaper::before {
+  right: 8vw;
+  bottom: -56vh;
+  border-color: rgba(228, 218, 196, 0.14);
+  background: rgba(206, 192, 166, 0.09);
+  box-shadow: 0 0 100px rgba(209, 192, 158, 0.08), inset 0 0 160px rgba(21, 19, 16, 0.75);
+}
+
+.altara-osbar {
+  position: absolute;
+  z-index: 80;
+  top: 0;
+  right: 0;
+  left: 0;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  min-height: 54px;
+  padding: 0 22px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.075);
+  background: rgba(8, 9, 11, 0.82);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(24px) saturate(1.1);
+  user-select: none;
+}
+
+.altara-osbar__brand,
+.altara-osbar__network,
+.altara-osbar__identity {
+  display: flex;
+  align-items: center;
+}
+
+.altara-osbar__brand { gap: 10px; }
+.altara-osbar__mark {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 1px solid rgba(var(--altara-gold), 0.42);
+  color: rgb(var(--altara-gold));
+  transform: rotate(45deg);
+}
+.altara-osbar__mark svg { transform: rotate(-45deg); }
+.altara-osbar__brand div { display: grid; gap: 1px; }
+.altara-osbar__brand strong,
+.altara-osbar__identity strong {
+  font-size: 0.7rem;
+  font-weight: 650;
+  letter-spacing: 0.09em;
+}
+.altara-osbar__brand small,
+.altara-osbar__identity small,
+.altara-osbar__network {
+  color: rgba(222, 216, 204, 0.54);
+  font: 650 0.47rem/1.2 var(--font-mono, ui-monospace, monospace);
+  letter-spacing: 0.14em;
+}
+.altara-osbar__network {
+  gap: 7px;
+  color: rgba(var(--altara-gold), 0.72);
+}
+.altara-osbar__identity {
+  justify-self: end;
+  gap: 9px;
+  padding: 5px 2px 5px 9px;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+.altara-osbar__identity > span {
+  display: grid;
+  width: 29px;
+  height: 29px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(var(--altara-gold), 0.9);
+  font: 650 0.56rem/1 var(--font-mono, ui-monospace, monospace);
+}
+.altara-osbar__identity div { display: grid; gap: 2px; text-align: right; }
+.altara-osbar__identity svg { color: rgba(255, 255, 255, 0.35); }
+
+.altara-desktop {
+  position: absolute;
+  inset: 55px 0 0;
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(340px, 520px);
+  grid-template-rows: 1fr auto;
+  gap: 32px;
+  padding: clamp(38px, 7vw, 90px) clamp(30px, 6vw, 84px) 116px;
+  user-select: none;
+}
+
+.altara-desktop__intro {
+  align-self: center;
+  max-width: 620px;
+}
+.altara-desktop__intro p,
+.altara-desktop__intro span,
+.altara-desktop__status,
+.altara-desktop-app small {
+  font: 650 0.55rem/1.4 var(--font-mono, ui-monospace, monospace);
+  letter-spacing: 0.17em;
+}
+.altara-desktop__intro p { color: rgba(var(--altara-gold), 0.8); }
+.altara-desktop__intro h1 {
+  margin: 12px 0 20px;
+  color: rgba(244, 240, 231, 0.94);
+  font-family: var(--font-display, Inter, system-ui, sans-serif);
+  font-size: clamp(2.5rem, 5vw, 5.5rem);
+  font-weight: 380;
+  line-height: 0.94;
+  letter-spacing: -0.055em;
+}
+.altara-desktop__intro span { color: rgba(229, 224, 215, 0.45); }
+
+.altara-desktop__applications {
+  align-self: center;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.altara-desktop-app {
+  --app-rgb: 219, 192, 139;
+  position: relative;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  min-height: 70px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 11px;
+  color: rgba(244, 241, 234, 0.9);
+  text-align: left;
+  background: rgba(14, 15, 17, 0.62);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.13);
+  backdrop-filter: blur(18px) saturate(1.08);
+  cursor: pointer;
+  transition: border-color 150ms ease, background-color 150ms ease, transform 150ms ease;
+}
+.altara-desktop-app:hover:not(:disabled) {
+  border-color: rgba(var(--app-rgb), 0.4);
+  background: rgba(24, 25, 27, 0.76);
+  transform: translateY(-1px);
+}
+.altara-desktop-app:disabled { opacity: 0.5; }
+.altara-desktop-app__icon {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid rgba(var(--app-rgb), 0.28);
+  border-radius: 10px;
+  background: rgba(var(--app-rgb), 0.1);
+  color: rgb(var(--app-rgb));
+}
+.altara-desktop-app__copy { display: grid; gap: 4px; min-width: 0; }
+.altara-desktop-app__copy strong {
+  overflow: hidden;
+  font-size: 0.72rem;
+  font-weight: 620;
+  letter-spacing: 0.045em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.altara-desktop-app__copy small { color: rgba(235, 230, 220, 0.68); font-size: 0.58rem; }
+.altara-desktop-app > i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgb(var(--app-rgb));
+  box-shadow: 0 0 10px rgba(var(--app-rgb), 0.75);
+}
+
+.altara-desktop__status {
+  align-self: end;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 10px;
+  width: max-content;
+  color: rgba(231, 225, 213, 0.5);
+}
+.altara-desktop__status > span { display: flex; align-items: center; gap: 7px; color: rgba(var(--altara-gold), 0.68); }
+.altara-desktop__status strong { color: rgba(242, 238, 229, 0.84); font-size: 0.56rem; letter-spacing: 0.12em; }
+.altara-desktop__status small { grid-column: 1 / -1; color: rgba(238, 233, 223, 0.68); font-size: 0.56rem; }
+
+.altara-dock {
+  position: absolute;
+  z-index: 90;
+  right: 50%;
+  bottom: 15px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  max-width: calc(100vw - 24px);
+  min-height: 58px;
+  padding: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 17px;
+  background: rgba(11, 12, 14, 0.84);
+  box-shadow: 0 18px 58px rgba(0, 0, 0, 0.42), inset 0 1px rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(28px) saturate(1.15);
+  transform: translateX(50%);
+  user-select: none;
+}
+.altara-dock__home,
+.altara-dock__apps button {
+  position: relative;
+  display: grid;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  color: rgba(236, 232, 224, 0.72);
+  background: transparent;
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease, transform 150ms ease;
+}
+.altara-dock__home {
+  border-color: rgba(var(--altara-gold), 0.24);
+  color: rgb(var(--altara-gold));
+  background: rgba(var(--altara-gold), 0.08);
+}
+.altara-dock__home:hover:not(:disabled),
+.altara-dock__apps button:hover:not(:disabled) {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-2px);
+}
+.altara-dock__apps { display: flex; gap: 2px; min-width: 0; }
+.altara-dock__apps button[data-running='true'] { color: rgb(var(--app-rgb)); }
+.altara-dock__apps button[data-focused='true'] { border-color: rgba(var(--app-rgb), 0.3); background: rgba(var(--app-rgb), 0.1); }
+.altara-dock__apps button i {
+  position: absolute;
+  right: 50%;
+  bottom: 2px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgb(var(--app-rgb));
+  transform: translateX(50%);
+}
+.altara-dock__clock {
+  display: grid;
+  min-width: 76px;
+  gap: 2px;
+  padding: 4px 7px 4px 12px;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: right;
+}
+.altara-dock__clock strong { font-size: 0.69rem; font-weight: 600; letter-spacing: 0.04em; }
+.altara-dock__clock span { color: rgba(238, 233, 223, 0.68); font: 600 0.55rem/1 var(--font-mono, ui-monospace, monospace); letter-spacing: 0.07em; text-transform: uppercase; }
+
+.altara-os__notice {
+  position: absolute;
+  z-index: 30;
+  right: 18px;
+  bottom: 22px;
+  display: grid;
+  gap: 3px;
+  color: rgba(235, 230, 220, 0.68);
+  font: 600 0.56rem/1.2 var(--font-mono, ui-monospace, monospace);
+  letter-spacing: 0.1em;
+  text-align: right;
+}
+.altara-os__notice small { color: rgba(var(--altara-gold), 0.72); font-size: 0.52rem; }
+
+.altara-launcher {
+  position: absolute;
+  z-index: 95;
+  bottom: 84px;
+  left: 50%;
+  width: min(620px, calc(100vw - 24px));
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 15px;
+  background: rgba(13, 14, 16, 0.94);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.52);
+  backdrop-filter: blur(32px) saturate(1.12);
+  transform: translateX(-50%);
+  animation: altara-panel-in 150ms ease-out;
+}
+.altara-launcher > header,
+.altara-launcher > footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(235, 230, 220, 0.68);
+  font: 650 0.58rem/1 var(--font-mono, ui-monospace, monospace);
+  letter-spacing: 0.14em;
+}
+.altara-launcher__brand { display: flex; align-items: center; gap: 8px; color: rgba(var(--altara-gold), 0.86); }
+.altara-launcher__apps { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; background: rgba(255, 255, 255, 0.06); }
+.altara-launcher__apps button {
+  --app-rgb: 219, 192, 139;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 62px;
+  padding: 10px 13px;
+  border: 0;
+  color: inherit;
+  text-align: left;
+  background: #121315;
+}
+.altara-launcher__apps button:hover { background: #191a1c; }
+.altara-launcher__apps button > span:first-child { display: grid; width: 36px; height: 36px; place-items: center; border: 1px solid rgba(var(--app-rgb), 0.26); border-radius: 9px; color: rgb(var(--app-rgb)); background: rgba(var(--app-rgb), 0.08); }
+.altara-launcher__apps button > span:nth-child(2) { display: grid; gap: 3px; min-width: 0; }
+.altara-launcher__apps strong { overflow: hidden; font-size: 0.68rem; letter-spacing: 0.04em; white-space: nowrap; text-overflow: ellipsis; }
+.altara-launcher__apps small,
+.altara-launcher__apps i { color: rgba(235, 230, 220, 0.65); font: 600 0.54rem/1.25 var(--font-mono, ui-monospace, monospace); letter-spacing: 0.08em; text-transform: uppercase; }
+.altara-launcher__apps i { color: rgba(var(--altara-gold), 0.82); font-style: normal; }
+.altara-launcher > footer { border-top: 1px solid rgba(255, 255, 255, 0.08); border-bottom: 0; }
+.altara-launcher > footer button,
+.altara-launcher > footer a { display: flex; align-items: center; gap: 8px; border: 0; color: rgba(236, 232, 224, 0.74); background: transparent; text-decoration: none; }
+.altara-launcher > footer button span { display: grid; gap: 2px; text-align: left; }
+.altara-launcher > footer button small { color: rgba(235, 230, 220, 0.64); font-size: 0.52rem; }
+.altara-launcher > footer button strong { max-width: 220px; overflow: hidden; font-size: 0.62rem; white-space: nowrap; text-overflow: ellipsis; }
+
+.altara-session-state {
+  position: absolute;
+  z-index: 110;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  width: min(440px, calc(100vw - 30px));
+  justify-items: center;
+  padding: 30px;
+  border: 1px solid rgba(var(--altara-gold), 0.22);
+  background: rgba(11, 12, 14, 0.95);
+  box-shadow: 0 30px 100px rgba(0, 0, 0, 0.55);
+  text-align: center;
+  transform: translate(-50%, -50%);
+}
+.altara-session-state > span { display: grid; width: 44px; height: 44px; margin-bottom: 18px; place-items: center; border: 1px solid rgba(var(--altara-gold), 0.32); color: rgb(var(--altara-gold)); }
+.altara-session-state p,
+.altara-session-state small,
+.altara-session-state button { font: 650 0.5rem/1.45 var(--font-mono, ui-monospace, monospace); letter-spacing: 0.13em; }
+.altara-session-state p { color: rgba(var(--altara-gold), 0.68); }
+.altara-session-state h2 { margin: 8px 0; font-size: 1.2rem; letter-spacing: 0.05em; }
+.altara-session-state small { color: rgba(228, 223, 213, 0.5); }
+.altara-session-state > i { width: 80px; height: 1px; margin-top: 22px; overflow: hidden; background: rgba(255, 255, 255, 0.09); }
+.altara-session-state > i::after { content: ''; display: block; width: 35%; height: 100%; background: rgb(var(--altara-gold)); animation: altara-progress 1.1s ease-in-out infinite alternate; }
+.altara-session-state > div { display: flex; gap: 8px; margin-top: 22px; }
+.altara-session-state button { display: flex; align-items: center; gap: 7px; padding: 9px 11px; border: 1px solid rgba(var(--altara-gold), 0.24); color: rgba(239, 234, 225, 0.82); background: rgba(var(--altara-gold), 0.06); }
+
+/* ALTARA chrome for the shared low-level window primitive. */
+.altara-os .net-app-window {
+  --app-rgb: 219, 192, 139;
+  position: fixed;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  color: #efede8;
+  background: #0d0e10;
+  box-shadow: 0 32px 90px rgba(0, 0, 0, 0.56), 0 0 0 1px rgba(var(--app-rgb), 0.06);
+  animation: altara-window-in 160ms ease-out;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.17) transparent;
+}
+.altara-os .net-app-window[data-maximized='true'] { border-radius: 8px; }
+.altara-os .net-app-window[data-minimized='true'] { display: none; }
+.altara-os .net-app-window[data-focused='false'] { border-color: rgba(255, 255, 255, 0.08); box-shadow: 0 24px 70px rgba(0, 0, 0, 0.48); filter: saturate(0.88); }
+.altara-os .net-app-window ::-webkit-scrollbar { width: 8px; height: 8px; }
+.altara-os .net-app-window ::-webkit-scrollbar-track { background: transparent; }
+.altara-os .net-app-window ::-webkit-scrollbar-thumb { border: 2px solid transparent; border-radius: 99px; background: rgba(255, 255, 255, 0.16); background-clip: padding-box; }
+.altara-os .net-app-window__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 45px;
+  padding: 8px 10px 8px 13px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  background: #151618;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.altara-os .net-app-window__bar:active { cursor: grabbing; }
+.altara-os .net-app-window__identity { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.altara-os .net-app-window__icon { display: grid; flex-shrink: 0; width: 27px; height: 27px; place-items: center; border: 1px solid rgba(var(--app-rgb), 0.32); border-radius: 7px; color: rgb(var(--app-rgb)); background: rgba(var(--app-rgb), 0.08); }
+.altara-os .net-app-window__titles { display: grid; gap: 2px; min-width: 0; }
+.altara-os .net-app-window__titles strong { overflow: hidden; color: rgba(247, 244, 238, 0.9); font-size: 0.64rem; font-weight: 620; letter-spacing: 0.07em; white-space: nowrap; text-overflow: ellipsis; }
+.altara-os .net-app-window__titles small { overflow: hidden; color: rgba(var(--app-rgb), 0.82); font: 600 0.5rem/1 var(--font-mono, ui-monospace, monospace); letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap; text-overflow: ellipsis; }
+.altara-os .net-app-window__controls { display: flex; flex-shrink: 0; align-items: center; gap: 3px; }
+.altara-os .net-app-window__controls button { display: grid; width: 26px; height: 26px; place-items: center; border: 0; border-radius: 7px; color: rgba(230, 226, 217, 0.6); background: transparent; }
+.altara-os .net-app-window__controls button:hover { color: #fff; background: rgba(255, 255, 255, 0.08); }
+.altara-os .net-app-window__controls .net-app-window__close:hover { color: #ff9d9d; background: rgba(197, 45, 54, 0.18); }
+.altara-os .net-app-window__body { position: relative; flex: 1; min-height: 0; overflow: auto; user-select: text; container-type: inline-size; }
+.altara-os .net-app-window__resize-layer { position: absolute; inset: 0; pointer-events: none; }
+.altara-os .net-app-window__resize-handle { position: absolute; pointer-events: auto; touch-action: none; }
+.altara-os .net-app-window__resize-handle[data-direction='left'],
+.altara-os .net-app-window__resize-handle[data-direction='right'] { top: 14px; bottom: 14px; width: 12px; }
+.altara-os .net-app-window__resize-handle[data-direction='left'] { left: -6px; cursor: ew-resize; }
+.altara-os .net-app-window__resize-handle[data-direction='right'] { right: -6px; cursor: ew-resize; }
+.altara-os .net-app-window__resize-handle[data-direction='top'],
+.altara-os .net-app-window__resize-handle[data-direction='bottom'] { right: 14px; left: 14px; height: 12px; }
+.altara-os .net-app-window__resize-handle[data-direction='top'] { top: -6px; cursor: ns-resize; }
+.altara-os .net-app-window__resize-handle[data-direction='bottom'] { bottom: -6px; cursor: ns-resize; }
+.altara-os .net-app-window__resize-handle[data-direction='top-left'],
+.altara-os .net-app-window__resize-handle[data-direction='top-right'],
+.altara-os .net-app-window__resize-handle[data-direction='bottom-left'],
+.altara-os .net-app-window__resize-handle[data-direction='bottom-right'] { z-index: 1; width: 22px; height: 22px; }
+.altara-os .net-app-window__resize-handle[data-direction='top-left'] { top: -10px; left: -10px; cursor: nwse-resize; }
+.altara-os .net-app-window__resize-handle[data-direction='top-right'] { top: -10px; right: -10px; cursor: nesw-resize; }
+.altara-os .net-app-window__resize-handle[data-direction='bottom-left'] { bottom: -10px; left: -10px; cursor: nesw-resize; }
+.altara-os .net-app-window__resize-handle[data-direction='bottom-right'] { right: -10px; bottom: -10px; cursor: nwse-resize; }
+.altara-os .net-window-snap-preview { position: fixed; pointer-events: none; border: 1px solid rgba(var(--altara-gold), 0.4); border-radius: 10px; background: rgba(var(--altara-gold), 0.08); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05); }
+
+.altara-app-loading { display: grid; height: 100%; min-height: 240px; place-content: center; justify-items: center; gap: 7px; color: rgba(234, 229, 219, 0.52); background: #0c0d0f; text-align: center; }
+.altara-app-loading i { width: 54px; height: 1px; margin-bottom: 10px; background: rgb(var(--app-rgb)); animation: altara-loading 900ms ease-in-out infinite alternate; }
+.altara-app-loading strong { color: rgba(244, 241, 234, 0.86); font-size: 0.72rem; letter-spacing: 0.12em; }
+.altara-app-loading span { font: 600 0.45rem/1.3 var(--font-mono, ui-monospace, monospace); letter-spacing: 0.1em; text-transform: uppercase; }
+
+.altara-service-shell { display: grid; grid-template-rows: auto 1fr auto; height: 100%; min-height: 320px; background: #0e0f11; }
+.altara-service-shell > header { display: grid; grid-template-columns: 46px 1fr auto; align-items: center; gap: 12px; padding: 18px 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+.altara-service-shell__mark { display: grid; grid-row: span 2; width: 44px; height: 44px; place-items: center; border: 1px solid rgba(var(--app-rgb), 0.34); color: rgb(var(--app-rgb)); background: rgba(var(--app-rgb), 0.08); }
+.altara-service-shell > header p { color: rgba(var(--app-rgb), 0.76); font: 650 0.48rem/1 var(--font-mono, ui-monospace, monospace); letter-spacing: 0.14em; }
+.altara-service-shell > header > span { display: flex; grid-row: span 2; align-items: center; gap: 7px; color: rgba(238, 233, 223, 0.68); font: 600 0.55rem/1 var(--font-mono, ui-monospace, monospace); letter-spacing: 0.09em; }
+.altara-service-shell > main { align-self: center; max-width: 620px; padding: clamp(30px, 8vw, 72px); }
+.altara-service-shell > main > small { color: rgba(var(--app-rgb), 0.7); font: 650 0.46rem/1 var(--font-mono, ui-monospace, monospace); letter-spacing: 0.16em; }
+.altara-service-shell h2 { margin: 12px 0 14px; font-size: clamp(1.8rem, 4vw, 3.5rem); font-weight: 400; letter-spacing: -0.04em; }
+.altara-service-shell main > p { max-width: 520px; color: rgba(230, 226, 217, 0.58); font-size: 0.82rem; line-height: 1.7; }
+.altara-service-shell__capabilities { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 28px; }
+.altara-service-shell__capabilities span { display: flex; align-items: center; gap: 4px; padding: 7px 9px; border: 1px solid rgba(255, 255, 255, 0.09); color: rgba(231, 226, 216, 0.55); font: 600 0.43rem/1 var(--font-mono, ui-monospace, monospace); letter-spacing: 0.08em; text-transform: uppercase; }
+.altara-service-shell > footer { display: flex; align-items: center; gap: 8px; padding: 13px 19px; border-top: 1px solid rgba(255, 255, 255, 0.08); color: rgba(var(--app-rgb), 0.82); font: 650 0.55rem/1 var(--font-mono, ui-monospace, monospace); letter-spacing: 0.11em; }
+
+.altara-store { min-height: 100%; color: rgba(241, 237, 229, 0.88); background: #0e0f11; }
+.altara-store__header { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 18px 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+.altara-store__header > span { display: grid; width: 40px; height: 40px; place-items: center; border: 1px solid rgba(var(--altara-gold), 0.3); color: rgb(var(--altara-gold)); }
+.altara-store__header > div { display: grid; gap: 3px; }
+.altara-store__header p,
+.altara-store__body aside p,
+.altara-store__product-copy > p { color: rgba(var(--altara-gold), 0.72); font: 650 0.45rem/1 var(--font-mono, ui-monospace, monospace); letter-spacing: 0.14em; }
+.altara-store__header h2 { font-size: 1rem; font-weight: 600; letter-spacing: 0.03em; }
+.altara-store__header > small { display: flex; align-items: center; gap: 6px; color: rgba(232, 227, 218, 0.62); font: 600 0.5rem/1 var(--font-mono, ui-monospace, monospace); letter-spacing: 0.1em; }
+.altara-store__body { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 1px; min-height: 390px; background: rgba(255, 255, 255, 0.07); }
+.altara-store__body > aside { display: grid; grid-row: 1 / span 3; align-content: start; gap: 8px; padding: 22px 18px; background: #101113; }
+.altara-store__body > aside strong { font-size: 0.7rem; letter-spacing: 0.05em; }
+.altara-store__body > aside span,
+.altara-store__body > aside small { color: rgba(235, 230, 220, 0.55); font-size: 0.6rem; line-height: 1.55; }
+.altara-store__body > aside small { margin-top: 20px; }
+.altara-store__product { --app-rgb: 200, 174, 123; grid-column: 2; display: grid; grid-template-columns: 68px minmax(0, 1fr) auto; align-items: start; gap: 16px; margin: 22px; padding: 22px; border: 1px solid rgba(var(--app-rgb), 0.2); background: #121315; }
+.altara-store__product-icon { display: grid; width: 64px; height: 64px; place-items: center; border: 1px solid rgba(var(--app-rgb), 0.32); color: rgb(var(--app-rgb)); background: rgba(var(--app-rgb), 0.07); }
+.altara-store__product-copy { display: grid; gap: 8px; }
+.altara-store__product-copy h3 { font-size: 1.25rem; font-weight: 520; letter-spacing: -0.02em; }
+.altara-store__product-copy > span { max-width: 500px; color: rgba(235, 230, 220, 0.6); font-size: 0.72rem; line-height: 1.6; }
+.altara-store__product-copy > div { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.altara-store__product-copy small { display: flex; align-items: center; gap: 4px; padding: 5px 7px; border: 1px solid rgba(255, 255, 255, 0.08); color: rgba(235, 230, 220, 0.6); font: 600 0.43rem/1 var(--font-mono, ui-monospace, monospace); letter-spacing: 0.08em; }
+.altara-store__actions { display: grid; justify-items: stretch; gap: 7px; min-width: 126px; }
+.altara-store__actions button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 34px; padding: 8px 10px; border: 1px solid rgba(var(--app-rgb), 0.3); color: rgba(244, 239, 230, 0.82); background: rgba(var(--app-rgb), 0.06); font: 650 0.46rem/1 var(--font-mono, ui-monospace, monospace); letter-spacing: 0.09em; }
+.altara-store__actions button:disabled { opacity: 0.46; cursor: wait; }
+.altara-store__actions .altara-store__primary { color: #111214; background: rgb(var(--app-rgb)); }
+.altara-store__confirm { display: grid; gap: 6px; padding-top: 5px; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+.altara-store__confirm span { color: rgba(235, 230, 220, 0.56); font-size: 0.55rem; line-height: 1.45; }
+.altara-store__error,
+.altara-store__disclosure { grid-column: 2; display: flex; align-items: center; gap: 6px; margin: -8px 22px 22px; color: rgba(235, 230, 220, 0.56); font: 600 0.5rem/1.5 var(--font-mono, ui-monospace, monospace); letter-spacing: 0.06em; }
+.altara-store__error { color: #f3aaa2; }
+
+.altara-settings { display: grid; align-content: start; gap: 1px; min-height: 100%; background: rgba(255, 255, 255, 0.07); }
+.altara-settings > header,
+.altara-settings > section { background: #101113; }
+.altara-settings > header { display: flex; align-items: center; gap: 12px; padding: 20px; }
+.altara-settings > header > span { display: grid; width: 40px; height: 40px; place-items: center; border: 1px solid rgba(var(--altara-gold), 0.28); color: rgb(var(--altara-gold)); }
+.altara-settings > header div { display: grid; gap: 3px; }
+.altara-settings p { color: rgba(var(--altara-gold), 0.62); font: 650 0.44rem/1 var(--font-mono, ui-monospace, monospace); letter-spacing: 0.14em; }
+.altara-settings h2 { font-size: 1rem; font-weight: 560; }
+.altara-settings > section { display: grid; gap: 14px; padding: 20px; }
+.altara-settings__section-heading { display: flex; align-items: end; justify-content: space-between; gap: 18px; }
+.altara-settings__section-heading > div { display: grid; gap: 5px; }
+.altara-settings__section-heading h3 { font-size: 0.85rem; font-weight: 560; }
+.altara-settings__section-heading > small { color: rgba(235, 230, 220, 0.66); font: 600 0.54rem/1 var(--font-mono, ui-monospace, monospace); letter-spacing: 0.09em; }
+.altara-settings__preview { position: relative; display: grid; height: 150px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.1); background: #090b0e; }
+.altara-settings__preview > img,
+.altara-settings__preview > i { width: 100%; height: 100%; }
+.altara-settings__preview > i { display: block; background: radial-gradient(circle at 76% 74%, rgba(181, 142, 82, 0.2), transparent 40%), #090b0e; }
+.altara-settings__preview > i[data-wallpaper='atlas'] { background: radial-gradient(circle at 72% 78%, rgba(72, 111, 137, 0.34), transparent 46%), #0a1016; }
+.altara-settings__preview > i[data-wallpaper='silk'] { background: radial-gradient(circle at 70% 80%, rgba(206, 192, 166, 0.17), transparent 44%), #171614; }
+.altara-settings__preview > span { position: absolute; right: 9px; bottom: 8px; padding: 5px 7px; color: rgba(244, 239, 230, 0.78); background: rgba(8, 9, 11, 0.72); font: 650 0.43rem/1 var(--font-mono, ui-monospace, monospace); letter-spacing: 0.1em; }
+.altara-settings__custom { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; }
+.altara-settings__custom > div { display: flex; flex-wrap: wrap; align-items: end; gap: 7px; }
+.altara-settings__custom button,
+.altara-settings__custom label { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 34px; padding: 8px 10px; border: 1px solid rgba(var(--altara-gold), 0.24); color: rgba(239, 235, 226, 0.76); background: rgba(var(--altara-gold), 0.05); font: 650 0.43rem/1 var(--font-mono, ui-monospace, monospace); letter-spacing: 0.08em; }
+.altara-settings__custom button:disabled { opacity: 0.46; cursor: wait; }
+.altara-settings__presentation label { display: grid; justify-items: start; min-width: 106px; height: auto; padding: 0; border: 0; background: transparent; }
+.altara-settings__presentation select { width: 100%; margin-top: 5px; padding: 7px 22px 7px 8px; border: 1px solid rgba(255, 255, 255, 0.12); color: rgba(241, 237, 229, 0.82); background: #17181a; font: 600 0.52rem/1 var(--font-mono, ui-monospace, monospace); }
+.altara-settings__error { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: #f3aaa2; }
+.altara-settings__error p { display: flex; align-items: center; gap: 6px; color: inherit; letter-spacing: 0.05em; }
+.altara-settings__error button { padding: 7px 9px; border: 1px solid rgba(243, 170, 162, 0.28); color: inherit; background: rgba(243, 170, 162, 0.06); font: 650 0.43rem/1 var(--font-mono, ui-monospace, monospace); letter-spacing: 0.08em; }
+.altara-settings__disclosure { color: rgba(235, 230, 220, 0.66) !important; font-size: 0.56rem !important; line-height: 1.55 !important; letter-spacing: 0.07em !important; }
+.altara-settings__identity-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.altara-settings__identity-actions button,
+.altara-settings__identity-actions a { display: inline-flex; align-items: center; gap: 7px; padding: 9px 11px; border: 1px solid rgba(var(--altara-gold), 0.24); color: rgba(239, 235, 226, 0.76); background: rgba(var(--altara-gold), 0.05); font: 650 0.44rem/1 var(--font-mono, ui-monospace, monospace); letter-spacing: 0.09em; text-decoration: none; }
+
+@keyframes altara-window-in {
+  from { opacity: 0; transform: translateY(5px) scale(0.995); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes altara-panel-in {
+  from { opacity: 0; transform: translate(-50%, 8px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+@keyframes altara-progress {
+  from { transform: translateX(-10%); }
+  to { transform: translateX(190%); }
+}
+@keyframes altara-loading {
+  from { opacity: 0.3; transform: scaleX(0.35); }
+  to { opacity: 1; transform: scaleX(1); }
+}
+
+@media (max-width: 1050px) {
+  .altara-desktop { grid-template-columns: minmax(220px, 0.8fr) minmax(300px, 1.2fr); padding-inline: 34px; }
+  .altara-os__notice { display: none; }
+}
+
+@media (max-width: 760px) {
+  .altara-osbar { grid-template-columns: 1fr auto; min-height: 54px; padding: 0 12px; }
+  .altara-osbar__network { display: none; }
+  .altara-osbar__identity div,
+  .altara-osbar__identity > svg { display: none; }
+  .altara-desktop { grid-template-columns: 1fr; grid-template-rows: auto 1fr; gap: 24px; padding: 34px 16px 92px; overflow-y: auto; }
+  .altara-desktop__intro { align-self: start; }
+  .altara-desktop__intro h1 { font-size: clamp(2.1rem, 12vw, 3.5rem); }
+  .altara-desktop__applications { align-self: start; width: 100%; }
+  .altara-desktop__status { display: none; }
+  .altara-dock { bottom: 8px; max-width: calc(100vw - 16px); min-height: 56px; }
+  .altara-dock__apps { max-width: calc(100vw - 148px); overflow-x: auto; scrollbar-width: none; }
+  .altara-dock__clock { min-width: 66px; }
+  .altara-launcher { bottom: 74px; }
+  .altara-launcher__apps { grid-template-columns: 1fr; max-height: min(62vh, 520px); overflow-y: auto; }
+  .altara-os .net-app-window { border-radius: 0; }
+  .altara-store__body { grid-template-columns: 1fr; }
+  .altara-store__body > aside { display: none; }
+  .altara-store__product { grid-column: 1; grid-template-columns: 54px minmax(0, 1fr); margin: 14px; padding: 15px; }
+  .altara-store__product-icon { width: 52px; height: 52px; }
+  .altara-store__actions { grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .altara-store__error,
+  .altara-store__disclosure { grid-column: 1; margin: -2px 14px 16px; }
+  .altara-settings__custom { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 470px) {
+  .altara-desktop__applications { grid-template-columns: 1fr; }
+  .altara-desktop-app { min-height: 62px; }
+  .altara-osbar__brand small { display: none; }
+  .altara-dock__apps button { width: 42px; }
+  .altara-dock__clock span { display: none; }
+  .altara-dock__clock { min-width: 48px; padding-left: 7px; }
+  .altara-launcher > footer { align-items: flex-start; gap: 12px; flex-direction: column; }
+  .altara-service-shell > header { grid-template-columns: 42px 1fr; }
+  .altara-service-shell > header > span { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .altara-os *,
+  .altara-os *::before,
+  .altara-os *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (pointer: coarse) {
+  .altara-os .net-app-window__controls button {
+    width: 40px;
+    height: 40px;
+  }
+}

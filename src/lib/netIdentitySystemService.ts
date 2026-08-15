@@ -32,12 +32,14 @@ export interface NetIdentitySystemSnapshot {
   readonly identityLinkId: string
   readonly installedOptionalAppIds: readonly NetOptionalAppId[]
   readonly wallpaper: NetIdentitySystemWallpaper | null
+  readonly wallpaperPresetId: string | null
   readonly updatedAt: string | null
 }
 
 interface NetIdentitySystemProfileRow {
   readonly identity_link_id: string
   readonly wallpaper_path: string | null
+  readonly wallpaper_preset_id: string | null
   readonly wallpaper_fit: WallpaperFit
   readonly wallpaper_position: WallpaperPosition
   readonly created_at: string
@@ -59,6 +61,7 @@ function parseSystemProfile(value: unknown): NetIdentitySystemProfileRow | null 
 
   const identityLinkId = value.identity_link_id
   const wallpaperPath = value.wallpaper_path
+  const wallpaperPresetId = value.wallpaper_preset_id
   const fit = value.wallpaper_fit
   const position = value.wallpaper_position
   const createdAt = value.created_at
@@ -67,6 +70,7 @@ function parseSystemProfile(value: unknown): NetIdentitySystemProfileRow | null 
   if (
     typeof identityLinkId !== 'string'
     || (wallpaperPath !== null && typeof wallpaperPath !== 'string')
+    || (wallpaperPresetId !== null && typeof wallpaperPresetId !== 'string')
     || (fit !== 'cover' && fit !== 'contain')
     || (position !== 'center' && position !== 'top' && position !== 'bottom')
     || typeof createdAt !== 'string'
@@ -78,6 +82,7 @@ function parseSystemProfile(value: unknown): NetIdentitySystemProfileRow | null 
   return {
     identity_link_id: identityLinkId,
     wallpaper_path: wallpaperPath,
+    wallpaper_preset_id: wallpaperPresetId,
     wallpaper_fit: fit,
     wallpaper_position: position,
     created_at: createdAt,
@@ -92,6 +97,21 @@ function parseInstalledAppIds(value: unknown): NetOptionalAppId[] {
     if (!isRecord(entry) || typeof entry.app_id !== 'string') return []
     return isNetOptionalAppId(entry.app_id) ? [entry.app_id] : []
   }))]
+}
+
+function parseSystemPayload(value: unknown): {
+  readonly identityLinkId: string
+  readonly profile: NetIdentitySystemProfileRow | null
+  readonly installs: NetOptionalAppId[]
+} {
+  if (!isRecord(value) || typeof value.identity_link_id !== 'string') {
+    throw new Error('Invalid NET runtime system response.')
+  }
+  return {
+    identityLinkId: value.identity_link_id,
+    profile: parseSystemProfile(value.profile),
+    installs: parseInstalledAppIds(value.installs),
+  }
 }
 
 function assertIdentityLinkId(identityLinkId: string): string {
@@ -119,32 +139,21 @@ async function createWallpaperSignedUrl(path: string): Promise<string> {
   return request
 }
 
-async function fetchSystemSnapshot(identityLinkId: string): Promise<NetIdentitySystemSnapshot> {
+async function fetchSystemSnapshot(
+  identityLinkId: string,
+  rpcName: 'fetch_net_runtime_identity_system' | 'fetch_net_gm_inspected_identity_system',
+): Promise<NetIdentitySystemSnapshot> {
   const normalizedLinkId = assertIdentityLinkId(identityLinkId)
-  const database = client()
-
-  const [profileResult, installsResult] = await Promise.all([
-    database
-      .from('net_identity_system_profiles')
-      .select('identity_link_id, wallpaper_path, wallpaper_fit, wallpaper_position, created_at, updated_at')
-      .eq('identity_link_id', normalizedLinkId)
-      .maybeSingle(),
-    database
-      .from('net_identity_app_installs')
-      .select('app_id')
-      .eq('identity_link_id', normalizedLinkId)
-      .order('installed_at', { ascending: true }),
-  ])
-
-  if (profileResult.error) {
-    throw new Error(`NET system profile could not be loaded: ${profileResult.error.message}`)
+  const { data, error } = await client().rpc(rpcName, {
+    requested_expected_identity_link_id: normalizedLinkId,
+  })
+  if (error) throw new Error(`NET system profile could not be loaded: ${error.message}`)
+  const payload = parseSystemPayload(Array.isArray(data) ? data[0] : data)
+  if (payload.identityLinkId !== normalizedLinkId) {
+    throw new Error('The NET runtime identity changed while its system was loading.')
   }
-  if (installsResult.error) {
-    throw new Error(`NET application library could not be loaded: ${installsResult.error.message}`)
-  }
-
-  const profile = parseSystemProfile(profileResult.data)
-  const installedOptionalAppIds = parseInstalledAppIds(installsResult.data ?? [])
+  const profile = payload.profile
+  const installedOptionalAppIds = payload.installs
   const wallpaper = profile?.wallpaper_path
     ? {
         path: profile.wallpaper_path,
@@ -158,13 +167,14 @@ async function fetchSystemSnapshot(identityLinkId: string): Promise<NetIdentityS
     identityLinkId: normalizedLinkId,
     installedOptionalAppIds,
     wallpaper,
+    wallpaperPresetId: profile?.wallpaper_preset_id ?? null,
     updatedAt: profile?.updated_at ?? null,
   }
 }
 
 /** Loads only the active player's RLS-authorised fictional computer state. */
 export function fetchNetIdentitySystem(identityLinkId: string): Promise<NetIdentitySystemSnapshot> {
-  return fetchSystemSnapshot(identityLinkId)
+  return fetchSystemSnapshot(identityLinkId, 'fetch_net_runtime_identity_system')
 }
 
 /**
@@ -174,7 +184,7 @@ export function fetchNetIdentitySystem(identityLinkId: string): Promise<NetIdent
 export function fetchNetIdentitySystemForInspection(
   identityLinkId: string,
 ): Promise<NetIdentitySystemSnapshot> {
-  return fetchSystemSnapshot(identityLinkId)
+  return fetchSystemSnapshot(identityLinkId, 'fetch_net_gm_inspected_identity_system')
 }
 
 export async function setNetIdentityAppInstalled(
@@ -183,7 +193,7 @@ export async function setNetIdentityAppInstalled(
   installed: boolean,
 ): Promise<void> {
   const normalizedLinkId = assertIdentityLinkId(identityLinkId)
-  if (!isNetOptionalAppId(appId)) throw new Error('This application cannot be installed from NET STORE.')
+  if (!isNetOptionalAppId(appId)) throw new Error('This application cannot be installed from this OS catalogue.')
 
   const { error } = await client().rpc('set_net_identity_app_install', {
     requested_identity_link_id: normalizedLinkId,
@@ -273,6 +283,31 @@ export async function updateNetIdentityWallpaperPresentation(
     fit: profile.wallpaper_fit,
     position: profile.wallpaper_position,
   }
+}
+
+export async function setNetIdentityWallpaperPreset(
+  identityLinkId: string,
+  presetId: string,
+  previousPath?: string,
+): Promise<string> {
+  const normalizedLinkId = assertIdentityLinkId(identityLinkId)
+  const normalizedPresetId = presetId.trim()
+  if (!normalizedPresetId) throw new Error('A built-in wallpaper is required.')
+
+  const { data, error } = await client().rpc('set_net_identity_wallpaper_preset', {
+    requested_identity_link_id: normalizedLinkId,
+    requested_preset_id: normalizedPresetId,
+  })
+  if (error) throw new Error(`Built-in wallpaper could not be saved: ${error.message}`)
+  const profile = parseSystemProfile(Array.isArray(data) ? data[0] : data)
+  if (profile?.wallpaper_preset_id !== normalizedPresetId || profile.wallpaper_path !== null) {
+    throw new Error('The server did not confirm the built-in wallpaper.')
+  }
+
+  if (previousPath && previousPath.startsWith(`${normalizedLinkId}/`)) {
+    await client().storage.from(WALLPAPER_BUCKET).remove([previousPath]).catch(() => undefined)
+  }
+  return normalizedPresetId
 }
 
 export async function clearNetIdentityWallpaper(

@@ -2,6 +2,8 @@ import type { NetEntityId } from '../components/net/world/netWorldTypes'
 import type { NetIdentitySubject } from '../components/net/identity/netIdentityTypes'
 import { supabase, SUPABASE_CONFIG_ERROR } from './supabase'
 
+const NPC_NETWORK_IDENTITY_ENABLE_TIMEOUT_MS = 15_000
+
 export type NetServerIdentityKind = 'player' | 'npc'
 export type NetServerIdentityPlayability = 'playable' | 'non-playable'
 
@@ -23,6 +25,8 @@ export interface NetActiveIdentitySelection {
   readonly createdAt: string
   readonly updatedAt: string
 }
+
+export const NET_ACTIVE_IDENTITY_CHANGED_EVENT = 'net:active-identity-changed'
 
 function client() {
   if (!supabase) throw new Error(SUPABASE_CONFIG_ERROR)
@@ -115,6 +119,41 @@ export async function fetchNetIdentityLinks(): Promise<readonly NetIdentityLink[
   return ((data as unknown[] | null) ?? []).map(parseIdentityLink)
 }
 
+/**
+ * Explicit GM-only provisioning for an NPC card that should participate in
+ * network services. The server creates only an NPC/non-playable identity link;
+ * it does not assign an OS or grant player control.
+ */
+export async function enableNetGmNpcNetworkIdentity(
+  subject: Extract<NetIdentitySubject, { readonly kind: 'npc-card' }>,
+): Promise<NetIdentityLink> {
+  const abortController = new AbortController()
+  let timedOut = false
+  const timeout = window.setTimeout(() => {
+    timedOut = true
+    abortController.abort()
+  }, NPC_NETWORK_IDENTITY_ENABLE_TIMEOUT_MS)
+  let data: unknown
+  let error: { readonly message?: string } | null | undefined
+  try {
+    const response = await client()
+      .rpc('enable_net_gm_npc_network_identity', {
+        requested_npc_card_id: subject.npcCardId,
+      })
+      .abortSignal(abortController.signal)
+    data = response.data
+    error = response.error
+  } catch (requestError) {
+    error = requestError instanceof Error ? requestError : { message: 'unknown request error' }
+  } finally {
+    window.clearTimeout(timeout)
+  }
+
+  if (timedOut) throw new Error('NPC network identity enabling timed out. Retry the explicit GM action.')
+  if (error) throw new Error(`NPC network identity could not be enabled: ${error.message ?? 'unknown server error.'}`)
+  return parseIdentityLink(Array.isArray(data) ? data[0] : data)
+}
+
 /** The active table's RLS exposes at most the authenticated profile's row. */
 export async function fetchActiveNetIdentity(): Promise<NetActiveIdentitySelection | null> {
   const { data, error } = await client()
@@ -142,5 +181,7 @@ export async function setActiveNetIdentity(
 
   if (error) throw new Error(`Active NET identity could not be changed: ${error.message}`)
   const response = Array.isArray(data) ? data[0] : data
-  return parseActiveSelection(response)
+  const selection = parseActiveSelection(response)
+  window.dispatchEvent(new Event(NET_ACTIVE_IDENTITY_CHANGED_EVENT))
+  return selection
 }

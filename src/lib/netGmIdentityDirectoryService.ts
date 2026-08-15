@@ -4,7 +4,7 @@ import type {
   NetPlayableIdentityCandidate,
 } from '../components/net/identity/netIdentityTypes'
 import { supabase, SUPABASE_CONFIG_ERROR } from './supabase'
-import { resolveSharedMediaUrls } from './media/mediaStorage'
+import { prewarmSharedMediaUrls } from './media/mediaStorage'
 import { isSharedMediaReference } from './media/mediaReference'
 
 // Matches the previous two 500-row source caps while keeping one scalar RPC.
@@ -166,6 +166,15 @@ function fresh<T>(entry: CacheEntry<T> | undefined, ttl: number): entry is Cache
   return Boolean(entry && Date.now() - entry.cachedAt <= ttl)
 }
 
+function prewarmDirectoryAvatarUrls(
+  candidates: readonly NetPlayableIdentityCandidate[],
+): void {
+  const mediaReferences = candidates.map((candidate) => candidate.avatarUrl).filter(
+    (value): value is string => Boolean(value && isSharedMediaReference(value)),
+  )
+  if (mediaReferences.length) prewarmSharedMediaUrls(mediaReferences, 'thumbnail')
+}
+
 function detailKey(gmProfileId: string, subject: NetGmIdentityDetail['subject']): string {
   const subjectId = subject.kind === 'profile-sheet' ? subject.profileId : subject.npcCardId
   return `${gmProfileId}:${subject.kind}:${subjectId}`
@@ -181,6 +190,7 @@ export function fetchNetGmIdentityDirectory(
 ): Promise<readonly NetPlayableIdentityCandidate[]> {
   const cached = directoryCache.get(gmProfileId)
   if (!options.force && fresh(cached, DIRECTORY_CACHE_TTL_MS)) {
+    prewarmDirectoryAvatarUrls(cached.value)
     return Promise.resolve(cached.value)
   }
 
@@ -191,26 +201,14 @@ export function fetchNetGmIdentityDirectory(
 
   const request = Promise.resolve(client().rpc('fetch_net_gm_identity_directory', {
     requested_limit: DIRECTORY_LIMIT,
-  })).then(async ({ data, error }) => {
+  })).then(({ data, error }) => {
     if (error) throw new Error(`GM identity directory could not be loaded: ${error.message}`)
-    const parsedCandidates = ((data as unknown[] | null) ?? []).map(parseDirectoryCandidate)
-    const mediaReferences = parsedCandidates.map((candidate) => candidate.avatarUrl).filter(
-      (value): value is string => Boolean(value && isSharedMediaReference(value)),
-    )
-    let resolved = new Map<string, string>()
-    if (mediaReferences.length) {
-      try {
-        resolved = await resolveSharedMediaUrls(mediaReferences, 'thumbnail')
-      } catch {
-        // A temporary Storage failure must not discard the compact directory.
-      }
-    }
-    const candidates = parsedCandidates.map((candidate) => {
-      if (!candidate.avatarUrl || !isSharedMediaReference(candidate.avatarUrl)) return candidate
-      const avatarUrl = resolved.get(candidate.avatarUrl)
-      const { avatarUrl: _unresolved, ...withoutAvatar } = candidate
-      return avatarUrl ? { ...withoutAvatar, avatarUrl } : withoutAvatar
-    })
+    const candidates = ((data as unknown[] | null) ?? []).map(parseDirectoryCandidate)
+    // Start one bounded Storage batch and preserve the canonical descriptors.
+    // SharedMediaImage joins the per-path in-flight/cache entry created by this
+    // prewarm, so one failed object cannot erase every other directory avatar
+    // and rendering never creates one signing request per identity row.
+    prewarmDirectoryAvatarUrls(candidates)
     if ((scopeEpoch.get(gmProfileId) ?? 0) === requestEpoch) {
       directoryCache.set(gmProfileId, { value: candidates, cachedAt: Date.now() })
     }

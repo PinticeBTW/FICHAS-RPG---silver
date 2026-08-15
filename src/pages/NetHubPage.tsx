@@ -4,6 +4,8 @@ import {
   CircleUserRound,
   Fingerprint,
   Grid2X2,
+  Landmark,
+  HeartPulse,
   LockKeyhole,
   MapPin,
   Network,
@@ -12,6 +14,7 @@ import {
   Search,
   Settings,
   ShieldCheck,
+  WalletCards,
   Waves,
   Wifi,
 } from 'lucide-react'
@@ -27,12 +30,14 @@ import {
 
 import { useAuth } from '../hooks/useAuth'
 import { useNetActiveIdentitySession } from '../components/net/identity/useNetActiveIdentitySession'
+import type { NetActiveIdentityState } from '../components/net/identity/netActiveIdentity'
 import { useNetGmPersona } from '../components/net/identity/useNetGmPersona'
 import { useNetPlayableIdentityCandidates } from '../components/net/identity/useNetPlayableIdentityCandidates'
 import { useNetCompromisedPulseSession } from '../components/net/useNetCompromisedPulseSession'
 import { useNetUniversalProfile } from '../components/net/profile/useNetUniversalProfile'
 import { useNetIdentitySystem } from '../components/net/system/useNetIdentitySystem'
 import { useNetCompromisedIdentitySystem } from '../components/net/system/useNetCompromisedIdentitySystem'
+import { NetGmSystemEnvironmentControl } from '../components/net/identity/NetGmSystemEnvironmentControl'
 import { applyUniversalNetProfilePresentation } from '../components/net/profile/netUniversalProfileResolver'
 import { useNetServerAppAccounts } from '../components/net/accounts/useNetServerAppAccounts'
 import { resolveNetAppAccount } from '../components/net/accounts/netAppAccountResolver'
@@ -49,6 +54,9 @@ import { NetLauncher, type NetLauncherApp } from '../components/net/NetLauncher'
 import { EchoApp } from '../components/net/EchoApp'
 import { PulseApp } from '../components/net/PulseApp'
 import { IdenApp } from '../components/net/IdenApp'
+import { VltApp } from '../components/net/VltApp'
+import { VoxBankApp } from '../components/net/VoxBankApp'
+import { ShneiderBankApp } from '../components/net/ShneiderBankApp'
 import { NvnApp } from '../components/net/NvnApp'
 import { NetStoreApp } from '../components/net/NetStoreApp'
 import {
@@ -70,6 +78,7 @@ import {
 import {
   wallpaperPositionToCss,
 } from '../lib/netWallpaperStore'
+import type { NetResolvedOsSession } from '../lib/netOsService'
 import {
   deleteNetWindowLayouts,
   loadNetWindowLayouts,
@@ -128,6 +137,9 @@ const WINDOW_IDS: readonly NetWindowId[] = [
   'echo',
   'pulse',
   'iden',
+  'vlt',
+  'vox-bank',
+  'shneider-bank',
   'nvn',
   'net-store',
   'wallpaper',
@@ -191,7 +203,7 @@ function initials(value: string) {
   )
 }
 
-export function NetHubPage() {
+export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSession }) {
   const { profile, loading: authLoading } = useAuth()
   const playableIdentityCandidates = useNetPlayableIdentityCandidates(profile, authLoading)
   const gmPersona = useNetGmPersona(profile, authLoading, playableIdentityCandidates)
@@ -205,14 +217,34 @@ export function NetHubPage() {
   const refreshGmPersona = gmPersona.refresh
   const handleEchoContextMismatch = useCallback(() => {
     void refreshActiveIdentity()
-  }, [refreshActiveIdentity])
+    void refreshGmPersona()
+  }, [refreshActiveIdentity, refreshGmPersona])
   const handlePulseContextMismatch = useCallback(() => {
     void refreshActiveIdentity()
     void refreshGmPersona()
   }, [refreshActiveIdentity, refreshGmPersona])
   const baseActiveIdentity = activeIdentitySession.activeIdentity
-  const identitySystem = useNetIdentitySystem(activeIdentitySession.activeIdentityLink?.id)
-  const compromisedIdentitySystem = useNetCompromisedIdentitySystem(profile?.id, gmPersona)
+  const serverControlledIdentityLinkId = osSession.controlMode === 'take-control'
+    ? osSession.identityLinkId
+    : undefined
+  const isCompromisedSystemMount = gmPersona.state.status === 'compromised'
+  const isControlledSystemMount = osSession.controlMode === 'take-control'
+  const isGmSystemMount = profile?.role === 'gm' && osSession.controlMode === 'system'
+  const mountedSystemIdentityLinkId = isGmSystemMount
+    ? undefined
+    : isControlledSystemMount
+    ? serverControlledIdentityLinkId
+    : isCompromisedSystemMount
+      ? gmPersona.state.identity.identityLinkId
+      : activeIdentitySession.activeIdentityLink?.id
+  const identitySystem = useNetIdentitySystem(
+    isCompromisedSystemMount ? undefined : mountedSystemIdentityLinkId,
+  )
+  const gmTargetIdentitySystem = useNetCompromisedIdentitySystem(
+    profile?.id,
+    gmPersona,
+    isCompromisedSystemMount ? mountedSystemIdentityLinkId : undefined,
+  )
   const universalProfile = useNetUniversalProfile(
     baseActiveIdentity,
     activeIdentitySession.activeIdentityLink,
@@ -222,18 +254,139 @@ export function NetHubPage() {
     () => applyUniversalNetProfilePresentation(baseActiveIdentity, universalProfile.state),
     [baseActiveIdentity, universalProfile.state],
   )
-  const isCompromisedSystemMount = gmPersona.state.status === 'compromised'
-  const mountedSystemIdentityLinkId = isCompromisedSystemMount
-    ? gmPersona.state.identity.identityLinkId
-    : activeIdentitySession.activeIdentityLink?.id
+  const controlledIdentityMatchesSession = isControlledSystemMount
+    && gmPersona.state.status === 'controlled'
+    && gmPersona.state.identity.identityLinkId === serverControlledIdentityLinkId
+  const isRemoteSystemMount = isCompromisedSystemMount || isControlledSystemMount
   const runtimeSystemState = isCompromisedSystemMount
-    ? compromisedIdentitySystem.state
+    ? gmTargetIdentitySystem.state
     : identitySystem.state
-  const runtimeSystemIdentityName = isCompromisedSystemMount
-    ? gmPersona.state.identity.displayName
+  const runtimeSystemIdentityName = isRemoteSystemMount
+    ? gmPersona.state.status === 'controlled' || gmPersona.state.status === 'compromised'
+      ? gmPersona.state.identity.displayName
+      : undefined
     : activeIdentity.status === 'ready'
       ? activeIdentity.identity.displayName
       : undefined
+  const controlledRuntimeIdentityLink = controlledIdentityMatchesSession
+    ? gmPersona.identityLinks.find((link) => (
+        link.id === serverControlledIdentityLinkId
+        && (
+          (link.identityKind === 'player' && link.playability === 'playable')
+          || (link.identityKind === 'npc' && link.playability === 'non-playable')
+        )
+      ))
+    : undefined
+  const mountedRuntimeAppIdentity = useMemo<NetActiveIdentityState>(() => {
+    if (isGmSystemMount) {
+      return { status: 'gm-no-persona', authenticatedProfileId: profile?.id ?? '' }
+    }
+    if (!isControlledSystemMount) {
+      if (
+        osSession.actorMode === 'player'
+        && activeIdentity.status === 'ready'
+        && activeIdentity.identity.identityLinkId !== osSession.identityLinkId
+      ) {
+        return {
+          status: 'error',
+          reason: 'The mounted VEIL identity changed before its application context was confirmed.',
+        }
+      }
+      return activeIdentity
+    }
+
+    if (gmPersona.state.status === 'loading' || runtimeSystemState.status === 'loading') {
+      return { status: 'loading' }
+    }
+    if (
+      !controlledIdentityMatchesSession
+      || gmPersona.state.status !== 'controlled'
+      || !controlledRuntimeIdentityLink
+    ) {
+      return {
+        status: 'gm-no-persona',
+        authenticatedProfileId: profile?.id ?? '',
+      }
+    }
+    if (runtimeSystemState.status === 'error') {
+      return { status: 'error', reason: runtimeSystemState.reason }
+    }
+    if (
+      runtimeSystemState.status !== 'ready'
+      || runtimeSystemState.system.identityLinkId !== controlledRuntimeIdentityLink.id
+    ) {
+      return {
+        status: 'error',
+        reason: 'The controlled VEIL application context could not be matched to the mounted system.',
+      }
+    }
+
+    return {
+      status: 'ready',
+      authenticatedProfileId: gmPersona.state.authenticatedProfileId,
+      identity: gmPersona.state.identity,
+      source: 'explicit',
+    }
+  }, [
+    activeIdentity,
+    controlledIdentityMatchesSession,
+    controlledRuntimeIdentityLink,
+    gmPersona.state,
+    isGmSystemMount,
+    isControlledSystemMount,
+    osSession.actorMode,
+    osSession.identityLinkId,
+    profile?.id,
+    runtimeSystemState,
+  ])
+  const pulseActiveIdentity = useMemo<NetActiveIdentityState>(() => {
+    if (
+      isControlledSystemMount
+      && mountedRuntimeAppIdentity.status === 'ready'
+      && (
+        runtimeSystemState.status !== 'ready'
+        || !runtimeSystemState.system.installedOptionalAppIds.includes('pulse')
+      )
+    ) {
+      return {
+        status: 'gm-no-persona',
+        authenticatedProfileId: profile?.id ?? '',
+      }
+    }
+    return mountedRuntimeAppIdentity
+  }, [isControlledSystemMount, mountedRuntimeAppIdentity, profile?.id, runtimeSystemState])
+  const appAccountIdentityContext = useMemo(() => {
+    if (
+      mountedRuntimeAppIdentity.status !== 'ready'
+      || !mountedRuntimeAppIdentity.identity.identityLinkId
+    ) return undefined
+
+    const exactLink = isControlledSystemMount
+      ? controlledRuntimeIdentityLink
+      : activeIdentitySession.activeIdentityLink
+    if (!exactLink || exactLink.id !== mountedRuntimeAppIdentity.identity.identityLinkId) {
+      return undefined
+    }
+
+    return {
+      identityLinkId: exactLink.id,
+      ...(exactLink.entityId ? { entityId: exactLink.entityId } : {}),
+    }
+  }, [
+    activeIdentitySession.activeIdentityLink,
+    controlledRuntimeIdentityLink,
+    isControlledSystemMount,
+    mountedRuntimeAppIdentity,
+  ])
+  const financeIdentityLinkId = appAccountIdentityContext?.identityLinkId
+  const financeIdentitySessionKey = financeIdentityLinkId
+    ? [
+        profile?.id ?? 'anonymous',
+        osSession.controlMode,
+        financeIdentityLinkId,
+        gmPersona.session?.sessionGeneration ?? 'none',
+      ].join(':')
+    : null
   const shellIdentityTelemetry = useMemo(() => {
     if (profile?.role === 'gm') {
       switch (gmPersona.state.status) {
@@ -246,8 +399,8 @@ export function NetHubPage() {
         case 'active':
           return {
             label: 'MASTER CONTROL',
-            value: `ACTING AS ${gmPersona.state.identity.displayName}`,
-            ariaLabel: `GM system operator: acting as ${gmPersona.state.identity.displayName}`,
+            value: `LEGACY PERSONA ${gmPersona.state.identity.displayName}`,
+            ariaLabel: `GM system operator: legacy presentation persona ${gmPersona.state.identity.displayName}; no operating-system routing override`,
           }
         case 'compromised':
           return {
@@ -255,6 +408,22 @@ export function NetHubPage() {
             value: `COMPROMISED ${gmPersona.state.identity.displayName}`,
             ariaLabel: `GM system operator: compromised PULSE authority for ${gmPersona.state.identity.displayName}`,
           }
+        case 'controlled':
+          return gmPersona.state.identity.identityKind === 'npc'
+            ? {
+                label: 'ACTING AS',
+                value: osSession.primaryOsId
+                  ? gmPersona.state.identity.displayName
+                  : `${gmPersona.state.identity.displayName} · NO NETWORK OS`,
+                ariaLabel: osSession.primaryOsId
+                  ? `GM system operator: acting as ${gmPersona.state.identity.displayName} in ${osSession.effectiveOsId.toUpperCase()} OS`
+                  : `GM system operator: acting as ${gmPersona.state.identity.displayName}; this NPC has no network operating system`,
+              }
+            : {
+                label: 'TAKE CONTROL',
+                value: gmPersona.state.identity.displayName,
+                ariaLabel: `GM system operator: controlling ${gmPersona.state.identity.displayName} in ${osSession.effectiveOsId.toUpperCase()} OS`,
+              }
         case 'loading':
           return { label: 'MASTER CONTROL', value: 'RESOLVING', ariaLabel: 'GM system operator context is loading' }
         case 'error':
@@ -278,51 +447,87 @@ export function NetHubPage() {
       default:
         return { label: 'IDENTITY', value: 'NOT LINKED', ariaLabel: 'Fictional identity not linked' }
     }
-  }, [activeIdentity, gmPersona.state, profile?.role])
+  }, [
+    activeIdentity,
+    gmPersona.state,
+    osSession.effectiveOsId,
+    osSession.primaryOsId,
+    profile?.role,
+  ])
   const serverAppAccounts = useNetServerAppAccounts(
     profile?.id,
-    activeIdentitySession.activeIdentityLink,
+    appAccountIdentityContext,
+    { ensureAutomaticIden: !isCompromisedSystemMount },
   )
   const accountResolverAccounts = useMemo(
     () => [...serverAppAccounts.accounts],
     [serverAppAccounts.accounts],
   )
+  const pulseResolverAccounts = useMemo(() => {
+    const identityLinkId = pulseActiveIdentity.status === 'ready'
+      ? pulseActiveIdentity.identity.identityLinkId
+      : undefined
+    return accountResolverAccounts.filter((account) => (
+      account.appId !== 'pulse'
+      || (
+        Boolean(identityLinkId)
+        && account.owner.type === 'identity-link'
+        && account.owner.identityLinkId === identityLinkId
+      )
+    ))
+  }, [accountResolverAccounts, pulseActiveIdentity])
   const idenAccountResolution = useMemo(
     () => resolveNetAppAccount({
       appId: 'iden',
-      ...(activeIdentity.status === 'ready' ? { identity: activeIdentity.identity } : {}),
+      ...(mountedRuntimeAppIdentity.status === 'ready'
+        ? { identity: mountedRuntimeAppIdentity.identity }
+        : {}),
       accounts: accountResolverAccounts,
       loading: serverAppAccounts.loading,
       ...(serverAppAccounts.error ? { error: serverAppAccounts.error } : {}),
     }),
-    [accountResolverAccounts, activeIdentity, serverAppAccounts.error, serverAppAccounts.loading],
+    [
+      accountResolverAccounts,
+      mountedRuntimeAppIdentity,
+      serverAppAccounts.error,
+      serverAppAccounts.loading,
+    ],
   )
   const echoAccountResolution = useMemo(
     () => resolveNetAppAccount({
       appId: 'echo',
-      ...(activeIdentity.status === 'ready' ? { identity: activeIdentity.identity } : {}),
+      ...(mountedRuntimeAppIdentity.status === 'ready'
+        ? { identity: mountedRuntimeAppIdentity.identity }
+        : {}),
       accounts: accountResolverAccounts.filter((account) =>
         account.appId !== 'echo' || account.owner.type === 'identity-link'),
       loading: serverAppAccounts.loading,
       ...(serverAppAccounts.error ? { error: serverAppAccounts.error } : {}),
     }),
-    [accountResolverAccounts, activeIdentity, serverAppAccounts.error, serverAppAccounts.loading],
+    [accountResolverAccounts, mountedRuntimeAppIdentity, serverAppAccounts.error, serverAppAccounts.loading],
   )
   const pulseAccountResolution = useMemo(
     () => resolveNetAppAccount({
       appId: 'pulse',
-      ...(activeIdentity.status === 'ready' ? { identity: activeIdentity.identity } : {}),
-      accounts: accountResolverAccounts,
+      ...(pulseActiveIdentity.status === 'ready'
+        ? { identity: pulseActiveIdentity.identity }
+        : {}),
+      accounts: pulseResolverAccounts,
       loading: serverAppAccounts.loading,
       ...(serverAppAccounts.error ? { error: serverAppAccounts.error } : {}),
     }),
-    [accountResolverAccounts, activeIdentity, serverAppAccounts.error, serverAppAccounts.loading],
+    [
+      pulseActiveIdentity,
+      pulseResolverAccounts,
+      serverAppAccounts.error,
+      serverAppAccounts.loading,
+    ],
   )
-  const echoAccountSessionKey = activeIdentity.status === 'ready'
-    ? getNetAppAccountOwnerKey(getNetAppAccountOwnerForIdentity(activeIdentity.identity))
+  const echoAccountSessionKey = mountedRuntimeAppIdentity.status === 'ready'
+    ? getNetAppAccountOwnerKey(getNetAppAccountOwnerForIdentity(mountedRuntimeAppIdentity.identity))
     : null
-  const pulseAccountSessionKey = activeIdentity.status === 'ready'
-    ? getNetAppAccountOwnerKey(getNetAppAccountOwnerForIdentity(activeIdentity.identity))
+  const pulseAccountSessionKey = pulseActiveIdentity.status === 'ready'
+    ? getNetAppAccountOwnerKey(getNetAppAccountOwnerForIdentity(pulseActiveIdentity.identity))
     : null
 
   const [now, setNow] = useState(() => new Date())
@@ -379,7 +584,7 @@ export function NetHubPage() {
     [installedOptionalAppIds],
   )
   const installedAppIdSet = useMemo(() => new Set(installedAppIds), [installedAppIds])
-  const isAuthoritativeGm = profile?.role === 'gm'
+  const hasGmSystemAccess = isGmSystemMount && gmPersona.state.status === 'none'
   const shellAppAccessModes = useMemo(() => {
     const next = new Map<NetAppId, NetAppAccessMode>()
     for (const app of netAppCatalog) {
@@ -387,23 +592,27 @@ export function NetHubPage() {
       const accessMode = resolveNetAppAccessMode(
         app,
         installedAppIdSet.has(app.id),
-        isAuthoritativeGm,
+        hasGmSystemAccess,
+        'veil',
       )
       if (accessMode) next.set(app.id, accessMode)
     }
     return next
-  }, [installedAppIdSet, isAuthoritativeGm])
+  }, [hasGmSystemAccess, installedAppIdSet])
   const shellAppIdSet = useMemo(
     () => new Set(shellAppAccessModes.keys()),
     [shellAppAccessModes],
   )
   const gmSystemAccessAppIds = useMemo(
-    () => isAuthoritativeGm
+    () => hasGmSystemAccess
       ? netAppCatalog
-        .filter((app) => app.available && app.gmSystemAccess)
+        .filter((app) => (
+          app.available
+          && app.gmSystemAccess
+        ))
         .map((app) => app.id)
       : [],
-    [isAuthoritativeGm],
+    [hasGmSystemAccess],
   )
   const gmSystemAccessAppIdSet = useMemo(
     () => new Set(gmSystemAccessAppIds),
@@ -873,8 +1082,8 @@ export function NetHubPage() {
 
   const handleWallpaperApply = async (input: WallpaperApplyInput): Promise<void> => {
     if (isCompromisedSystemMount) {
-      const error = new Error('Wallpaper changes are unavailable in a controlled system mount.')
-      setNotice('WALLPAPER // CONTROLLED SYSTEM MOUNT IS READ ONLY')
+      const error = new Error('Wallpaper changes are unavailable in a compromised session.')
+      setNotice('WALLPAPER // COMPROMISED SESSION IS READ ONLY')
       throw error
     }
     if (identitySystem.state.status !== 'ready') {
@@ -989,9 +1198,9 @@ export function NetHubPage() {
     readonly handle: string
   }): Promise<string | null> => {
     if (
-      activeIdentity.status !== 'ready'
+      mountedRuntimeAppIdentity.status !== 'ready'
       || echoAccountResolution.status !== 'needs-onboarding'
-      || activeIdentity.identity.identityLinkId !== activeIdentitySession.activeIdentityLink?.id
+      || mountedRuntimeAppIdentity.identity.identityLinkId !== appAccountIdentityContext?.identityLinkId
     ) {
       return null
     }
@@ -1009,9 +1218,9 @@ export function NetHubPage() {
       throw error
     }
   }, [
-    activeIdentity,
-    activeIdentitySession.activeIdentityLink?.id,
+    appAccountIdentityContext?.identityLinkId,
     echoAccountResolution.status,
+    mountedRuntimeAppIdentity,
     refreshActiveIdentity,
     serverAppAccounts,
   ])
@@ -1021,9 +1230,10 @@ export function NetHubPage() {
     readonly profile: PulseProfileDraft
   }): Promise<string> => {
     if (
-      activeIdentity.status !== 'ready'
+      isCompromisedSystemMount
+      || pulseActiveIdentity.status !== 'ready'
       || pulseAccountResolution.status !== 'needs-onboarding'
-      || activeIdentity.identity.identityLinkId !== activeIdentitySession.activeIdentityLink?.id
+      || pulseActiveIdentity.identity.identityLinkId !== appAccountIdentityContext?.identityLinkId
     ) {
       throw new Error('The active character is no longer ready to create a PULSE identity.')
     }
@@ -1040,15 +1250,16 @@ export function NetHubPage() {
     })
     return account.id
   }, [
-    activeIdentity,
-    activeIdentitySession.activeIdentityLink?.id,
+    appAccountIdentityContext?.identityLinkId,
+    isCompromisedSystemMount,
     pulseAccountResolution.status,
+    pulseActiveIdentity,
     serverAppAccounts,
   ])
 
   const handleInstallApp = (appId: NetOptionalAppId) => {
     if (isCompromisedSystemMount) {
-      setNotice('NET STORE // CONTROLLED SYSTEM MOUNT IS READ ONLY')
+      setNotice('NET STORE // COMPROMISED SESSION IS READ ONLY')
       return
     }
     const app = getNetAppDefinition(appId)
@@ -1112,7 +1323,7 @@ export function NetHubPage() {
 
   const handleUninstallApp = async (appId: NetOptionalAppId) => {
     if (isCompromisedSystemMount) {
-      setNotice('NET STORE // CONTROLLED SYSTEM MOUNT IS READ ONLY')
+      setNotice('NET STORE // COMPROMISED SESSION IS READ ONLY')
       return
     }
     const app = getNetAppDefinition(appId)
@@ -1250,9 +1461,9 @@ export function NetHubPage() {
             NV-01 // LOCAL GRID AUTHORITY
           </span>
 
-          {isCompromisedSystemMount && runtimeSystemState.status === 'loading' ? (
+          {isRemoteSystemMount && runtimeSystemState.status === 'loading' ? (
             <span className="net-osbar__system-sync" data-compromised="true" role="status">
-              MOUNTING COMPROMISED SYSTEM
+              MOUNTING CONTROLLED SYSTEM
             </span>
           ) : runtimeSystemState.status === 'loading' ? (
             <span className="net-osbar__system-sync" role="status">
@@ -1260,7 +1471,7 @@ export function NetHubPage() {
             </span>
           ) : runtimeSystemState.status === 'error' ? (
             <span className="net-osbar__system-sync" data-error="true" role="status">
-              {isCompromisedSystemMount ? 'COMPROMISED SYSTEM UNAVAILABLE' : 'SYSTEM PROFILE UNAVAILABLE'}
+              {isRemoteSystemMount ? 'CONTROLLED SYSTEM UNAVAILABLE' : 'SYSTEM PROFILE UNAVAILABLE'}
             </span>
           ) : null}
         </div>
@@ -1696,7 +1907,7 @@ export function NetHubPage() {
       >
         <EchoApp
           onNotice={setNotice}
-          activeIdentity={activeIdentity}
+          activeIdentity={mountedRuntimeAppIdentity}
           accountResolution={echoAccountResolution}
           accounts={accountResolverAccounts}
           accountSessionKey={echoAccountSessionKey}
@@ -1716,9 +1927,9 @@ export function NetHubPage() {
       >
         <PulseApp
           onNotice={setNotice}
-          activeIdentity={activeIdentity}
+          activeIdentity={pulseActiveIdentity}
           accountResolution={pulseAccountResolution}
-          accounts={accountResolverAccounts}
+          accounts={pulseResolverAccounts}
           accountSessionKey={pulseAccountSessionKey}
           contentSessionKey={profile?.id ?? null}
           compromisedSession={compromisedPulseSession}
@@ -1736,10 +1947,61 @@ export function NetHubPage() {
       >
         <IdenApp
           onNotice={setNotice}
-          activeIdentity={activeIdentity}
+          activeIdentity={mountedRuntimeAppIdentity}
           accountResolution={idenAccountResolution}
         />
       </NetAppWindow>
+
+      <>
+          <NetAppWindow
+            title="VLT"
+            subtitle="NEW VEGA NETWORK // PAYMENTS"
+            icon={WalletCards}
+            accentRgb="232, 198, 109"
+            {...getManagedWindowProps('vlt')}
+          >
+            <VltApp
+              key={financeIdentitySessionKey ?? 'no-finance-runtime'}
+              accessMode={shellAppAccessModes.get('vlt') ?? 'player'}
+              expectedIdentityLinkId={financeIdentityLinkId}
+              identitySessionKey={financeIdentitySessionKey}
+              isWindowOpen={shellAppIdSet.has('vlt') && getWindowState('vlt').open}
+              onNotice={setNotice}
+            />
+          </NetAppWindow>
+
+          <NetAppWindow
+            title="VOX BANK"
+            subtitle="VOX NET // DIGITAL BANKING"
+            icon={Landmark}
+            accentRgb="105, 198, 220"
+            {...getManagedWindowProps('vox-bank')}
+          >
+            <VoxBankApp
+              key={financeIdentitySessionKey ?? 'no-finance-runtime'}
+              expectedIdentityLinkId={financeIdentityLinkId}
+              identitySessionKey={financeIdentitySessionKey}
+              isWindowOpen={shellAppIdSet.has('vox-bank') && getWindowState('vox-bank').open}
+              onNotice={setNotice}
+            />
+          </NetAppWindow>
+
+          <NetAppWindow
+            title="SHNEIDER BANK"
+            subtitle="SHNEIDER // PRIVATE HEALTH BANKING"
+            icon={HeartPulse}
+            accentRgb="167, 32, 46"
+            {...getManagedWindowProps('shneider-bank')}
+          >
+            <ShneiderBankApp
+              key={financeIdentitySessionKey ?? 'no-finance-runtime'}
+              expectedIdentityLinkId={financeIdentityLinkId}
+              identitySessionKey={financeIdentitySessionKey}
+              isWindowOpen={shellAppIdSet.has('shneider-bank') && getWindowState('shneider-bank').open}
+              onNotice={setNotice}
+            />
+          </NetAppWindow>
+      </>
 
       <NetAppWindow
         title="NVN"
@@ -1749,8 +2011,11 @@ export function NetHubPage() {
         {...getManagedWindowProps('nvn')}
       >
         <NvnApp
+          key={`nvn:${osSession.controlMode}:${appAccountIdentityContext?.identityLinkId ?? 'gm-system'}:${gmPersona.session?.sessionGeneration ?? 'none'}`}
           accessMode={shellAppAccessModes.get('nvn') ?? 'player'}
           isWindowOpen={shellAppIdSet.has('nvn') && getWindowState('nvn').open}
+          expectedIdentityLinkId={appAccountIdentityContext?.identityLinkId}
+          identitySessionKey={`${profile?.id ?? 'anonymous'}:${appAccountIdentityContext?.identityLinkId ?? 'gm-system'}:${gmPersona.session?.sessionGeneration ?? 'none'}`}
           onNotice={setNotice}
           onOpenApp={handleOpenAppById}
         />
@@ -1764,6 +2029,7 @@ export function NetHubPage() {
         {...getManagedWindowProps('net-store')}
       >
         <NetStoreApp
+          osId="veil"
           installedAppIds={installedAppIds}
           openAppIds={openAppIds}
           installJob={installJob}
@@ -1796,6 +2062,14 @@ export function NetHubPage() {
           identityCandidates={playableIdentityCandidates}
           activeIdentitySession={activeIdentitySession}
           gmPersona={gmPersona}
+          gmSystemEnvironmentControl={profile?.role === 'gm' ? (
+            <NetGmSystemEnvironmentControl
+              profileId={profile.id}
+              effectiveOsId={osSession.effectiveOsId}
+              controlPrimaryOsId={osSession.controlMode === 'take-control' ? osSession.primaryOsId : undefined}
+              controller={gmPersona}
+            />
+          ) : undefined}
           accountProfile={profile}
           universalProfile={universalProfile}
           systemContext={{
