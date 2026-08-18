@@ -209,6 +209,17 @@ export function useAltaraWindowManager(profileId?: string) {
     setWindows((current) => {
       const existing = current[id]
       if (!existing?.open || existing.minimized) return current
+      // A window that is already topmost doesn't need a new z-index -- skipping
+      // the no-op state write avoids re-rendering the whole gateway (and every
+      // other open app's content) on every drag/resize pickup of the focused
+      // window, which is the overwhelmingly common case.
+      const topZIndex = Math.max(
+        0,
+        ...Object.values(current)
+          .filter((state): state is AltaraWindowState => Boolean(state?.open) && !state?.minimized)
+          .map((state) => state.zIndex),
+      )
+      if (existing.zIndex === topZIndex) return current
       return { ...current, [id]: { ...existing, zIndex: nextZIndex() } }
     })
   }, [nextZIndex])

@@ -98,6 +98,85 @@ function AltaraDesktopShortcut({
   )
 }
 
+// Ticking clocks own their own interval/state locally so the 30s tick only
+// re-renders these small leaf nodes -- not the entire OS gateway (desktop,
+// taskbar, and every open app window), which was previously forced to
+// fully re-render on every tick regardless of user activity.
+function AltaraDesktopGreeting({ identityName }: { readonly identityName: string }) {
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 30_000)
+    return () => window.clearInterval(timer)
+  }, [])
+  return (
+    <h1>Good {now.getHours() < 12 ? 'morning' : now.getHours() < 18 ? 'afternoon' : 'evening'},<br />{identityName.split(' ')[0]}.</h1>
+  )
+}
+
+function AltaraDockClock() {
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 30_000)
+    return () => window.clearInterval(timer)
+  }, [])
+  const clock = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  const date = now.toLocaleDateString([], { weekday: 'short', day: '2-digit', month: 'short' })
+  return (
+    <div className="altara-dock__clock" aria-label={`${date}, ${clock}`}>
+      <strong>{clock}</strong><span>{date}</span>
+    </div>
+  )
+}
+
+// The music player hook updates `currentTime` on every native <audio>
+// `timeupdate` tick (roughly 4x/second while a track is playing). Calling
+// that hook here -- one level below the OS gateway -- means only this
+// component, the audio engine, and the ALTARA MUSIC window/app re-render on
+// each tick, instead of the entire desktop and every other open app.
+function AltaraMusicPlayerHost({
+  windowManager,
+  contextKey,
+  playerIdentityLinkId,
+  mode,
+  enabled,
+  appIdentityLinkId,
+  identityName,
+  onNotice,
+}: {
+  readonly windowManager: ReturnType<typeof useAltaraWindowManager>
+  readonly contextKey: string
+  readonly playerIdentityLinkId?: string
+  readonly mode: AltaraMusicMode
+  readonly enabled: boolean
+  readonly appIdentityLinkId?: string
+  readonly identityName: string
+  readonly onNotice: (message: string) => void
+}) {
+  const player = useAltaraMusicPlayer(contextKey, playerIdentityLinkId)
+  return (
+    <>
+      <AltaraMusicAudioEngine {...player} />
+      <NetAppWindow
+        title="ALTARA MUSIC"
+        subtitle="ALTARA // GLOBAL MUSIC NETWORK"
+        icon={getAltaraAppDefinition('altara-music').icon}
+        accentRgb={getAltaraAppDefinition('altara-music').accentRgb}
+        {...windowManager.getManagedProps('altara-music')}
+      >
+        <AltaraMusicApp
+          key={`music:${contextKey}:${mode}`}
+          mode={mode}
+          enabled={enabled}
+          expectedIdentityLinkId={appIdentityLinkId}
+          identityName={identityName}
+          player={player}
+          onNotice={onNotice}
+        />
+      </NetAppWindow>
+    </>
+  )
+}
+
 function AltaraLauncher({
   apps,
   identityName,
@@ -242,7 +321,6 @@ export function AltaraOsGateway({
     ? undefined
     : effectiveIdentityLinkId
   const runtimeMutationsAllowed = !gmSystemMode && shellReady && Boolean(systemIdentityLinkId)
-  const [now, setNow] = useState(() => new Date())
   const [launcherOpen, setLauncherOpen] = useState(false)
   const [notice, setNotice] = useState('ALTARA NETWORK // DESKTOP READY')
   const launcherRef = useRef<HTMLElement | null>(null)
@@ -278,10 +356,9 @@ export function AltaraOsGateway({
     gmPersona.session?.sessionGeneration ?? 'none',
   ].join(':')
   const altaraMusicContextKey = `${altaraBankContextKey}:${installedAltaraMusic ? 'installed' : 'uninstalled'}`
-  const altaraMusicPlayer = useAltaraMusicPlayer(
-    altaraMusicContextKey,
-    !gmSystemMode && shellReady && installedAltaraMusic ? effectiveIdentityLinkId : undefined,
-  )
+  const altaraMusicPlayerIdentityLinkId = !gmSystemMode && shellReady && installedAltaraMusic
+    ? effectiveIdentityLinkId
+    : undefined
   const availableApps = useMemo(() => altaraAppCatalog.filter(
     (app) => app.systemApp
       || (app.id === 'altara-bank' && altaraBankAvailable)
@@ -349,11 +426,6 @@ export function AltaraOsGateway({
     const previousTitle = document.title
     document.title = 'ALTARA OS // ALTARA NETWORK'
     return () => { document.title = previousTitle }
-  }, [])
-
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(new Date()), 30_000)
-    return () => window.clearInterval(timer)
   }, [])
 
   useEffect(() => {
@@ -522,8 +594,6 @@ export function AltaraOsGateway({
     : 'altara-nocturne'
   const customWallpaper = systemSnapshot?.wallpaper ?? null
   const wallpaperTheme = altaraWallpaperPresetToTheme(wallpaperPreset)
-  const clock = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  const date = now.toLocaleDateString([], { weekday: 'short', day: '2-digit', month: 'short' })
   const runningApps = useMemo(() => availableApps.filter(
     (app) => windowManager.windows[app.id]?.open,
   ), [availableApps, windowManager.windows])
@@ -573,7 +643,6 @@ export function AltaraOsGateway({
           disconnectError={hacking.disconnectError}
         />
       ) : null}
-      <AltaraMusicAudioEngine {...altaraMusicPlayer} />
       <div className="altara-os__wallpaper" aria-hidden="true">
         {customWallpaper ? (
           <img
@@ -610,7 +679,7 @@ export function AltaraOsGateway({
       <section className="altara-desktop" aria-label="ALTARA OS desktop">
         <div className="altara-desktop__intro">
           <p>ALTARA NETWORK</p>
-          <h1>Good {now.getHours() < 12 ? 'morning' : now.getHours() < 18 ? 'afternoon' : 'evening'},<br />{identityName.split(' ')[0]}.</h1>
+          <AltaraDesktopGreeting identityName={identityName} />
           <span>YOUR GLOBAL ENVIRONMENT IS READY</span>
         </div>
 
@@ -702,9 +771,7 @@ export function AltaraOsGateway({
             )
           })}
         </div>
-        <div className="altara-dock__clock" aria-label={`${date}, ${clock}`}>
-          <strong>{clock}</strong><span>{date}</span>
-        </div>
+        <AltaraDockClock />
       </footer>
 
       <div className="altara-os__notice" role="status"><span>{notice}</span><small>{runningApps.length} RUNNING</small></div>
@@ -817,23 +884,16 @@ export function AltaraOsGateway({
         />
       </NetAppWindow>
 
-      <NetAppWindow
-        title="ALTARA MUSIC"
-        subtitle="ALTARA // GLOBAL MUSIC NETWORK"
-        icon={getAltaraAppDefinition('altara-music').icon}
-        accentRgb={getAltaraAppDefinition('altara-music').accentRgb}
-        {...windowManager.getManagedProps('altara-music')}
-      >
-        <AltaraMusicApp
-          key={`music:${altaraMusicContextKey}:${altaraMusicMode}`}
-          mode={altaraMusicMode}
-          enabled={Boolean(windowManager.windows['altara-music']?.open && shellReady)}
-          expectedIdentityLinkId={altaraMusicMode === 'reader' ? effectiveIdentityLinkId : undefined}
-          identityName={identityName}
-          player={altaraMusicPlayer}
-          onNotice={setNotice}
-        />
-      </NetAppWindow>
+      <AltaraMusicPlayerHost
+        windowManager={windowManager}
+        contextKey={altaraMusicContextKey}
+        playerIdentityLinkId={altaraMusicPlayerIdentityLinkId}
+        mode={altaraMusicMode}
+        enabled={Boolean(windowManager.windows['altara-music']?.open && shellReady)}
+        appIdentityLinkId={altaraMusicMode === 'reader' ? effectiveIdentityLinkId : undefined}
+        identityName={identityName}
+        onNotice={setNotice}
+      />
 
       <NetAppWindow
         title="WAVE"

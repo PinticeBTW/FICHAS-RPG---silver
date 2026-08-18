@@ -194,6 +194,87 @@ function initials(value: string) {
   )
 }
 
+// Ticks its own local state/interval so a per-second clock update only
+// re-renders this small taskbar tray -- not the entire desktop and every
+// open app window, which was previously forced to fully re-render every
+// second regardless of user activity.
+function NetTaskbarClock() {
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 1000)
+    return () => window.clearInterval(timer)
+  }, [])
+  const time = now.toLocaleTimeString('pt-PT', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  })
+  const date = now
+    .toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
+    .toUpperCase()
+  return (
+    <div>
+      <strong>{time}</strong>
+      <span>{date}</span>
+    </div>
+  )
+}
+
+type VoxAudioWindowProps = Omit<
+  Parameters<typeof NetAppWindow>[0],
+  'title' | 'subtitle' | 'icon' | 'accentRgb' | 'children'
+>
+
+// The music player hook updates `currentTime` on every native <audio>
+// `timeupdate` tick (roughly 4x/second while a track is playing). Calling
+// that hook here -- one level below the OS page -- means only this
+// component, the audio engine, and the VOX AUDIO window/app re-render on
+// each tick, instead of the entire desktop and every other open app.
+function VoxAudioPlayerHost({
+  windowProps,
+  appKey,
+  identitySessionKey,
+  playerIdentityLinkId,
+  mode,
+  enabled,
+  identityName,
+  onNotice,
+}: {
+  readonly windowProps: VoxAudioWindowProps
+  readonly appKey: string
+  readonly identitySessionKey: string
+  readonly playerIdentityLinkId?: string
+  readonly mode: 'reader' | 'studio'
+  readonly enabled: boolean
+  readonly identityName: string
+  readonly onNotice: (message: string) => void
+}) {
+  const player = useVoxAudioPlayer(identitySessionKey, playerIdentityLinkId)
+  return (
+    <>
+      <VoxAudioAudioEngine {...player} />
+      <NetAppWindow
+        title="VOX AUDIO"
+        subtitle="VOX NET // NEW VEGA AUDIO"
+        icon={getNetAppDefinition('vox-audio')!.icon}
+        accentRgb="180, 128, 96"
+        {...windowProps}
+      >
+        <VoxAudioApp
+          key={appKey}
+          mode={mode}
+          enabled={enabled}
+          expectedIdentityLinkId={playerIdentityLinkId}
+          identityName={identityName}
+          player={player}
+          onNotice={onNotice}
+        />
+      </NetAppWindow>
+    </>
+  )
+}
+
 export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSession }) {
   const { profile, loading: authLoading } = useAuth()
   const playableIdentityCandidates = useNetPlayableIdentityCandidates(profile, authLoading)
@@ -539,8 +620,6 @@ export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSes
     ? getNetAppAccountOwnerKey(getNetAppAccountOwnerForIdentity(pulseActiveIdentity.identity))
     : null
 
-  const [now, setNow] = useState(() => new Date())
-
   const [notice, setNotice] = useState(
     'SYSTEM READY // SELECT AN APPLICATION',
   )
@@ -659,10 +738,6 @@ export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSes
           gmPersona.session?.sessionGeneration ?? 'none',
         ].join(':')
       : `vox-audio:${voxAudioSessionState}:${profile?.id ?? 'anonymous'}:${osSession.controlMode}`
-  const voxAudioPlayer = useVoxAudioPlayer(
-    voxAudioIdentitySessionKey,
-    voxAudioAccessIdentityLinkId,
-  )
 
   const bumpZIndex = () => {
     zIndexCounterRef.current += 1
@@ -817,6 +892,18 @@ export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSes
       if (!current.open || current.minimized) {
         return prev
       }
+
+      // A window that is already topmost doesn't need a new z-index -- skipping
+      // the no-op state write avoids re-rendering the whole desktop (and every
+      // other open app's content) on every drag/resize pickup of the focused
+      // window, which is the overwhelmingly common case.
+      const topZIndex = Math.max(
+        0,
+        ...Object.values(prev)
+          .filter((state): state is AppWindowState => Boolean(state?.open) && !state?.minimized)
+          .map((state) => state.zIndex),
+      )
+      if (current.zIndex === topZIndex) return prev
 
       return { ...prev, [id]: { ...current, zIndex: bumpZIndex() } }
     })
@@ -1162,14 +1249,8 @@ export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSes
 
     document.title = 'VEIL OS // NEW VEGA'
 
-    const timer = window.setInterval(() => {
-      setNow(new Date())
-    }, 1000)
-
     return () => {
       document.title = oldTitle
-
-      window.clearInterval(timer)
     }
   }, [])
 
@@ -1189,28 +1270,6 @@ export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSes
       ? profile.handle
       : `@${profile.handle}`
     : '@secure-user'
-
-  const time = useMemo(
-    () =>
-      now.toLocaleTimeString('pt-PT', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false,
-      }),
-    [now],
-  )
-
-  const date = useMemo(
-    () =>
-      now
-        .toLocaleDateString('en-GB', {
-          day: '2-digit',
-          month: 'short',
-        })
-        .toUpperCase(),
-    [now],
-  )
 
   const openApp = (app: NetAppDefinition) => {
     if (!app.available) {
@@ -1432,7 +1491,6 @@ export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSes
           disconnectError={hacking.disconnectError}
         />
       ) : null}
-      <VoxAudioAudioEngine {...voxAudioPlayer} />
       {/* WALLPAPER */}
       <div
         className="net-os__wallpaper"
@@ -1893,11 +1951,7 @@ export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSes
 
           <ShieldCheck size={15} />
 
-          <div>
-            <strong>{time}</strong>
-
-            <span>{date}</span>
-          </div>
+          <NetTaskbarClock />
         </div>
       </footer>
 
@@ -2005,29 +2059,22 @@ export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSes
         />
       </NetAppWindow>
 
-      <NetAppWindow
-        title="VOX AUDIO"
-        subtitle="VOX NET // NEW VEGA AUDIO"
-        icon={getNetAppDefinition('vox-audio')!.icon}
-        accentRgb="180, 128, 96"
-        {...getManagedWindowProps('vox-audio')}
-      >
-        <VoxAudioApp
-          key={`vox-audio:${voxAudioIdentitySessionKey}:${voxAudioMode ?? 'disabled'}`}
-          mode={voxAudioMode === 'gm-system' ? 'studio' : 'reader'}
-          enabled={Boolean(voxAudioMode && getWindowState('vox-audio').open)}
-          expectedIdentityLinkId={voxAudioAccessIdentityLinkId}
-          identityName={
-            voxAudioMode === 'gm-system'
-              ? 'GM SYSTEM'
-              : mountedRuntimeAppIdentity.status === 'ready'
-                ? mountedRuntimeAppIdentity.identity.displayName
-                : 'VOX AUDIO LISTENER'
-          }
-          player={voxAudioPlayer}
-          onNotice={setNotice}
-        />
-      </NetAppWindow>
+      <VoxAudioPlayerHost
+        windowProps={getManagedWindowProps('vox-audio')}
+        appKey={`vox-audio:${voxAudioIdentitySessionKey}:${voxAudioMode ?? 'disabled'}`}
+        identitySessionKey={voxAudioIdentitySessionKey}
+        playerIdentityLinkId={voxAudioAccessIdentityLinkId}
+        mode={voxAudioMode === 'gm-system' ? 'studio' : 'reader'}
+        enabled={Boolean(voxAudioMode && getWindowState('vox-audio').open)}
+        identityName={
+          voxAudioMode === 'gm-system'
+            ? 'GM SYSTEM'
+            : mountedRuntimeAppIdentity.status === 'ready'
+              ? mountedRuntimeAppIdentity.identity.displayName
+              : 'VOX AUDIO LISTENER'
+        }
+        onNotice={setNotice}
+      />
 
       <NetAppWindow
         title="NET STORE"

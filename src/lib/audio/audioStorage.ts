@@ -374,3 +374,145 @@ export async function extractEmbeddedAudioArtwork(file: File): Promise<Extracted
     return undefined
   }
 }
+
+// ---------------------------------------------------------------------------
+// Embedded title / track-number extraction (product-neutral). Reads MP3
+// ID3v2 TIT2/TRCK (or the ID3v2.2 3-letter TT2/TRK) text frames and MP4/M4A
+// `©nam`/`trkn` atoms, reusing the exact frame/box readers above. Used only
+// as a convenience default for bulk track import staging; every value stays
+// user-editable afterward and no failure here ever blocks a selected file.
+// ---------------------------------------------------------------------------
+
+export interface ExtractedAudioTags {
+  readonly title?: string
+  readonly trackNumber?: number
+}
+
+/** Decodes one ID3v2 text-information frame body (leading encoding byte + text). */
+function decodeId3TextFrame(bytes: Uint8Array, start: number, end: number): string | undefined {
+  if (start >= end) return undefined
+  const encoding = bytes[start]
+  const textStart = start + 1
+  if (textStart > end) return undefined
+  try {
+    let decoded: string
+    if (encoding === 0) {
+      decoded = decodeLatin1(bytes, textStart, findNullTerminator(bytes, textStart, false))
+    } else if (encoding === 3) {
+      decoded = new TextDecoder('utf-8').decode(bytes.slice(textStart, end))
+    } else if (encoding === 2) {
+      decoded = new TextDecoder('utf-16be').decode(bytes.slice(textStart, end))
+    } else {
+      const hasBigEndianBom = textStart + 2 <= end && bytes[textStart] === 0xfe && bytes[textStart + 1] === 0xff
+      const hasLittleEndianBom = textStart + 2 <= end && bytes[textStart] === 0xff && bytes[textStart + 1] === 0xfe
+      const bomSkip = hasBigEndianBom || hasLittleEndianBom ? 2 : 0
+      decoded = new TextDecoder(hasBigEndianBom ? 'utf-16be' : 'utf-16le').decode(bytes.slice(textStart + bomSkip, end))
+    }
+    const cleaned = decoded.replace(/\0+$/, '').trim()
+    return cleaned || undefined
+  } catch {
+    return undefined
+  }
+}
+
+function parseId3TrackNumber(text: string | undefined): number | undefined {
+  if (!text) return undefined
+  const match = text.match(/^\s*(\d{1,4})/)
+  if (!match) return undefined
+  const value = Number(match[1])
+  return Number.isFinite(value) && value > 0 ? value : undefined
+}
+
+/** Reads an MP3 ID3v2.2/2.3/2.4 tag looking for the title and track-number text frames. */
+function extractId3v2Tags(bytes: Uint8Array): ExtractedAudioTags {
+  if (bytes.length < 10 || bytes[0] !== 0x49 || bytes[1] !== 0x44 || bytes[2] !== 0x33) return {}
+  const majorVersion = bytes[3]
+  const flags = bytes[5]
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  const tagSize = readSyncSafeUint32(view, 6)
+  const tagEnd = Math.min(bytes.length, 10 + tagSize)
+  let offset = 10
+  if ((flags & 0x40) !== 0 && offset + 4 <= tagEnd) {
+    const extendedHeaderSize = majorVersion >= 4 ? readSyncSafeUint32(view, offset) : view.getUint32(offset, false)
+    if (extendedHeaderSize > 0 && extendedHeaderSize < tagSize) offset += extendedHeaderSize
+  }
+  let title: string | undefined
+  let trackNumber: number | undefined
+  while (offset + 6 <= tagEnd && (title === undefined || trackNumber === undefined)) {
+    if (majorVersion === 2) {
+      const id = decodeLatin1(bytes, offset, offset + 3)
+      const size = (bytes[offset + 3] << 16) | (bytes[offset + 4] << 8) | bytes[offset + 5]
+      const frameStart = offset + 6
+      if (size <= 0 || frameStart + size > tagEnd) break
+      if (id === 'TT2') title = title ?? decodeId3TextFrame(bytes, frameStart, frameStart + size)
+      if (id === 'TRK') trackNumber = trackNumber ?? parseId3TrackNumber(decodeId3TextFrame(bytes, frameStart, frameStart + size))
+      offset = frameStart + size
+    } else {
+      if (offset + 10 > tagEnd) break
+      const id = decodeLatin1(bytes, offset, offset + 4)
+      if (!/^[A-Z0-9]{4}$/.test(id)) break // reached padding / corrupt frame id
+      const size = majorVersion >= 4 ? readSyncSafeUint32(view, offset + 4) : view.getUint32(offset + 4, false)
+      const frameStart = offset + 10
+      if (size <= 0 || frameStart + size > tagEnd) break
+      if (id === 'TIT2') title = title ?? decodeId3TextFrame(bytes, frameStart, frameStart + size)
+      if (id === 'TRCK') trackNumber = trackNumber ?? parseId3TrackNumber(decodeId3TextFrame(bytes, frameStart, frameStart + size))
+      offset = frameStart + size
+    }
+  }
+  return { title, trackNumber }
+}
+
+/** Reads the `©nam`/`trkn` atoms out of an MP4/M4A `moov/udta/meta/ilst` chain. */
+function extractMp4Tags(bytes: Uint8Array): ExtractedAudioTags {
+  const moov = readMp4Boxes(bytes, 0, bytes.length).find((box) => box.type === 'moov')
+  if (!moov) return {}
+  const udta = readMp4Boxes(bytes, moov.bodyStart, moov.end).find((box) => box.type === 'udta')
+  if (!udta) return {}
+  const meta = readMp4Boxes(bytes, udta.bodyStart, udta.end).find((box) => box.type === 'meta')
+  if (!meta) return {}
+  const ilst = readMp4Boxes(bytes, meta.bodyStart + 4, meta.end).find((box) => box.type === 'ilst')
+  if (!ilst) return {}
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  const children = readMp4Boxes(bytes, ilst.bodyStart, ilst.end)
+
+  let title: string | undefined
+  const nameAtom = children.find((box) => box.type === '©nam')
+  if (nameAtom) {
+    const data = readMp4Boxes(bytes, nameAtom.bodyStart, nameAtom.end).find((box) => box.type === 'data')
+    if (data && data.bodyStart + 8 <= data.end) {
+      try {
+        title = new TextDecoder('utf-8').decode(bytes.slice(data.bodyStart + 8, data.end)).trim() || undefined
+      } catch { /* leave undefined */ }
+    }
+  }
+
+  let trackNumber: number | undefined
+  const trknAtom = children.find((box) => box.type === 'trkn')
+  if (trknAtom) {
+    const data = readMp4Boxes(bytes, trknAtom.bodyStart, trknAtom.end).find((box) => box.type === 'data')
+    if (data && data.bodyStart + 8 + 4 <= data.end) {
+      const value = view.getUint16(data.bodyStart + 8 + 2, false)
+      trackNumber = value > 0 ? value : undefined
+    }
+  }
+
+  return { title, trackNumber }
+}
+
+/**
+ * Extracts embedded title/track-number tags from an audio file's own
+ * metadata, if any. Supports MP3 (ID3v2 TIT2/TRCK, or the ID3v2.2 TT2/TRK)
+ * and M4A/MP4 (`©nam`/`trkn`). Any other format, or a file with no matching
+ * tag, safely resolves to an empty object — a convenience default only; it
+ * never blocks or fails the underlying audio upload.
+ */
+export async function extractEmbeddedAudioTags(file: File): Promise<ExtractedAudioTags> {
+  try {
+    const bytes = new Uint8Array(await file.arrayBuffer())
+    const id3 = extractId3v2Tags(bytes)
+    if (id3.title !== undefined || id3.trackNumber !== undefined) return id3
+    return extractMp4Tags(bytes)
+  } catch {
+    return {}
+  }
+}

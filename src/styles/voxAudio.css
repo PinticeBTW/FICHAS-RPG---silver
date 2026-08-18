@@ -269,6 +269,55 @@
 .vox-audio-studio-track-panel > header button { display: grid; width: 30px; height: 30px; place-items: center; border: 1px solid var(--music-line-soft); color: var(--music-muted); background: transparent; }
 .vox-audio-studio-track-panel .vox-audio-studio-form { padding: 18px; }
 
+.vox-audio-studio-related-actions { display: flex; flex: 0 0 auto; gap: 8px; }
+
+.vox-audio-bulk-import { padding: 16px; border: 1px solid var(--music-line-soft); background: #0b0c10; }
+.vox-audio-bulk-import > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 14px; }
+.vox-audio-bulk-import > header h3 { margin: 0 0 4px; font-family: var(--font-display, Inter, sans-serif); font-size: clamp(1rem, 2cqi, 1.3rem); font-weight: 540; }
+.vox-audio-bulk-import > header p { margin: 0; max-width: 520px; color: var(--music-muted); font-size: 0.53rem; line-height: 1.5; }
+.vox-audio-bulk-import > header > button { display: grid; width: 28px; height: 28px; flex: 0 0 auto; place-items: center; border: 1px solid var(--music-line-soft); color: var(--music-muted); background: transparent; }
+
+.vox-audio-bulk-dropzone { display: grid; place-items: center; gap: 8px; padding: 26px 16px; border: 1px dashed var(--music-line); color: var(--music-muted); text-align: center; }
+.vox-audio-bulk-dropzone p { margin: 0; font-size: 0.52rem; }
+.vox-audio-bulk-dropzone button { padding: 8px 12px; border: 1px solid var(--music-line); color: var(--music-gold); background: var(--music-panel); font-size: 0.5rem; font-weight: 700; }
+
+.vox-audio-bulk-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; }
+.vox-audio-bulk-toolbar > span { color: var(--music-muted); font-size: 0.49rem; letter-spacing: 0.06em; }
+.vox-audio-bulk-toolbar > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.vox-audio-bulk-toolbar button { padding: 7px 10px; border: 1px solid var(--music-line); color: var(--music-muted); background: transparent; font-size: 0.47rem; font-weight: 700; letter-spacing: 0.03em; }
+.vox-audio-bulk-toolbar button[data-active='true'] { border-color: var(--music-gold); color: var(--music-gold); background: rgba(111, 183, 230, 0.12); }
+
+.vox-audio-bulk-list { display: grid; gap: 6px; margin: 12px 0 0; padding: 0; list-style: none; }
+.vox-audio-bulk-row { display: grid; grid-template-columns: 18px 40px minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 8px; border: 1px solid var(--music-line-soft); background: var(--music-panel); }
+.vox-audio-bulk-row[data-status='uploading'] { border-color: var(--music-gold); }
+.vox-audio-bulk-row[data-status='failed'] { border-color: rgba(207, 102, 87, 0.5); }
+.vox-audio-bulk-row[data-status='done'] { opacity: 0.72; }
+.vox-audio-bulk-row__handle { display: grid; place-items: center; color: var(--music-muted); cursor: grab; }
+.vox-audio-bulk-row__artwork { display: grid; width: 40px; height: 40px; place-items: center; overflow: hidden; border: 1px solid var(--music-line-soft); color: var(--music-gold); background: #1a1c24; }
+.vox-audio-bulk-row__artwork img { width: 100%; height: 100%; object-fit: cover; }
+.vox-audio-bulk-row__fields { display: grid; min-width: 0; gap: 5px; }
+.vox-audio-bulk-row__filename { overflow: hidden; color: var(--music-muted); font-size: 0.45rem; text-overflow: ellipsis; white-space: nowrap; }
+.vox-audio-bulk-row__inputs { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+.vox-audio-bulk-row__inputs input[aria-label='Track number'] { min-height: 30px; padding: 5px 6px; text-align: center; }
+.vox-audio-bulk-row__inputs input[aria-label='Track title'] { min-height: 30px; padding: 5px 8px; }
+.vox-audio-bulk-row__inputs .vox-audio-check { font-size: 0.44rem; white-space: nowrap; }
+.vox-audio-bulk-row__meta { display: flex; gap: 10px; color: var(--music-muted); font-size: 0.44rem; }
+.vox-audio-bulk-row__error { color: #e8a99e; }
+.vox-audio-bulk-row__status { display: grid; gap: 3px; justify-items: end; text-align: right; font-size: 0.46rem; }
+.vox-audio-bulk-row__status > small { color: var(--music-muted); letter-spacing: 0.06em; }
+.vox-audio-bulk-row[data-status='uploading'] .vox-audio-bulk-row__status > small { color: var(--music-gold); }
+.vox-audio-bulk-row[data-status='done'] .vox-audio-bulk-row__status > small { color: #9fd6ad; }
+.vox-audio-bulk-row[data-status='failed'] .vox-audio-bulk-row__status > small { color: #e8a99e; }
+.vox-audio-bulk-row__status .vox-audio-bulk-row__error { max-width: 160px; font-size: 0.43rem; }
+.vox-audio-bulk-row__actions { display: flex; align-items: center; gap: 4px; }
+.vox-audio-bulk-row__actions button { display: grid; place-items: center; gap: 4px; padding: 5px; border: 1px solid var(--music-line-soft); color: var(--music-muted); background: transparent; font-size: 0.44rem; }
+.vox-audio-bulk-row__actions button:disabled { opacity: 0.35; }
+
+.vox-audio-bulk-footer { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--music-line-soft); }
+.vox-audio-bulk-footer > span { color: var(--music-muted); font-size: 0.5rem; letter-spacing: 0.05em; }
+.vox-audio-bulk-upload-all { padding: 10px 16px; border: 0; color: #0a1620; background: var(--music-gold); font-size: 0.53rem; font-weight: 750; }
+.vox-audio-bulk-upload-all:disabled { opacity: 0.4; }
+
 .vox-audio-studio-artwork { display: grid; grid-template-columns: 88px minmax(0, 1fr); align-items: center; gap: 12px; margin-bottom: 14px; padding: 10px; border: 1px solid var(--music-line-soft); background: #0b0c10; }
 .vox-audio-studio-artwork .vox-audio-artwork { width: 88px; height: 88px; }
 .vox-audio-studio-artwork[data-kind='artist'] .vox-audio-artwork { border-radius: 50%; }
@@ -343,6 +392,9 @@
   .vox-audio-studio-overview-stats span + span { border-top: 1px solid var(--music-line-soft); border-left: 0; }
   .vox-audio-studio-track-panel { width: 100%; border-left: 0; }
   .vox-audio-studio-track-panel .vox-audio-studio-form { padding: 13px; }
+  .vox-audio-bulk-row { grid-template-columns: 18px 40px minmax(0, 1fr); }
+  .vox-audio-bulk-row__status, .vox-audio-bulk-row__actions { grid-column: 2 / -1; justify-content: start; justify-items: start; }
+  .vox-audio-bulk-row__inputs { grid-template-columns: 1fr; }
   .vox-audio-studio-artwork { grid-template-columns: 68px minmax(0, 1fr); }
   .vox-audio-studio-artwork .vox-audio-artwork { width: 68px; height: 68px; }
   .vox-audio-form-pair { grid-template-columns: 1fr; }

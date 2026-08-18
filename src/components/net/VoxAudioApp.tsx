@@ -2,8 +2,11 @@ import {
   ArrowLeft,
   AudioLines,
   Check,
+  ChevronDown,
   ChevronRight,
+  ChevronUp,
   Disc3,
+  GripVertical,
   Heart,
   Library,
   ListMusic,
@@ -29,7 +32,11 @@ import {
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 
 import { SharedMediaImage } from '../shared/SharedMediaImage'
-import { extractEmbeddedAudioArtwork } from '../../lib/audio/audioStorage'
+import {
+  extractEmbeddedAudioArtwork,
+  extractEmbeddedAudioTags,
+  type ExtractedAudioTags,
+} from '../../lib/audio/audioStorage'
 import {
   removeSharedMediaReference,
   uploadSharedImage,
@@ -706,6 +713,7 @@ function Studio({ enabled, onNotice }: Pick<VoxAudioAppProps, 'enabled' | 'onNot
           onTrackSaved={(id) => currentRelease && setTrackPanel({ id, artistId: releaseArtistId, releaseId: currentRelease.id, key: id })}
           onCloseTrack={() => setTrackPanel(undefined)}
           onNotice={onNotice}
+          onImportPayload={setPayload}
         />
       )
     } else if (catalogView?.kind === 'track') {
@@ -793,7 +801,7 @@ function ArtistWorkspace({ value, releases, busy, run, onNotice, onSaved, onOpen
   )
 }
 
-function ReleaseWorkspace({ value, defaultArtistId, artists, tracks, allTracks, releases, busy, run, trackPanel, onBack, onSaved, onOpenTrack, onAddTrack, onTrackSaved, onCloseTrack, onNotice }: {
+function ReleaseWorkspace({ value, defaultArtistId, artists, tracks, allTracks, releases, busy, run, trackPanel, onBack, onSaved, onOpenTrack, onAddTrack, onTrackSaved, onCloseTrack, onNotice, onImportPayload }: {
   readonly value?: NetVoxAudioGmRelease
   readonly defaultArtistId: string
   readonly artists: readonly NetVoxAudioGmArtist[]
@@ -810,14 +818,17 @@ function ReleaseWorkspace({ value, defaultArtistId, artists, tracks, allTracks, 
   readonly onTrackSaved: (id: string) => void
   readonly onCloseTrack: () => void
   readonly onNotice: (message: string) => void
+  readonly onImportPayload: (payload: NetVoxAudioStudioPayload) => void
 }) {
+  const [bulkImportOpen, setBulkImportOpen] = useState(false)
   const nextTrackNumber = Math.max(0, ...tracks.map((track) => track.trackNumber ?? 0)) + 1
   const panelTrack = allTracks.find((track) => track.id === trackPanel?.id)
   return (
     <div className="vox-audio-studio-page">
       <button type="button" className="vox-audio-studio-back" onClick={onBack}><ArrowLeft size={14} /> ARTIST</button>
       <ReleaseEditor value={value} defaultArtistId={defaultArtistId} artists={artists} busy={busy} run={run} onNotice={onNotice} onSaved={onSaved} />
-      {value ? <section className="vox-audio-studio-related"><header><div><h3>Tracklist</h3><p>{value.releaseType === 'single' && !tracks.length ? 'This single is ready for its canonical recording.' : `${tracks.length} ${tracks.length === 1 ? 'recording' : 'recordings'} attached to this release.`}</p></div><button type="button" disabled={busy} onClick={onAddTrack}><Plus size={14} /> {value.releaseType === 'single' && !tracks.length ? 'ADD SINGLE AUDIO' : 'ADD TRACK'}</button></header>{tracks.length ? <div className="vox-audio-studio-tracklist">{tracks.slice().sort((a, b) => (a.discNumber - b.discNumber) || ((a.trackNumber ?? 999) - (b.trackNumber ?? 999)) || a.id.localeCompare(b.id)).map((track, index) => <button type="button" key={track.id} onClick={() => onOpenTrack(track.id)}><small>{String(track.trackNumber ?? index + 1).padStart(2, '0')}</small><span><strong>{track.title}</strong><small>{track.status.toUpperCase()}{track.explicit ? ' · EXPLICIT' : ''}</small></span><time>{formatVoxAudioDuration(track.durationMs)}</time><ChevronRight size={14} /></button>)}</div> : <Feedback title={value.releaseType === 'single' ? 'ADD THE SINGLE AUDIO' : 'NO TRACKS YET'} copy="Choose an audio file; artist and release are already locked to this context." action={<button type="button" onClick={onAddTrack}><Plus size={14} /> {value.releaseType === 'single' ? 'ADD SINGLE AUDIO' : 'ADD FIRST TRACK'}</button>} />}</section> : null}
+      {value ? <section className="vox-audio-studio-related"><header><div><h3>Tracklist</h3><p>{value.releaseType === 'single' && !tracks.length ? 'This single is ready for its canonical recording.' : `${tracks.length} ${tracks.length === 1 ? 'recording' : 'recordings'} attached to this release.`}</p></div><div className="vox-audio-studio-related-actions"><button type="button" disabled={busy} onClick={() => { setBulkImportOpen(false); onAddTrack() }}><Plus size={14} /> {value.releaseType === 'single' && !tracks.length ? 'ADD SINGLE AUDIO' : 'ADD TRACK'}</button><button type="button" disabled={busy} onClick={() => { onCloseTrack(); setBulkImportOpen((open) => !open) }}><Upload size={14} /> {bulkImportOpen ? 'CLOSE BULK IMPORT' : 'IMPORT MULTIPLE TRACKS'}</button></div></header>{tracks.length ? <div className="vox-audio-studio-tracklist">{tracks.slice().sort((a, b) => (a.discNumber - b.discNumber) || ((a.trackNumber ?? 999) - (b.trackNumber ?? 999)) || a.id.localeCompare(b.id)).map((track, index) => <button type="button" key={track.id} onClick={() => { setBulkImportOpen(false); onOpenTrack(track.id) }}><small>{String(track.trackNumber ?? index + 1).padStart(2, '0')}</small><span><strong>{track.title}</strong><small>{track.status.toUpperCase()}{track.explicit ? ' · EXPLICIT' : ''}</small></span><time>{formatVoxAudioDuration(track.durationMs)}</time><ChevronRight size={14} /></button>)}</div> : <Feedback title={value.releaseType === 'single' ? 'ADD THE SINGLE AUDIO' : 'NO TRACKS YET'} copy="Choose an audio file; artist and release are already locked to this context." action={<button type="button" onClick={onAddTrack}><Plus size={14} /> {value.releaseType === 'single' ? 'ADD SINGLE AUDIO' : 'ADD FIRST TRACK'}</button>} />}</section> : null}
+      {value && bulkImportOpen ? <BulkTrackImportPanel key={value.id} artistId={value.artistId} releaseId={value.id} releaseCoverRef={value.coverRef} nextTrackNumber={nextTrackNumber} disabled={busy} onImportPayload={onImportPayload} onNotice={onNotice} onClose={() => setBulkImportOpen(false)} /> : null}
         {trackPanel ? <aside className="vox-audio-studio-track-panel"><header><div><strong>{panelTrack ? 'EDIT RECORDING' : 'ADD TO RELEASE'}</strong><small>{value?.title}</small></div><button type="button" aria-label="Close track editor" onClick={onCloseTrack}><X size={15} /></button></header><TrackEditor key={trackPanel.key} value={panelTrack} defaultArtistId={trackPanel.artistId} defaultReleaseId={trackPanel.releaseId} defaultTrackNumber={nextTrackNumber} artists={artists} releases={releases} busy={busy} run={run} onNotice={onNotice} lockedContext onSaved={onTrackSaved} onDeleted={onCloseTrack} /></aside> : null}
     </div>
   )
@@ -1075,6 +1086,284 @@ function TrackEditor({ value, defaultArtistId, defaultReleaseId, defaultTrackNum
       : `VOX AUDIO // TRACK ${value ? 'SAVED' : 'REGISTERED'}`,
     (nextPayload) => onSaved(confirmedStudioRecordId(nextPayload.tracks, recordId, 'track')))
   }}><header><div><small>{value ? 'EDIT TRACK' : 'NEW NATIVE TRACK'}</small><h2>{title || 'Add a recording'}</h2><p>{lockedContext ? `${artistName ?? 'Artist'} · ${releaseName ?? 'Release'}` : 'Canonical VOX AUDIO audio and editorial metadata.'}</p></div><button type="submit" disabled={busy || !artists.length || (!value && (!file || !fileMetadata))}><Check size={14} /> {busy ? 'WORKING…' : value ? 'SAVE TRACK' : 'UPLOAD & ADD TRACK'}</button></header><fieldset><legend>{value ? 'AUDIO MASTER' : '1 · SELECT AUDIO FILE'}</legend><input ref={fileRef} type="file" hidden accept="audio/mpeg,audio/mp4,audio/m4a,audio/x-m4a,audio/ogg,audio/webm,.mp3,.m4a,.mp4,.ogg,.webm" onChange={(event) => selectFile(event.target.files?.[0])} /><button type="button" className="vox-audio-file-button" onClick={() => fileRef.current?.click()}><Upload size={14} /> {file ? 'REPLACE SELECTION' : value ? 'CHOOSE REPLACEMENT AUDIO' : 'SELECT AUDIO FILE'}</button>{file ? <div className="vox-audio-audio-summary" data-valid={fileMetadata ? 'true' : 'false'}><span><small>FILE</small><strong>{file.name}</strong></span><span><small>SIZE</small><strong>{fileMetadata ? `${(fileMetadata.byteSize / 1024 / 1024).toFixed(2)} MB` : 'READING…'}</strong></span><span><small>DURATION</small><strong>{fileMetadata ? formatVoxAudioDuration(fileMetadata.durationMs) : '—'}</strong></span><span><small>FORMAT</small><strong>{fileMetadata?.mimeType ?? 'VALIDATING'}</strong></span></div> : <p className="vox-audio-file-status">{value ? `${value.audioMimeType} · ${(value.audioByteSize / 1024 / 1024).toFixed(2)} MB · ${formatVoxAudioDuration(value.durationMs)}` : 'MP3, M4A/MP4, OGG or WebM · max 15 MB / 15 min'}</p>}{fileError ? <p className="vox-audio-file-error" role="alert">{fileError}</p> : null}{value && file && fileMetadata ? <button type="button" disabled={busy} onClick={() => { void run(() => replaceNetVoxAudioGmTrackAudio(value.id, file), 'VOX AUDIO // TRACK AUDIO REPLACED') }}>REPLACE AUDIO ONLY</button> : null}</fieldset><fieldset><legend>2 · TRACK DETAILS</legend>{lockedContext ? <div className="vox-audio-studio-context"><span><small>ARTIST</small><strong>{artistName}</strong></span><ChevronRight size={13} /><span><small>RELEASE</small><strong>{releaseName}</strong></span></div> : <><label>ARTIST<select value={artistId} onChange={(event) => { setArtistId(event.target.value); setReleaseId('') }}>{artists.map((artist) => <option key={artist.id} value={artist.id}>{artist.name}</option>)}</select></label><label>RELEASE<select value={releaseId} onChange={(event) => setReleaseId(event.target.value)}><option value="">STANDALONE</option>{compatibleReleases.map((release) => <option key={release.id} value={release.id}>{release.title}</option>)}</select></label></>}<label>TRACK TITLE<input required maxLength={180} value={title} onChange={(event) => setTitle(event.target.value)} /></label><div className="vox-audio-form-pair"><label>TRACK NUMBER<input type="number" min={1} max={999} value={trackNumber} onChange={(event) => setTrackNumber(event.target.value)} /></label><label>DISC<input type="number" min={1} max={99} value={discNumber} onChange={(event) => setDiscNumber(event.target.value)} /></label></div><StudioArtworkUpload subjectId={value?.id} slot="track" label="TRACK ARTWORK" source={artworkRefDraft ?? artworkRef} previewLabel={`${title || 'Track'} artwork`} embeddedPreviewUrl={!value ? embeddedArtwork?.previewUrl : undefined} onUploaded={setArtworkRefDraft} /></fieldset><fieldset><legend>3 · PUBLICATION</legend><label>STATUS<select value={status} onChange={(event) => setStatus(event.target.value as NetVoxAudioStatus)}>{statusOptions}</select></label><label className="vox-audio-check"><input type="checkbox" checked={explicit} onChange={(event) => setExplicit(event.target.checked)} /> EXPLICIT</label><label className="vox-audio-check"><input type="checkbox" checked={featured} onChange={(event) => setFeatured(event.target.checked)} /> FEATURED</label>{value?.status === 'archived' ? <button type="button" className="vox-audio-danger" onClick={() => { if (window.confirm(`Permanently delete ${value.title}? This requires no playlist/like dependencies and removes its exact audio object.`)) void run(() => deleteNetVoxAudioGmTrack(value.id), 'VOX AUDIO // TRACK PERMANENTLY DELETED', onDeleted) }}><Trash2 size={14} /> PERMANENT DELETE</button> : null}</fieldset></form>
+}
+
+type BulkTrackStatus = 'waiting' | 'uploading' | 'done' | 'failed'
+
+interface StagedBulkTrack {
+  readonly key: string
+  readonly id: string
+  readonly file: File
+  readonly title: string
+  readonly fallbackTitle: string
+  readonly trackNumber: string
+  readonly explicit: boolean
+  readonly inspecting: boolean
+  readonly durationMs?: number
+  readonly inspectError?: string
+  readonly embeddedArtwork?: { readonly blob: Blob; readonly mimeType: string; readonly previewUrl: string }
+  readonly sortHint: number
+  readonly selectionOrder: number
+  readonly status: BulkTrackStatus
+  readonly error?: string
+  readonly trackId?: string
+}
+
+function leadingFilenameTrackNumber(filename: string): number | undefined {
+  const base = filename.replace(/\.[^.]+$/, '')
+  const match = base.match(/^\s*(\d{1,3})(?=[\s._-]|$)/)
+  if (!match) return undefined
+  const value = Number(match[1])
+  return Number.isFinite(value) && value > 0 ? value : undefined
+}
+
+function bulkStatusLabel(status: BulkTrackStatus): string {
+  if (status === 'waiting') return 'WAITING'
+  if (status === 'uploading') return 'UPLOADING…'
+  if (status === 'done') return 'DONE'
+  return 'FAILED'
+}
+
+// New batches sort by (embedded track number, filename number, selection order); existing rows
+// keep whatever position the GM already arranged, so a second import never reshuffles the queue.
+function resortBulkBatch(all: readonly StagedBulkTrack[], batchKeys: ReadonlySet<string>): readonly StagedBulkTrack[] {
+  const indices: number[] = []
+  all.forEach((item, index) => { if (batchKeys.has(item.key)) indices.push(index) })
+  if (indices.length < 2) return all
+  const sortedBatch = indices.map((index) => all[index]).sort((a, b) => (a.sortHint - b.sortHint) || (a.selectionOrder - b.selectionOrder))
+  const next = all.slice()
+  indices.forEach((index, position) => { next[index] = sortedBatch[position] })
+  return next
+}
+
+function BulkTrackImportPanel({ artistId, releaseId, releaseCoverRef, nextTrackNumber, disabled, onImportPayload, onNotice, onClose }: {
+  readonly artistId: string
+  readonly releaseId: string
+  readonly releaseCoverRef?: string
+  readonly nextTrackNumber: number
+  readonly disabled: boolean
+  readonly onImportPayload: (payload: NetVoxAudioStudioPayload) => void
+  readonly onNotice: (message: string) => void
+  readonly onClose: () => void
+}) {
+  const [staged, setStaged] = useState<readonly StagedBulkTrack[]>([])
+  const [useReleaseCoverForAll, setUseReleaseCoverForAll] = useState(false)
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [queueProgress, setQueueProgress] = useState<{ readonly done: number; readonly total: number }>()
+  const stagedRef = useRef<readonly StagedBulkTrack[]>(staged)
+  stagedRef.current = staged
+  const coverForAllRef = useRef(useReleaseCoverForAll)
+  coverForAllRef.current = useReleaseCoverForAll
+  const uploadingRef = useRef(false)
+  const selectionCounterRef = useRef(0)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const dragKeyRef = useRef<string | undefined>(undefined)
+
+  useEffect(() => () => { stagedRef.current.forEach((item) => { if (item.embeddedArtwork) URL.revokeObjectURL(item.embeddedArtwork.previewUrl) }) }, [])
+
+  const addFiles = (files: FileList | null) => {
+    if (!files || !files.length) return
+    const incoming = Array.from(files)
+    const batch: StagedBulkTrack[] = incoming.map((file, index) => {
+      const fallbackTitle = titleFromAudioFilename(file.name)
+      return {
+        key: crypto.randomUUID(), id: crypto.randomUUID(), file, title: fallbackTitle, fallbackTitle,
+        trackNumber: '', explicit: false, inspecting: true, sortHint: Number.POSITIVE_INFINITY,
+        selectionOrder: selectionCounterRef.current + index, status: 'waiting',
+      }
+    })
+    selectionCounterRef.current += incoming.length
+    const batchKeys = new Set(batch.map((entry) => entry.key))
+    setStaged((prev) => [...prev, ...batch])
+    void Promise.all(batch.map(async (entry) => {
+      const [metadataResult, tagsResult, artworkResult] = await Promise.allSettled([
+        inspectNetVoxAudioAudioFile(entry.file),
+        extractEmbeddedAudioTags(entry.file),
+        extractEmbeddedAudioArtwork(entry.file),
+      ])
+      const durationMs = metadataResult.status === 'fulfilled' ? metadataResult.value.durationMs : undefined
+      const inspectError = metadataResult.status === 'fulfilled' ? undefined : studioErrorMessage(metadataResult.reason)
+      const tags: ExtractedAudioTags = tagsResult.status === 'fulfilled' ? tagsResult.value : {}
+      const artwork = artworkResult.status === 'fulfilled' ? artworkResult.value : undefined
+      const detectedNumber = tags.trackNumber ?? leadingFilenameTrackNumber(entry.file.name)
+      setStaged((prev) => prev.map((item) => item.key === entry.key ? {
+        ...item,
+        inspecting: false,
+        durationMs,
+        inspectError,
+        status: inspectError ? 'failed' : item.status,
+        title: item.title === item.fallbackTitle && tags.title ? tags.title : item.title,
+        trackNumber: item.trackNumber === '' && detectedNumber ? String(detectedNumber) : item.trackNumber,
+        embeddedArtwork: artwork ? { blob: artwork.blob, mimeType: artwork.mimeType, previewUrl: URL.createObjectURL(artwork.blob) } : item.embeddedArtwork,
+        sortHint: detectedNumber ?? Number.POSITIVE_INFINITY,
+      } : item))
+    })).then(() => setStaged((prev) => resortBulkBatch(prev, batchKeys)))
+  }
+
+  const updateItem = (key: string, patch: Partial<Pick<StagedBulkTrack, 'title' | 'trackNumber' | 'explicit'>>) => {
+    setStaged((prev) => prev.map((item) => item.key === key ? { ...item, ...patch } : item))
+  }
+
+  const removeItem = (key: string) => {
+    setStaged((prev) => {
+      const target = prev.find((item) => item.key === key)
+      if (target?.embeddedArtwork) URL.revokeObjectURL(target.embeddedArtwork.previewUrl)
+      return prev.filter((item) => item.key !== key)
+    })
+  }
+
+  const clearBatch = () => {
+    if (uploadingRef.current) return
+    stagedRef.current.forEach((item) => { if (item.embeddedArtwork) URL.revokeObjectURL(item.embeddedArtwork.previewUrl) })
+    setStaged([])
+    setQueueProgress(undefined)
+  }
+
+  const moveItem = (key: string, direction: -1 | 1) => {
+    setStaged((prev) => {
+      const index = prev.findIndex((item) => item.key === key)
+      const targetIndex = index + direction
+      if (index < 0 || targetIndex < 0 || targetIndex >= prev.length) return prev
+      const next = prev.slice()
+      const [moved] = next.splice(index, 1)
+      next.splice(targetIndex, 0, moved)
+      return next
+    })
+  }
+
+  const reorderByDrag = (sourceKey: string, targetKey: string) => {
+    if (sourceKey === targetKey) return
+    setStaged((prev) => {
+      const sourceIndex = prev.findIndex((item) => item.key === sourceKey)
+      const targetIndex = prev.findIndex((item) => item.key === targetKey)
+      if (sourceIndex < 0 || targetIndex < 0) return prev
+      const next = prev.slice()
+      const [moved] = next.splice(sourceIndex, 1)
+      next.splice(targetIndex, 0, moved)
+      return next
+    })
+  }
+
+  // Sequential, bounded queue: one track at a time so a single failure never
+  // races ahead of or clobbers already-successful uploads, and RETRY can pass
+  // just the one failed key without touching anything already 'done'.
+  const runQueue = async (keys: readonly string[]) => {
+    if (uploadingRef.current || !keys.length) return
+    uploadingRef.current = true
+    setBulkBusy(true)
+    setQueueProgress({ done: 0, total: keys.length })
+    for (const key of keys) {
+      const current = stagedRef.current.find((item) => item.key === key)
+      if (!current || current.status === 'done' || current.status === 'uploading' || current.inspecting) {
+        setQueueProgress((prev) => prev ? { ...prev, done: prev.done + 1 } : prev)
+        continue
+      }
+      setStaged((prev) => prev.map((item) => item.key === key ? { ...item, status: 'uploading', error: undefined } : item))
+      try {
+        const trimmedNumber = current.trackNumber.trim()
+        const parsedNumber = trimmedNumber ? Number(trimmedNumber) : undefined
+        const input = {
+          id: current.id, artistId, releaseId, title: current.title.trim() || current.fallbackTitle,
+          trackNumber: parsedNumber !== undefined && Number.isFinite(parsedNumber) ? parsedNumber : undefined,
+          discNumber: 1, explicit: current.explicit, status: 'draft' as NetVoxAudioStatus, featured: false,
+        }
+        let createdPayload = await createNetVoxAudioGmTrack(input, current.file)
+        const createdId = confirmedStudioRecordId(createdPayload.tracks, current.id, 'track')
+        if (!coverForAllRef.current && current.embeddedArtwork) {
+          let reference: string | undefined
+          try {
+            reference = (await uploadSharedImage(
+              { subjectKind: 'vox-audio-artwork', subjectId: createdId, mediaKind: 'general', slot: 'track' },
+              current.embeddedArtwork.blob,
+              'general',
+            )).reference
+            createdPayload = await updateNetVoxAudioGmTrack({ ...input, id: createdId, artworkRef: reference })
+          } catch {
+            // Best-effort embedded artwork only — the track itself already registered successfully,
+            // and it still resolves a cover via the existing track → release → artist fallback.
+            if (reference) await rollbackSharedMediaUpload(reference, undefined, onNotice, 'track artwork')
+          }
+        }
+        onImportPayload(createdPayload)
+        setStaged((prev) => prev.map((item) => item.key === key ? { ...item, status: 'done', trackId: createdId, error: undefined } : item))
+      } catch (uploadError) {
+        setStaged((prev) => prev.map((item) => item.key === key ? { ...item, status: 'failed', error: studioErrorMessage(uploadError) } : item))
+      }
+      setQueueProgress((prev) => prev ? { ...prev, done: prev.done + 1 } : prev)
+    }
+    uploadingRef.current = false
+    setBulkBusy(false)
+    const failedCount = stagedRef.current.filter((item) => keys.includes(item.key) && item.status === 'failed').length
+    onNotice(failedCount
+      ? `VOX AUDIO // BULK IMPORT FINISHED — ${failedCount} TRACK${failedCount === 1 ? '' : 'S'} FAILED`
+      : 'VOX AUDIO // BULK IMPORT COMPLETE')
+  }
+
+  const uploadAll = () => {
+    if (uploadingRef.current) return
+    let keys: string[] = []
+    setStaged((prev) => {
+      let nextAuto = nextTrackNumber
+      const assigned = prev.map((item) => {
+        if (item.trackNumber.trim()) {
+          const parsed = Number(item.trackNumber)
+          if (Number.isFinite(parsed)) nextAuto = Math.max(nextAuto, parsed + 1)
+          return item
+        }
+        const value = nextAuto
+        nextAuto += 1
+        return { ...item, trackNumber: String(value) }
+      })
+      stagedRef.current = assigned
+      keys = assigned.filter((item) => item.status !== 'done' && !item.inspecting).map((item) => item.key)
+      return assigned
+    })
+    void runQueue(keys)
+  }
+
+  const doneCount = staged.filter((item) => item.status === 'done').length
+  const failedCount = staged.filter((item) => item.status === 'failed').length
+  const uploadableCount = staged.filter((item) => item.status !== 'done' && !item.inspecting).length
+
+  return (
+    <section className="vox-audio-studio-related vox-audio-bulk-import">
+      <header><div><h3>Bulk Import</h3><p>Select several audio files, arrange them, then upload together into this release.</p></div><button type="button" onClick={onClose}><X size={14} /> CLOSE</button></header>
+      <input ref={fileInputRef} type="file" multiple hidden accept="audio/mpeg,audio/mp4,audio/m4a,audio/x-m4a,audio/ogg,audio/webm,.mp3,.m4a,.mp4,.ogg,.webm" onChange={(event) => { addFiles(event.target.files); event.target.value = '' }} />
+      <div className="vox-audio-bulk-dropzone" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); addFiles(event.dataTransfer.files) }}><Upload size={18} /><p>Drag audio files here, or</p><button type="button" disabled={disabled} onClick={() => fileInputRef.current?.click()}>SELECT FILES</button></div>
+      {staged.length ? <>
+        <div className="vox-audio-bulk-toolbar">
+          <span>{staged.length} QUEUED · {doneCount} DONE{failedCount ? ` · ${failedCount} FAILED` : ''}</span>
+          <div><button type="button" disabled={bulkBusy || disabled || !releaseCoverRef} data-active={useReleaseCoverForAll ? 'true' : 'false'} onClick={() => setUseReleaseCoverForAll((value) => !value)}>USE RELEASE COVER FOR ALL</button><button type="button" disabled={bulkBusy || disabled} onClick={clearBatch}><Trash2 size={13} /> CLEAR BATCH</button></div>
+        </div>
+        <ol className="vox-audio-bulk-list">
+          {staged.map((item, index) => <li key={item.key} className="vox-audio-bulk-row" data-status={item.status} draggable={!bulkBusy && !disabled} onDragStart={() => { dragKeyRef.current = item.key }} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); const sourceKey = dragKeyRef.current; dragKeyRef.current = undefined; if (sourceKey) reorderByDrag(sourceKey, item.key) }}>
+            <span className="vox-audio-bulk-row__handle"><GripVertical size={14} /></span>
+            <span className="vox-audio-bulk-row__artwork">{item.embeddedArtwork && !useReleaseCoverForAll ? <img src={item.embeddedArtwork.previewUrl} alt="" /> : <Disc3 size={16} />}</span>
+            <div className="vox-audio-bulk-row__fields">
+              <div className="vox-audio-bulk-row__filename">{item.file.name}</div>
+              <div className="vox-audio-bulk-row__inputs">
+                <input aria-label="Track number" inputMode="numeric" value={item.trackNumber} placeholder="#" disabled={bulkBusy || disabled} onChange={(event) => updateItem(item.key, { trackNumber: event.target.value.replace(/\D+/g, '').slice(0, 4) })} />
+                <input aria-label="Track title" value={item.title} maxLength={180} disabled={bulkBusy || disabled} onChange={(event) => updateItem(item.key, { title: event.target.value })} />
+                <label className="vox-audio-check"><input type="checkbox" checked={item.explicit} disabled={bulkBusy || disabled} onChange={(event) => updateItem(item.key, { explicit: event.target.checked })} /> EXPLICIT</label>
+              </div>
+              <div className="vox-audio-bulk-row__meta"><small>{item.inspecting ? 'READING…' : item.durationMs ? formatVoxAudioDuration(item.durationMs) : '—'}</small>{item.inspectError ? <small className="vox-audio-bulk-row__error">{item.inspectError}</small> : null}</div>
+            </div>
+            <div className="vox-audio-bulk-row__status"><small>{bulkStatusLabel(item.status)}</small>{item.status === 'failed' && item.error ? <span className="vox-audio-bulk-row__error">{item.error}</span> : null}</div>
+            <div className="vox-audio-bulk-row__actions">
+              <button type="button" aria-label="Move up" disabled={bulkBusy || disabled || index === 0} onClick={() => moveItem(item.key, -1)}><ChevronUp size={13} /></button>
+              <button type="button" aria-label="Move down" disabled={bulkBusy || disabled || index === staged.length - 1} onClick={() => moveItem(item.key, 1)}><ChevronDown size={13} /></button>
+              {item.status === 'failed' ? <button type="button" disabled={bulkBusy || disabled} onClick={() => void runQueue([item.key])}>RETRY</button> : null}
+              <button type="button" aria-label="Remove track" disabled={item.status === 'uploading'} onClick={() => removeItem(item.key)}><X size={13} /></button>
+            </div>
+          </li>)}
+        </ol>
+        <footer className="vox-audio-bulk-footer">
+          <span>{bulkBusy && queueProgress ? `UPLOADING ${queueProgress.done} / ${queueProgress.total}` : `${staged.length} TRACK${staged.length === 1 ? '' : 'S'} STAGED`}</span>
+          <button type="button" className="vox-audio-bulk-upload-all" disabled={bulkBusy || disabled || !uploadableCount} onClick={uploadAll}>{bulkBusy ? 'UPLOADING…' : 'UPLOAD ALL'}</button>
+        </footer>
+      </> : null}
+    </section>
+  )
 }
 
 function PlaylistEditor({ value, tracks, busy, run, onNotice, onSaved }: {

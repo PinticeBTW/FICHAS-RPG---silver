@@ -1866,6 +1866,13 @@
   border-radius: 12px;
 }
 
+/* backdrop-filter is expensive to recomposite on a moving element; hinting
+   the compositor only while a drag/resize is actually in progress (not
+   permanently) keeps the blur without paying for a standing GPU layer. */
+.net-app-window[data-interacting='true'] {
+  will-change: left, top, width, height;
+}
+
 .net-app-window[data-minimized='true'] {
   display: none;
 }

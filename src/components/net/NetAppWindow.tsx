@@ -274,6 +274,7 @@ export function NetAppWindow({
       data-maximized={isMaximized ? 'true' : 'false'}
       data-snapped={isSnapped ? 'true' : 'false'}
       data-focused={isFocused ? 'true' : 'false'}
+      data-interacting={transientRect ? 'true' : 'false'}
       role="dialog"
       aria-label={title}
       aria-hidden={isMinimized ? 'true' : 'false'}
