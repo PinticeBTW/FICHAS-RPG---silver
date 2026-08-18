@@ -15,6 +15,29 @@ import {
 } from '../../../lib/netWallpaperStore'
 import type { NetIdentitySystemWallpaper } from '../../../lib/netIdentitySystemService'
 import { NetSystemSecurityControl } from '../identity/NetSystemSecurityControl'
+import { AltaraFxAdmin } from './AltaraBankApp'
+
+/**
+ * Global currency/exchange-rate administration. Reuses AltaraFxAdmin exactly
+ * as ALTARA BANK's own GM admin view previously did -- no second editor.
+ * Only ever rendered by AltaraOsGateway when gmSystemMode is true (true GM
+ * SYSTEM authority, not TAKE CONTROL/ACT AS/a hacked identity), matching how
+ * every other Settings/Persona Control authority-gated control is exposed.
+ */
+export function AltaraEconomySettings() {
+  return (
+    <section aria-labelledby="altara-economy-title">
+      <div className="altara-settings__section-heading">
+        <div>
+          <p>ECONOMY</p>
+          <h3 id="altara-economy-title">Currency &amp; exchange rates</h3>
+        </div>
+        <small>GM SYSTEM ONLY</small>
+      </div>
+      <AltaraFxAdmin enabled />
+    </section>
+  )
+}
 
 export function AltaraSettingsApp({
   identityName,
@@ -28,6 +51,7 @@ export function AltaraSettingsApp({
   onRetry,
   onChangeIdentity,
   workspaceControl,
+  economyControl,
   readOnly = false,
   securityIdentityLinkId,
   securityProfileId,
@@ -43,6 +67,7 @@ export function AltaraSettingsApp({
   readonly onRetry: () => void
   readonly onChangeIdentity?: () => void
   readonly workspaceControl?: ReactNode
+  readonly economyControl?: ReactNode
   readonly readOnly?: boolean
   readonly securityIdentityLinkId?: string
   readonly securityProfileId?: string
@@ -108,6 +133,7 @@ export function AltaraSettingsApp({
       </header>
 
       {workspaceControl}
+      {economyControl}
 
       <section aria-labelledby="altara-appearance-title">
         <div className="altara-settings__section-heading">

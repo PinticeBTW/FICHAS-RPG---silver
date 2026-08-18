@@ -1061,9 +1061,7 @@ function PersonaDetail({
             allowNoOs={classification === 'npc'}
             reconcileEffectiveOs={currentMode === 'take-control'}
           />
-          {classification === 'player' ? (
-            <NetGmEconomicCurrencyControl identityLinkId={identityLinkId} city={candidate.city} />
-          ) : null}
+          <NetGmEconomicCurrencyControl identityLinkId={identityLinkId} city={candidate.city} />
           {controller.state.status === 'none' ? (
             <NetGmHackingAccessControl
               key={`hacking-${identityLinkId}`}

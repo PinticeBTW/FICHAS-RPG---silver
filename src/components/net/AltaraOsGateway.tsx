@@ -25,7 +25,7 @@ import type { NetResolvedOsSession } from '../../lib/netOsService'
 import { ALTARA_NEWS_PRODUCT_NAME } from '../../lib/netAltaraNewsTypes'
 import { wallpaperPositionToCss } from '../../lib/netWallpaperStore'
 import { NetAppWindow } from './NetAppWindow'
-import { AltaraSettingsApp } from './altara/AltaraAppSurfaces'
+import { AltaraEconomySettings, AltaraSettingsApp } from './altara/AltaraAppSurfaces'
 import { AltaraBankApp, type AltaraBankMode } from './altara/AltaraBankApp'
 import { AltaraStoreApp } from './altara/AltaraStoreApp'
 import { AltaraMessengerApp } from './altara/AltaraMessengerApp'
@@ -915,6 +915,7 @@ export function AltaraOsGateway({
               candidates={candidates}
             />
           ) : undefined}
+          economyControl={gmSystemMode ? <AltaraEconomySettings /> : undefined}
         />
       </NetAppWindow>
     </main>
