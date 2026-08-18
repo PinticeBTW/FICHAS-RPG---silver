@@ -11,6 +11,7 @@ import {
   Store,
   Video,
   WalletCards,
+  Waypoints,
   HeartPulse,
   type LucideIcon,
 } from 'lucide-react'
@@ -30,6 +31,7 @@ export type NetAppId =
   | 'shneider-bank'
   | 'nvn'
   | 'net-store'
+  | 'relay'
   | 'loop'
   | 'altara-messenger'
   | 'altara-bank'
@@ -248,6 +250,28 @@ export const netAppCatalog: readonly NetAppDefinition[] = [
     defaultWindow: { width: 1240, height: 760, minWidth: 760, minHeight: 500 },
     subtitle: 'VEGA MESH // SOFTWARE CATALOGUE',
     onlineNotice: 'NET STORE // MESH CATALOGUE READY',
+  },
+  {
+    id: 'relay',
+    scope: 'veil-only',
+    name: 'RELAY',
+    owner: 'VEIL OS',
+    category: 'COMMUNICATIONS',
+    description: 'RELAY civic communications for New Vega, with private direct messages, groups, and server-backed conversation history across the VEGA MESH.',
+    shortDescription: 'Civic communications',
+    searchAliases: ['relay', 'communications', 'messages', 'vega mesh', 'chat'],
+    accentRgb: '110, 168, 254',
+    icon: Waypoints,
+    systemApp: true,
+    removable: false,
+    available: true,
+    catalogueStatus: 'available',
+    version: '1.0',
+    installSize: 'System image',
+    features: ['Direct messages', 'Private groups', 'Realtime conversation sync'],
+    defaultWindow: { width: 1040, height: 680, minWidth: 460, minHeight: 390 },
+    subtitle: 'VEGA MESH // CIVIC COMMUNICATIONS',
+    onlineNotice: 'RELAY // CIVIC COMMUNICATIONS ONLINE',
   },
   {
     id: 'loop',

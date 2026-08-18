@@ -74,6 +74,19 @@
   background: #a65f4f;
 }
 .altara-messenger-identity > i[data-online='true'] { background: #77b99d; box-shadow: 0 0 10px rgba(119, 185, 157, 0.32); }
+.altara-messenger-identity__edit {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgba(var(--messenger-gold), 0.24);
+  border-radius: 5px;
+  color: rgb(var(--messenger-gold));
+  background: rgba(var(--messenger-gold), 0.06);
+}
+.altara-messenger-app-profile { padding: 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.07); }
+.altara-messenger-app-profile .net-app-profile-editor { --app-profile-accent: var(--messenger-gold); border: 0; background: transparent; padding: 0; }
 
 .altara-messenger-sidebar__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 10px; }
 .altara-messenger-sidebar__actions button,

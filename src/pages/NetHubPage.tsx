@@ -58,6 +58,7 @@ import { NetStoreApp } from '../components/net/NetStoreApp'
 import { VoxAudioApp } from '../components/net/VoxAudioApp'
 import { VoxAudioAudioEngine } from '../components/net/VoxAudioAudioEngine'
 import { useVoxAudioPlayer } from '../components/net/useVoxAudioPlayer'
+import { RelayApp } from '../components/net/RelayApp'
 import {
   getNetAppDefinition,
   isNetOptionalAppId,
@@ -140,6 +141,7 @@ const WINDOW_IDS: readonly NetWindowId[] = [
   'nvn',
   'vox-audio',
   'net-store',
+  'relay',
   'wallpaper',
 ]
 
@@ -738,6 +740,26 @@ export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSes
           gmPersona.session?.sessionGeneration ?? 'none',
         ].join(':')
       : `vox-audio:${voxAudioSessionState}:${profile?.id ?? 'anonymous'}:${osSession.controlMode}`
+
+  // RELAY is a permanently-available VEIL system app (no NET STORE install
+  // gate), so relayMode always resolves to 'player' for any VEIL session --
+  // kept for parity with every other app's access-mode wiring rather than
+  // hardcoding that assumption here.
+  const relayMode = shellAppAccessModes.get('relay')
+  const relayIdentityLinkId = relayMode === 'player'
+    ? appAccountIdentityContext?.identityLinkId
+    : undefined
+  const relaySessionState = relayIdentityLinkId ? 'active' : 'inactive'
+  const relayIdentitySessionKey = relayIdentityLinkId
+    ? [
+        'relay',
+        relaySessionState,
+        profile?.id ?? 'anonymous',
+        osSession.controlMode,
+        relayIdentityLinkId,
+        gmPersona.session?.sessionGeneration ?? 'none',
+      ].join(':')
+    : `relay:${relaySessionState}:${profile?.id ?? 'anonymous'}:${osSession.controlMode}`
 
   const bumpZIndex = () => {
     zIndexCounterRef.current += 1
@@ -2075,6 +2097,20 @@ export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSes
         }
         onNotice={setNotice}
       />
+
+      <NetAppWindow
+        title="RELAY"
+        subtitle="VEGA MESH // CIVIC COMMUNICATIONS"
+        icon={getNetAppDefinition('relay')!.icon}
+        accentRgb="110, 168, 254"
+        {...getManagedWindowProps('relay')}
+      >
+        <RelayApp
+          key={relayIdentitySessionKey}
+          enabled={Boolean(getWindowState('relay').open)}
+          expectedIdentityLinkId={relayIdentityLinkId}
+        />
+      </NetAppWindow>
 
       <NetAppWindow
         title="NET STORE"

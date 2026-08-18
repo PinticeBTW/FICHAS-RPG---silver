@@ -1,0 +1,110 @@
+/* =========================
+   NET APP PROFILE EDITOR — shared, embeddable app-local presentation editor
+   ========================= */
+
+.net-app-profile-editor {
+  --app-profile-accent: 226, 230, 238;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: #eef1f7;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.net-app-profile-editor button,
+.net-app-profile-editor input {
+  font: inherit;
+  color: inherit;
+}
+.net-app-profile-editor button { cursor: pointer; }
+.net-app-profile-editor button:disabled { cursor: not-allowed; opacity: 0.5; }
+
+.net-app-profile-editor > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.net-app-profile-editor > header h3 { margin: 0; font-size: 0.66rem; font-weight: 700; letter-spacing: 0.09em; }
+.net-app-profile-editor > header p { margin: 4px 0 0; color: rgba(255, 255, 255, 0.55); font-size: 0.58rem; }
+.net-app-profile-editor__close {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 0;
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.net-app-profile-editor__empty,
+.net-app-profile-editor__error { margin: 0; color: rgba(255, 255, 255, 0.56); font-size: 0.62rem; line-height: 1.5; }
+.net-app-profile-editor__error { color: #d99b89; }
+
+.net-app-profile-editor__preview { display: flex; align-items: center; gap: 10px; }
+.net-app-profile-editor__avatar {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(var(--app-profile-accent), 0.4);
+  border-radius: 6px;
+  color: rgb(var(--app-profile-accent));
+  background: rgba(var(--app-profile-accent), 0.08);
+  font: 700 0.62rem/1 var(--font-mono, ui-monospace, monospace);
+}
+.net-app-profile-editor__avatar img { width: 100%; height: 100%; object-fit: cover; }
+.net-app-profile-editor__preview > div { display: grid; min-width: 0; gap: 2px; }
+.net-app-profile-editor__preview strong { overflow: hidden; font-size: 0.68rem; white-space: nowrap; text-overflow: ellipsis; }
+.net-app-profile-editor__preview small { color: rgba(255, 255, 255, 0.5); font: 600 0.5rem/1 var(--font-mono, ui-monospace, monospace); letter-spacing: 0.08em; }
+
+.net-app-profile-editor__photo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid rgba(var(--app-profile-accent), 0.28);
+  border-radius: 4px;
+  color: rgb(var(--app-profile-accent));
+  background: rgba(var(--app-profile-accent), 0.06);
+  font: 650 0.56rem/1 var(--font-mono, ui-monospace, monospace);
+  letter-spacing: 0.06em;
+  text-align: center;
+}
+.net-app-profile-editor__photo input { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; }
+
+.net-app-profile-editor__name { display: grid; gap: 5px; color: rgba(255, 255, 255, 0.62); font: 650 0.55rem/1 var(--font-mono, ui-monospace, monospace); letter-spacing: 0.07em; }
+.net-app-profile-editor__name input {
+  min-width: 0;
+  padding: 7px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  outline: 0;
+  color: #f0f3fa;
+  background: rgba(0, 0, 0, 0.24);
+  font-size: 0.66rem;
+}
+.net-app-profile-editor__name input:focus-visible { border-color: rgba(var(--app-profile-accent), 0.7); }
+.net-app-profile-editor__name small { color: rgba(255, 255, 255, 0.45); font-size: 0.5rem; }
+
+.net-app-profile-editor > footer { display: flex; flex-wrap: wrap; gap: 8px; }
+.net-app-profile-editor__reset,
+.net-app-profile-editor__save {
+  min-height: 30px;
+  padding: 0 11px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.78);
+  background: transparent;
+  font: 650 0.55rem/1 var(--font-mono, ui-monospace, monospace);
+  letter-spacing: 0.05em;
+}
+.net-app-profile-editor__save {
+  color: #0b0c10;
+  border-color: rgba(var(--app-profile-accent), 0.4);
+  background: rgb(var(--app-profile-accent));
+}

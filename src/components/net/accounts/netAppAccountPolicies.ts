@@ -11,6 +11,7 @@ export const netAppAccountPolicies = [
   { appId: 'shneider-bank', mode: 'none' },
   { appId: 'nvn', mode: 'optional' },
   { appId: 'net-store', mode: 'none' },
+  { appId: 'relay', mode: 'none' },
   { appId: 'loop', mode: 'explicit' },
   { appId: 'altara-messenger', mode: 'none' },
   { appId: 'altara-bank', mode: 'none' },
