@@ -95,6 +95,7 @@ export function useSheetEconomySources(
         activePayload.voxBank?.accountId,
         activePayload.shneiderBank?.accountId,
         activePayload.altaraBank?.accountId,
+        activePayload.novaBank?.accountId,
       ].filter((accountId): accountId is string => Boolean(accountId)).sort().join(':')
     : ''
 

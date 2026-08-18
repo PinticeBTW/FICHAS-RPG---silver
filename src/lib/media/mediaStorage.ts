@@ -165,6 +165,26 @@ export function invalidateSharedMediaReference(
   for (const path of paths) invalidateSignedMediaPath(path)
 }
 
+/**
+ * Removes only the immutable objects named by one validated descriptor. This
+ * is used to clean up a just-uploaded object when its authoritative database
+ * mutation fails; Storage RLS still decides whether the caller owns the exact
+ * namespace.
+ */
+export async function removeSharedMediaReference(
+  value: string | null | undefined,
+): Promise<void> {
+  const reference = parseSharedMediaReference(value)
+  if (!reference) throw new Error('The shared-media descriptor could not be parsed for cleanup.')
+  const paths = [...new Set([
+    reference.display.path,
+    ...(reference.thumbnail ? [reference.thumbnail.path] : []),
+  ])]
+  const { error } = await client().storage.from(SHARED_MEDIA_BUCKET).remove(paths)
+  if (error) throw mediaResolutionError(error, 'Uploaded image cleanup failed.')
+  invalidateSharedMediaReference(value)
+}
+
 /** Resolves a list in one Storage request; useful for directory/feed rows. */
 export async function resolveSharedMediaUrls(
   values: readonly (string | null | undefined)[],

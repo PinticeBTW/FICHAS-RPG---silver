@@ -12,6 +12,8 @@ export type SharedMediaSubjectKind =
   | 'nvn-article'
   | 'altara-news-article'
   | 'altara-music-artwork'
+  | 'altara-wave-account'
+  | 'vox-audio-artwork'
   | 'global'
 
 export interface SharedMediaScope {

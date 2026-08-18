@@ -1,0 +1,1356 @@
+/*
+ * ALTARA OS structural + colour theme for the shared VEIL identity-control
+ * layer (NetGmSystemEnvironmentControl + NetGmPersonaSettings +
+ * NetGmRemoteSystemSnapshot). NetGmSystemEnvironmentControl and its embedded
+ * NetGmFinanceControl ship their own portable, already-ALTARA-aware
+ * stylesheets (netGmEnvironment.css / netGmFinanceControl.css) and need no
+ * rules here. Everything below is scoped under `.altara-persona-control` so
+ * it never leaks into VEIL's net.css cascade. Layout/grid/sizing rules are
+ * copied from net.css's `.net-persona-control` / `.net-identity-settings`
+ * empty-state / `.net-persona-snapshot` families (ALTARA's page CSS never
+ * loads net.css, so those structural rules are otherwise entirely absent);
+ * colours are re-themed to ALTARA graphite/champagne-gold.
+ */
+
+.altara-persona-control {
+  --altara-persona-take-control: 181, 142, 82;
+  --altara-persona-danger: 214, 122, 104;
+
+  display: grid;
+  gap: 14px;
+}
+
+.altara-persona-control,
+.altara-persona-control .net-persona-control,
+.altara-persona-control .net-persona-snapshot {
+  font-family: var(--font-body, Inter, system-ui, sans-serif);
+}
+
+/* ---- empty / loading / session-state ---- */
+
+.altara-persona-control .net-identity-settings__empty,
+.altara-persona-control .net-identity-settings__session-state {
+  display: grid;
+  gap: 5px;
+  padding: 13px 0;
+  border-top: 1px solid rgba(240, 237, 230, 0.1);
+  border-bottom: 1px solid rgba(240, 237, 230, 0.1);
+}
+
+.altara-persona-control .net-identity-settings__empty strong,
+.altara-persona-control .net-identity-settings__session-state strong {
+  color: var(--altara-text);
+  font-size: 0.44rem;
+  letter-spacing: 0.12em;
+}
+
+.altara-persona-control .net-identity-settings__empty span,
+.altara-persona-control .net-identity-settings__session-state span,
+.altara-persona-control .net-identity-settings__quiet,
+.altara-persona-control .net-identity-settings__warning {
+  margin: 0;
+  color: var(--altara-muted);
+  font-family: var(--font-sans);
+  font-size: 0.73rem;
+  line-height: 1.45;
+}
+
+.altara-persona-control .net-identity-settings__session-state strong {
+  color: rgb(var(--altara-gold));
+}
+
+.altara-persona-control .net-identity-settings__warning {
+  color: rgba(var(--altara-gold), 0.78);
+}
+
+.altara-persona-control .net-identity-settings__empty button {
+  border: 1px solid rgba(var(--altara-gold), 0.4);
+  color: rgb(var(--altara-gold));
+  background: transparent;
+}
+
+/* ---- root persona control ---- */
+
+.altara-persona-control .net-persona-control {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+/* ---- session status bar ---- */
+
+.altara-persona-control .net-persona-control__session {
+  display: grid;
+  grid-template-columns: minmax(104px, 0.38fr) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+  border-top: 1px solid rgba(240, 237, 230, 0.14);
+  border-bottom: 1px solid rgba(240, 237, 230, 0.14);
+}
+
+.altara-persona-control .net-persona-control__session[data-active='true'] {
+  border-color: rgba(var(--altara-gold), 0.4);
+  background: rgba(var(--altara-gold), 0.045);
+}
+
+.altara-persona-control .net-persona-control__session[data-mode='take-control'] {
+  border-color: rgba(var(--altara-persona-take-control), 0.5);
+  background: rgba(var(--altara-persona-take-control), 0.06);
+}
+
+.altara-persona-control .net-persona-control__session[data-mode='take-control'] .net-persona-control__session-label span,
+.altara-persona-control .net-persona-control__session[data-mode='take-control'] .net-persona-control__session-identity span {
+  color: rgb(var(--altara-persona-take-control));
+}
+
+.altara-persona-control .net-persona-control__session[data-mode='compromised-session'] {
+  border-color: rgba(var(--altara-persona-danger), 0.5);
+  background: rgba(var(--altara-persona-danger), 0.06);
+}
+
+.altara-persona-control .net-persona-control__session[data-mode='compromised-session'] .net-persona-control__session-label span,
+.altara-persona-control .net-persona-control__session[data-mode='compromised-session'] .net-persona-control__session-identity span {
+  color: rgb(var(--altara-persona-danger));
+}
+
+.altara-persona-control .net-persona-control__session-label,
+.altara-persona-control .net-persona-control__session-identity > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.altara-persona-control .net-persona-control__session-label strong,
+.altara-persona-control .net-persona-control__session-label span,
+.altara-persona-control .net-persona-control__session-identity span {
+  font-family: var(--font-mono);
+  font-size: 0.52rem;
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.altara-persona-control .net-persona-control__session-label strong {
+  color: var(--altara-muted);
+}
+
+.altara-persona-control .net-persona-control__session-label span {
+  color: rgb(var(--altara-gold));
+}
+
+.altara-persona-control .net-persona-control__session > p {
+  max-width: 54ch;
+  margin: 0;
+  color: var(--altara-muted);
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  line-height: 1.42;
+}
+
+.altara-persona-control .net-persona-control__session-identity {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.altara-persona-control .net-persona-control__session-identity strong {
+  overflow: hidden;
+  color: var(--altara-text);
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.altara-persona-control .net-persona-control__session-identity span {
+  overflow: hidden;
+  color: rgba(var(--altara-gold), 0.74);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- portrait / avatar ---- */
+
+.altara-persona-control .net-persona-control__portrait {
+  display: grid;
+  width: 38px;
+  height: 42px;
+  overflow: hidden;
+  place-items: center;
+  border: 1px solid rgba(240, 237, 230, 0.16);
+  border-radius: 4px;
+  background: var(--altara-ink);
+  color: var(--altara-text);
+  font-family: var(--font-mono);
+  font-size: 0.48rem;
+}
+
+.altara-persona-control .net-persona-control__portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ---- action buttons ---- */
+
+.altara-persona-control .net-persona-control__clear,
+.altara-persona-control .net-persona-control__act,
+.altara-persona-control .net-persona-control__take-control,
+.altara-persona-control .net-persona-control__take-control-confirm,
+.altara-persona-control .net-persona-control__take-control-cancel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 6px 9px;
+  border: 1px solid rgba(240, 237, 230, 0.16);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--altara-text);
+  font-family: var(--font-mono);
+  font-size: 0.5rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease, color 150ms ease;
+}
+
+.altara-persona-control .net-persona-control__clear:hover:not(:disabled),
+.altara-persona-control .net-persona-control__clear:focus-visible {
+  border-color: rgba(var(--altara-gold), 0.65);
+  background: rgba(var(--altara-gold), 0.07);
+  color: #efd9b3;
+  outline: none;
+}
+
+.altara-persona-control .net-persona-control__act {
+  border-color: rgb(var(--altara-gold));
+  background: rgb(var(--altara-gold));
+  color: var(--altara-ink);
+}
+
+.altara-persona-control .net-persona-control__act:hover:not(:disabled),
+.altara-persona-control .net-persona-control__act:focus-visible {
+  border-color: #efd9b3;
+  background: #efd9b3;
+  color: var(--altara-ink);
+  outline: 2px solid rgba(var(--altara-gold), 0.28);
+  outline-offset: 2px;
+}
+
+.altara-persona-control .net-persona-control__take-control,
+.altara-persona-control .net-persona-control__take-control-confirm {
+  border-color: rgba(var(--altara-persona-take-control), 0.62);
+  background: rgba(var(--altara-persona-take-control), 0.09);
+  color: #e7d3b4;
+}
+
+.altara-persona-control .net-persona-control__take-control:hover:not(:disabled),
+.altara-persona-control .net-persona-control__take-control:focus-visible,
+.altara-persona-control .net-persona-control__take-control-confirm:hover:not(:disabled),
+.altara-persona-control .net-persona-control__take-control-confirm:focus-visible {
+  border-color: #e7d3b4;
+  background: rgba(var(--altara-persona-take-control), 0.16);
+  color: var(--altara-text);
+  outline: 2px solid rgba(var(--altara-persona-take-control), 0.2);
+  outline-offset: 2px;
+}
+
+.altara-persona-control .net-persona-control__take-control-cancel:hover:not(:disabled),
+.altara-persona-control .net-persona-control__take-control-cancel:focus-visible {
+  border-color: rgba(240, 237, 230, 0.34);
+  color: var(--altara-text);
+  outline: 2px solid rgba(240, 237, 230, 0.12);
+  outline-offset: 2px;
+}
+
+.altara-persona-control .net-persona-control__clear:disabled,
+.altara-persona-control .net-persona-control__act:disabled,
+.altara-persona-control .net-persona-control__take-control:disabled,
+.altara-persona-control .net-persona-control__take-control-confirm:disabled,
+.altara-persona-control .net-persona-control__take-control-cancel:disabled {
+  cursor: wait;
+  opacity: 0.52;
+}
+
+/* ---- search ---- */
+
+.altara-persona-control .net-persona-control__search {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 9px;
+  border: 1px solid rgba(240, 237, 230, 0.12);
+  border-radius: 8px;
+  background: rgba(9, 10, 12, 0.76);
+  color: var(--altara-muted);
+}
+
+.altara-persona-control .net-persona-control__search:focus-within {
+  border-color: rgba(var(--altara-gold), 0.68);
+  box-shadow: 0 0 0 1px rgba(var(--altara-gold), 0.2);
+}
+
+.altara-persona-control .net-persona-control__search input {
+  min-width: 0;
+  height: 34px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--altara-text);
+  font-family: var(--font-sans);
+  font-size: 0.73rem;
+}
+
+.altara-persona-control .net-persona-control__search input::placeholder {
+  color: var(--altara-muted);
+}
+
+.altara-persona-control .net-persona-control__search button {
+  display: grid;
+  width: 25px;
+  height: 25px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--altara-muted);
+  cursor: pointer;
+}
+
+.altara-persona-control .net-persona-control__search button:hover,
+.altara-persona-control .net-persona-control__search button:focus-visible {
+  background: rgba(240, 237, 230, 0.07);
+  color: var(--altara-text);
+  outline: 1px solid rgba(var(--altara-gold), 0.5);
+}
+
+/* ---- two-pane workspace: directory + detail ---- */
+
+.altara-persona-control .net-persona-control__workspace {
+  display: grid;
+  grid-template-columns: minmax(250px, 1.12fr) minmax(210px, 0.88fr);
+  align-items: start;
+  min-width: 0;
+  border-top: 1px solid rgba(240, 237, 230, 0.09);
+}
+
+.altara-persona-control .net-persona-control__directory {
+  display: grid;
+  min-width: 0;
+}
+
+.altara-persona-control .net-persona-control__group {
+  display: grid;
+  min-width: 0;
+}
+
+.altara-persona-control .net-persona-control__group + .net-persona-control__group {
+  margin-top: 15px;
+}
+
+.altara-persona-control .net-persona-control__group > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 34px;
+  padding-right: 12px;
+  border-bottom: 1px solid rgba(240, 237, 230, 0.08);
+}
+
+.altara-persona-control .net-persona-control__group h3,
+.altara-persona-control .net-persona-control__group > header span {
+  margin: 0;
+  color: var(--altara-muted);
+  font-family: var(--font-mono);
+  font-size: 0.52rem;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.altara-persona-control .net-persona-control__group > header span {
+  color: rgba(var(--altara-gold), 0.76);
+}
+
+.altara-persona-control .net-persona-control__group > p,
+.altara-persona-control .net-persona-control__empty span {
+  margin: 0;
+  padding: 12px 0;
+  color: var(--altara-muted);
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+}
+
+/* ---- identity rows ---- */
+
+.altara-persona-control .net-persona-control__identity-row {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) minmax(88px, auto);
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 58px;
+  padding: 7px 12px 7px 0;
+  border: 0;
+  border-bottom: 1px solid rgba(240, 237, 230, 0.07);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.altara-persona-control .net-persona-control__identity-row:hover,
+.altara-persona-control .net-persona-control__identity-row:focus-visible {
+  background: rgba(var(--altara-gold), 0.045);
+  outline: none;
+}
+
+.altara-persona-control .net-persona-control__identity-row:focus-visible {
+  box-shadow: inset 0 0 0 1px rgba(var(--altara-gold), 0.58);
+}
+
+.altara-persona-control .net-persona-control__identity-row[data-selected='true'] {
+  background: rgba(var(--altara-gold), 0.07);
+}
+
+.altara-persona-control .net-persona-control__identity-row[data-session='gm-persona'],
+.altara-persona-control .net-persona-control__identity-row[data-session='compromised-session'] {
+  background: rgba(var(--altara-gold), 0.045);
+}
+
+.altara-persona-control .net-persona-control__identity-row[data-session='compromised-session'] {
+  background: rgba(var(--altara-persona-danger), 0.055);
+}
+
+.altara-persona-control .net-persona-control__identity-copy,
+.altara-persona-control .net-persona-control__identity-source {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.altara-persona-control .net-persona-control__identity-copy strong {
+  overflow: hidden;
+  color: var(--altara-text);
+  font-family: var(--font-sans);
+  font-size: 0.77rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.altara-persona-control .net-persona-control__identity-copy span,
+.altara-persona-control .net-persona-control__identity-source span,
+.altara-persona-control .net-persona-control__identity-source b {
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: 0.48rem;
+  letter-spacing: 0.06em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.altara-persona-control .net-persona-control__identity-copy span,
+.altara-persona-control .net-persona-control__identity-source span {
+  color: var(--altara-muted);
+}
+
+.altara-persona-control .net-persona-control__identity-source {
+  justify-items: end;
+  text-align: right;
+}
+
+.altara-persona-control .net-persona-control__identity-source b {
+  max-width: 150px;
+  color: rgba(var(--altara-gold), 0.78);
+  font-weight: 600;
+}
+
+/* ---- detail panel ---- */
+
+.altara-persona-control .net-persona-control__detail {
+  display: grid;
+  gap: 13px;
+  min-width: 0;
+  padding: 15px 0 0 16px;
+  border-left: 1px solid rgba(240, 237, 230, 0.09);
+}
+
+.altara-persona-control .net-persona-control__detail-heading {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.altara-persona-control .net-persona-control__detail-heading > div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.altara-persona-control .net-persona-control__detail-heading strong {
+  overflow: hidden;
+  color: var(--altara-text);
+  font-family: var(--font-sans);
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.altara-persona-control .net-persona-control__detail-heading span:not(.net-persona-control__portrait) {
+  overflow: hidden;
+  color: rgba(var(--altara-gold), 0.7);
+  font-family: var(--font-mono);
+  font-size: 0.48rem;
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.altara-persona-control .net-persona-control__detail > dl {
+  display: grid;
+  margin: 0;
+  border-top: 1px solid rgba(240, 237, 230, 0.08);
+}
+
+.altara-persona-control .net-persona-control__detail > dl div {
+  display: grid;
+  grid-template-columns: minmax(76px, 0.8fr) minmax(0, 1.2fr);
+  gap: 8px;
+  min-width: 0;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(240, 237, 230, 0.07);
+}
+
+.altara-persona-control .net-persona-control__detail > dl dt,
+.altara-persona-control .net-persona-control__detail > dl dd {
+  overflow: hidden;
+  margin: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.altara-persona-control .net-persona-control__detail > dl dt {
+  color: var(--altara-muted);
+  font-family: var(--font-mono);
+  font-size: 0.48rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.altara-persona-control .net-persona-control__detail > dl dd {
+  color: var(--altara-text);
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+}
+
+/* ---- OS assignment / home currency card ---- */
+
+.altara-persona-control .net-persona-control__os {
+  display: grid;
+  gap: 10px;
+  padding: 13px;
+  border: 1px solid rgba(var(--altara-gold), 0.22);
+  background: rgba(var(--altara-gold), 0.045);
+}
+
+.altara-persona-control .net-persona-control__os > header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: rgb(var(--altara-gold));
+}
+
+.altara-persona-control .net-persona-control__os > header > div {
+  display: grid;
+  gap: 2px;
+}
+
+.altara-persona-control .net-persona-control__os > header span,
+.altara-persona-control .net-persona-control__os > header strong,
+.altara-persona-control .net-persona-control__os small,
+.altara-persona-control .net-persona-control__os p,
+.altara-persona-control .net-persona-control__os select,
+.altara-persona-control .net-persona-control__os button {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+}
+
+.altara-persona-control .net-persona-control__os > header span {
+  color: var(--altara-muted);
+  font-size: 0.58rem;
+  letter-spacing: 0.12em;
+}
+
+.altara-persona-control .net-persona-control__os > header strong {
+  color: var(--altara-text);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+}
+
+.altara-persona-control .net-persona-control__os-action {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.altara-persona-control .net-persona-control__os-action select,
+.altara-persona-control .net-persona-control__os-action button {
+  min-height: 34px;
+  border: 1px solid rgba(var(--altara-gold), 0.24);
+}
+
+.altara-persona-control .net-persona-control__os > label input {
+  width: 100%;
+  min-height: 34px;
+  padding: 0 9px;
+  border: 1px solid rgba(var(--altara-gold), 0.24);
+  color: var(--altara-text);
+  background: var(--altara-ink);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+}
+
+.altara-persona-control .net-persona-control__os-action select:focus-visible,
+.altara-persona-control .net-persona-control__os > label input:focus-visible {
+  border-color: rgba(var(--altara-gold), 0.68);
+  outline: 2px solid rgba(var(--altara-gold), 0.28);
+  outline-offset: 2px;
+}
+
+.altara-persona-control .net-persona-control__os-action select {
+  width: 100%;
+  padding: 0 9px;
+  color: var(--altara-text);
+  background: var(--altara-ink);
+  font-size: 0.65rem;
+  letter-spacing: 0.07em;
+}
+
+.altara-persona-control .net-persona-control__os-action button {
+  padding: 0 11px;
+  color: rgb(var(--altara-gold));
+  background: rgba(var(--altara-gold), 0.1);
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.altara-persona-control .net-persona-control__os-action button:hover:not(:disabled),
+.altara-persona-control .net-persona-control__os-action button:focus-visible {
+  border-color: rgba(var(--altara-gold), 0.55);
+  background: rgba(var(--altara-gold), 0.18);
+}
+
+.altara-persona-control .net-persona-control__os-action button:disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+
+.altara-persona-control .net-persona-control__os small,
+.altara-persona-control .net-persona-control__os p {
+  margin: 0;
+  color: var(--altara-muted);
+  font-size: 0.56rem;
+  line-height: 1.55;
+  letter-spacing: 0.06em;
+}
+
+.altara-persona-control .net-persona-control__os p {
+  color: rgb(var(--altara-persona-danger));
+}
+
+.altara-persona-control .net-persona-control__os p button {
+  padding: 0;
+  color: inherit;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  background: transparent;
+  font-size: inherit;
+  font-weight: 800;
+  letter-spacing: inherit;
+}
+
+.altara-persona-control .net-persona-control__detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+/* ---- hacking access (GM System only) ---- */
+
+.altara-persona-control .net-persona-control__hacking-list {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.altara-persona-control .net-persona-control__hacking-empty {
+  margin: 0;
+  padding: 8px 0;
+  color: var(--altara-muted);
+  font-family: var(--font-sans);
+  font-size: 0.68rem;
+}
+
+.altara-persona-control .net-persona-control__hacking-row {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(240, 237, 230, 0.07);
+}
+
+.altara-persona-control .net-persona-control__hacking-row:last-child {
+  border-bottom: 0;
+}
+
+.altara-persona-control .net-persona-control__hacking-row[data-enabled='false'] {
+  opacity: 0.6;
+}
+
+.altara-persona-control .net-persona-control__hacking-row .net-persona-control__portrait {
+  width: 26px;
+  height: 30px;
+}
+
+.altara-persona-control .net-persona-control__hacking-row-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.altara-persona-control .net-persona-control__hacking-row-copy strong {
+  overflow: hidden;
+  color: var(--altara-text);
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.altara-persona-control .net-persona-control__hacking-row-copy span {
+  overflow: hidden;
+  color: var(--altara-muted);
+  font-family: var(--font-mono);
+  font-size: 0.46rem;
+  letter-spacing: 0.04em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.altara-persona-control .net-persona-control__hacking-row-status {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  text-align: right;
+}
+
+.altara-persona-control .net-persona-control__hacking-row-status b {
+  font-family: var(--font-mono);
+  font-size: 0.48rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.altara-persona-control .net-persona-control__hacking-row-status b[data-enabled='true'] {
+  color: rgb(var(--altara-gold));
+}
+
+.altara-persona-control .net-persona-control__hacking-row-status b[data-enabled='false'] {
+  color: rgb(var(--altara-persona-danger));
+}
+
+.altara-persona-control .net-persona-control__hacking-row-status span {
+  color: var(--altara-muted);
+  font-family: var(--font-mono);
+  font-size: 0.44rem;
+  letter-spacing: 0.06em;
+}
+
+.altara-persona-control .net-persona-control__hacking-row-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.altara-persona-control .net-persona-control__hacking-row-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 26px;
+  padding: 4px 8px;
+  border: 1px solid rgba(240, 237, 230, 0.16);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--altara-text);
+  font-family: var(--font-mono);
+  font-size: 0.44rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease, color 150ms ease;
+}
+
+.altara-persona-control .net-persona-control__hacking-row-actions button:hover:not(:disabled),
+.altara-persona-control .net-persona-control__hacking-row-actions button:focus-visible {
+  border-color: rgba(var(--altara-gold), 0.6);
+  background: rgba(var(--altara-gold), 0.07);
+  color: #efd9b3;
+  outline: none;
+}
+
+.altara-persona-control .net-persona-control__hacking-row-actions button:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
+
+.altara-persona-control .net-persona-control__hacking-authorize {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  justify-self: start;
+  min-height: 30px;
+  padding: 6px 10px;
+  border: 1px solid rgba(var(--altara-persona-take-control), 0.4);
+  border-radius: 5px;
+  background: rgba(var(--altara-persona-take-control), 0.08);
+  color: #e7d3b4;
+  font-family: var(--font-mono);
+  font-size: 0.48rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease, color 150ms ease;
+}
+
+.altara-persona-control .net-persona-control__hacking-authorize:hover:not(:disabled),
+.altara-persona-control .net-persona-control__hacking-authorize:focus-visible {
+  border-color: #e7d3b4;
+  background: rgba(var(--altara-persona-take-control), 0.16);
+  outline: none;
+}
+
+.altara-persona-control .net-persona-control__hacking-authorize:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
+
+.altara-persona-control .net-persona-control__hacking-picker {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(var(--altara-persona-take-control), 0.24);
+  border-radius: 6px;
+  background: rgba(var(--altara-persona-take-control), 0.04);
+}
+
+.altara-persona-control .net-persona-control__hacking-picker-results {
+  display: grid;
+  gap: 0;
+  max-height: 168px;
+  overflow-y: auto;
+}
+
+.altara-persona-control .net-persona-control__hacking-picker-results p {
+  margin: 0;
+  padding: 8px 0;
+  color: var(--altara-muted);
+  font-family: var(--font-sans);
+  font-size: 0.68rem;
+}
+
+.altara-persona-control .net-persona-control__hacking-picker-methods {
+  display: flex;
+  gap: 6px;
+}
+
+.altara-persona-control .net-persona-control__hacking-picker-methods button {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 6px 8px;
+  border: 1px solid rgba(240, 237, 230, 0.16);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--altara-text);
+  font-family: var(--font-mono);
+  font-size: 0.46rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  cursor: pointer;
+}
+
+.altara-persona-control .net-persona-control__hacking-picker-methods button[data-selected='true'] {
+  border-color: rgb(var(--altara-gold));
+  background: rgba(var(--altara-gold), 0.1);
+  color: rgb(var(--altara-gold));
+}
+
+/* ---- TAKE CONTROL confirm dialog ---- */
+
+.altara-persona-control .net-persona-control__compromise-confirm {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(var(--altara-persona-take-control), 0.4);
+  border-radius: 6px;
+  background: rgba(var(--altara-persona-take-control), 0.04);
+}
+
+.altara-persona-control .net-persona-control__compromise-confirm > div:first-child {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.altara-persona-control .net-persona-control__compromise-confirm strong,
+.altara-persona-control .net-persona-control__compromise-confirm span {
+  font-family: var(--font-mono);
+  font-size: 0.5rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+}
+
+.altara-persona-control .net-persona-control__compromise-confirm strong {
+  color: var(--altara-text);
+}
+
+.altara-persona-control .net-persona-control__compromise-confirm span {
+  color: rgba(var(--altara-persona-take-control), 0.88);
+}
+
+.altara-persona-control .net-persona-control__compromise-confirm p {
+  max-width: 58ch;
+  margin: 0;
+  color: var(--altara-muted);
+  font-family: var(--font-sans);
+  font-size: 0.69rem;
+  line-height: 1.48;
+}
+
+.altara-persona-control .net-persona-control__compromise-confirm > div:last-child {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.altara-persona-control .net-persona-control__authoring-note {
+  max-width: 42ch;
+  margin: 0;
+  color: var(--altara-muted);
+  font-family: var(--font-sans);
+  font-size: 0.68rem;
+  line-height: 1.42;
+}
+
+/* ---- error / pending / warning / empty states ---- */
+
+.altara-persona-control .net-persona-control__error,
+.altara-persona-control .net-persona-control__pending,
+.altara-persona-control .net-persona-control__warning {
+  margin: 0;
+  padding: 8px 0;
+  border-top: 1px solid rgba(240, 237, 230, 0.08);
+  border-bottom: 1px solid rgba(240, 237, 230, 0.08);
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  line-height: 1.4;
+}
+
+.altara-persona-control .net-persona-control__error {
+  color: rgb(var(--altara-persona-danger));
+}
+
+.altara-persona-control .net-persona-control__pending {
+  color: rgb(var(--altara-gold));
+  font-family: var(--font-mono);
+  font-size: 0.5rem;
+  letter-spacing: 0.08em;
+}
+
+.altara-persona-control .net-persona-control__warning {
+  color: rgba(var(--altara-gold), 0.82);
+}
+
+.altara-persona-control .net-persona-control__empty {
+  display: grid;
+  gap: 5px;
+  padding: 16px;
+  border-left: 1px solid rgba(240, 237, 230, 0.09);
+}
+
+.altara-persona-control .net-persona-control__empty strong {
+  color: var(--altara-text);
+  font-size: 0.42rem;
+  letter-spacing: 0.11em;
+}
+
+/* ---- remote system snapshot ---- */
+
+.altara-persona-control .net-persona-snapshot {
+  display: grid;
+  gap: 11px;
+  min-width: 0;
+  padding-top: 14px;
+  border-top: 1px solid rgba(var(--altara-gold), 0.24);
+}
+
+.altara-persona-control .net-persona-snapshot__header,
+.altara-persona-control .net-persona-snapshot__applications > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.altara-persona-control .net-persona-snapshot__header > div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.altara-persona-control .net-persona-snapshot__header span,
+.altara-persona-control .net-persona-snapshot__header strong,
+.altara-persona-control .net-persona-snapshot__applications h4,
+.altara-persona-control .net-persona-snapshot__applications > header span,
+.altara-persona-control .net-persona-snapshot__wallpaper-state,
+.altara-persona-control .net-persona-snapshot__metadata dt,
+.altara-persona-control .net-persona-snapshot__applications small,
+.altara-persona-control .net-persona-snapshot__applications em,
+.altara-persona-control .net-persona-snapshot__device-note,
+.altara-persona-control .net-persona-snapshot__loading span,
+.altara-persona-control .net-persona-snapshot__failure p,
+.altara-persona-control .net-persona-snapshot__failure button {
+  font-family: var(--font-mono);
+  font-size: 0.48rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.altara-persona-control .net-persona-snapshot__header span,
+.altara-persona-control .net-persona-snapshot__applications h4,
+.altara-persona-control .net-persona-snapshot__metadata dt,
+.altara-persona-control .net-persona-snapshot__applications small,
+.altara-persona-control .net-persona-snapshot__device-note {
+  color: var(--altara-muted);
+}
+
+.altara-persona-control .net-persona-snapshot__header h3 {
+  overflow: hidden;
+  margin: 0;
+  color: var(--altara-text);
+  font-family: var(--font-sans);
+  font-size: 0.76rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.altara-persona-control .net-persona-snapshot__header > strong {
+  flex: 0 0 auto;
+  color: rgb(var(--altara-gold));
+}
+
+.altara-persona-control .net-persona-snapshot__header > strong[data-state='loading'] {
+  color: var(--altara-muted);
+}
+
+.altara-persona-control .net-persona-snapshot__header > strong[data-state='unavailable'] {
+  color: rgb(var(--altara-persona-danger));
+}
+
+.altara-persona-control .net-persona-snapshot__wallpaper {
+  position: relative;
+  height: 132px;
+  overflow: hidden;
+  border: 1px solid rgba(240, 237, 230, 0.12);
+  background: var(--altara-ink);
+}
+
+.altara-persona-control .net-persona-snapshot__wallpaper img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.altara-persona-control .net-persona-snapshot__wallpaper-default {
+  display: grid;
+  height: 100%;
+  place-content: center;
+  gap: 4px;
+  background:
+    radial-gradient(circle at 60% 30%, rgba(var(--altara-gold), 0.14), transparent 40%),
+    linear-gradient(145deg, #17181a, #101112 60%, #0c0d0e);
+  text-align: center;
+}
+
+.altara-persona-control .net-persona-snapshot__wallpaper-default strong {
+  color: var(--altara-muted);
+  font-family: var(--font-sans);
+  font-size: 0.76rem;
+  letter-spacing: 0.12em;
+}
+
+.altara-persona-control .net-persona-snapshot__wallpaper-default span {
+  color: rgba(var(--altara-gold), 0.55);
+  font-family: var(--font-mono);
+  font-size: 0.43rem;
+  letter-spacing: 0.12em;
+}
+
+.altara-persona-control .net-persona-snapshot__wallpaper-state {
+  position: absolute;
+  right: 7px;
+  bottom: 7px;
+  padding: 3px 5px;
+  background: rgba(9, 10, 12, 0.78);
+  color: var(--altara-text);
+}
+
+.altara-persona-control .net-persona-snapshot__metadata {
+  display: grid;
+  margin: 0;
+  border-top: 1px solid rgba(240, 237, 230, 0.08);
+}
+
+.altara-persona-control .net-persona-snapshot__metadata div {
+  display: grid;
+  grid-template-columns: minmax(88px, 0.85fr) minmax(0, 1.15fr);
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(240, 237, 230, 0.07);
+}
+
+.altara-persona-control .net-persona-snapshot__metadata dt,
+.altara-persona-control .net-persona-snapshot__metadata dd {
+  overflow: hidden;
+  margin: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.altara-persona-control .net-persona-snapshot__metadata dd {
+  color: var(--altara-text);
+  font-family: var(--font-sans);
+  font-size: 0.68rem;
+}
+
+.altara-persona-control .net-persona-snapshot__applications {
+  display: grid;
+  gap: 0;
+}
+
+.altara-persona-control .net-persona-snapshot__applications > header {
+  min-height: 30px;
+  border-bottom: 1px solid rgba(240, 237, 230, 0.08);
+}
+
+.altara-persona-control .net-persona-snapshot__applications h4 {
+  margin: 0;
+}
+
+.altara-persona-control .net-persona-snapshot__applications > header span {
+  color: rgba(var(--altara-gold), 0.76);
+}
+
+.altara-persona-control .net-persona-snapshot__applications ul {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.altara-persona-control .net-persona-snapshot__applications li {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  min-height: 39px;
+  border-bottom: 1px solid rgba(240, 237, 230, 0.07);
+}
+
+.altara-persona-control .net-persona-snapshot__applications li > span {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.altara-persona-control .net-persona-snapshot__applications li strong,
+.altara-persona-control .net-persona-snapshot__applications li small,
+.altara-persona-control .net-persona-snapshot__applications li em {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.altara-persona-control .net-persona-snapshot__applications li strong {
+  color: var(--altara-text);
+  font-family: var(--font-sans);
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+.altara-persona-control .net-persona-snapshot__applications li em {
+  color: rgba(var(--altara-gold), 0.74);
+  font-style: normal;
+}
+
+.altara-persona-control .net-persona-snapshot__device-note,
+.altara-persona-control .net-persona-snapshot__unavailable,
+.altara-persona-control .net-persona-snapshot__failure span {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 0.65rem;
+  line-height: 1.42;
+}
+
+.altara-persona-control .net-persona-snapshot__device-note {
+  padding-top: 1px;
+}
+
+.altara-persona-control .net-persona-snapshot__unavailable,
+.altara-persona-control .net-persona-snapshot__failure {
+  margin: 0;
+  padding: 10px 0;
+  border-top: 1px solid rgba(240, 237, 230, 0.08);
+  border-bottom: 1px solid rgba(240, 237, 230, 0.08);
+  color: var(--altara-muted);
+}
+
+.altara-persona-control .net-persona-snapshot__loading {
+  display: grid;
+  gap: 7px;
+  padding: 10px 0;
+  border-top: 1px solid rgba(240, 237, 230, 0.08);
+  border-bottom: 1px solid rgba(240, 237, 230, 0.08);
+}
+
+.altara-persona-control .net-persona-snapshot__loading span {
+  color: var(--altara-muted);
+}
+
+.altara-persona-control .net-persona-snapshot__loading i {
+  display: block;
+  height: 7px;
+  background: rgba(240, 237, 230, 0.055);
+}
+
+.altara-persona-control .net-persona-snapshot__loading i:last-child {
+  width: 62%;
+}
+
+.altara-persona-control .net-persona-snapshot__failure {
+  display: grid;
+  gap: 7px;
+  color: rgb(var(--altara-persona-danger));
+}
+
+.altara-persona-control .net-persona-snapshot__failure p {
+  margin: 0;
+}
+
+.altara-persona-control .net-persona-snapshot__failure button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  justify-self: start;
+  min-height: 29px;
+  padding: 5px 8px;
+  border: 1px solid rgba(240, 237, 230, 0.16);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--altara-text);
+  cursor: pointer;
+}
+
+.altara-persona-control .net-persona-snapshot__failure button:hover,
+.altara-persona-control .net-persona-snapshot__failure button:focus-visible {
+  border-color: rgba(var(--altara-gold), 0.62);
+  background: rgba(var(--altara-gold), 0.07);
+  color: #efd9b3;
+  outline: none;
+}
+
+/* ---- responsive: narrow Settings window ---- */
+
+@container (max-width: 560px) {
+  .altara-persona-control .net-persona-control__session {
+    grid-template-columns: 1fr auto;
+  }
+
+  .altara-persona-control .net-persona-control__session-identity,
+    .altara-persona-control .net-persona-control__session > p {
+    grid-column: 1;
+  }
+
+  .altara-persona-control .net-persona-control__clear {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+
+  .altara-persona-control .net-persona-control__workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .altara-persona-control .net-persona-control__detail,
+    .altara-persona-control .net-persona-control__empty {
+    margin-top: 16px;
+    padding: 15px 0 0;
+    border-top: 1px solid rgba(240, 237, 230, 0.09);
+    border-left: 0;
+  }
+}
+
+@container (max-width: 390px) {
+  .altara-persona-control .net-persona-control__session {
+    grid-template-columns: 1fr;
+  }
+
+  .altara-persona-control .net-persona-control__clear {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: start;
+  }
+
+  .altara-persona-control .net-persona-control__identity-row {
+    grid-template-columns: 38px minmax(0, 1fr);
+  }
+
+  .altara-persona-control .net-persona-control__identity-source {
+    grid-column: 2;
+    justify-items: start;
+    text-align: left;
+  }
+
+  .altara-persona-control .net-persona-control__detail-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

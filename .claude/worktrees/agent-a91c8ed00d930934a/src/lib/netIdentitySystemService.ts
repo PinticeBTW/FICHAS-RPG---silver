@@ -1,0 +1,291 @@
+import {
+  isNetOptionalAppId,
+  type NetOptionalAppId,
+} from '../components/net/netAppCatalog'
+import {
+  validateWallpaperFile,
+  type WallpaperFit,
+  type WallpaperPosition,
+} from './netWallpaperStore'
+import { supabase, SUPABASE_CONFIG_ERROR } from './supabase'
+import { optimizeImage } from './media/imageOptimization'
+import {
+  cacheMediaInflight,
+  cacheSignedMediaUrl,
+  readMediaInflight,
+  readSignedMediaUrl,
+} from './media/mediaCache'
+import { SHARED_MEDIA_IMMUTABLE_CACHE_CONTROL } from './media/mediaTypes'
+
+const WALLPAPER_BUCKET = 'net-wallpapers'
+const WALLPAPER_SIGNED_URL_SECONDS = 60 * 60
+const WALLPAPER_SIGNED_URL_CACHE_MS = 55 * 60 * 1000
+
+export interface NetIdentitySystemWallpaper {
+  readonly path: string
+  readonly signedUrl: string
+  readonly fit: WallpaperFit
+  readonly position: WallpaperPosition
+}
+
+export interface NetIdentitySystemSnapshot {
+  readonly identityLinkId: string
+  readonly installedOptionalAppIds: readonly NetOptionalAppId[]
+  readonly wallpaper: NetIdentitySystemWallpaper | null
+  readonly updatedAt: string | null
+}
+
+interface NetIdentitySystemProfileRow {
+  readonly identity_link_id: string
+  readonly wallpaper_path: string | null
+  readonly wallpaper_fit: WallpaperFit
+  readonly wallpaper_position: WallpaperPosition
+  readonly created_at: string
+  readonly updated_at: string
+}
+
+function client() {
+  if (!supabase) throw new Error(SUPABASE_CONFIG_ERROR)
+  return supabase
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function parseSystemProfile(value: unknown): NetIdentitySystemProfileRow | null {
+  if (value === null || value === undefined) return null
+  if (!isRecord(value)) throw new Error('Invalid NET system profile response.')
+
+  const identityLinkId = value.identity_link_id
+  const wallpaperPath = value.wallpaper_path
+  const fit = value.wallpaper_fit
+  const position = value.wallpaper_position
+  const createdAt = value.created_at
+  const updatedAt = value.updated_at
+
+  if (
+    typeof identityLinkId !== 'string'
+    || (wallpaperPath !== null && typeof wallpaperPath !== 'string')
+    || (fit !== 'cover' && fit !== 'contain')
+    || (position !== 'center' && position !== 'top' && position !== 'bottom')
+    || typeof createdAt !== 'string'
+    || typeof updatedAt !== 'string'
+  ) {
+    throw new Error('Invalid NET system profile fields returned by the server.')
+  }
+
+  return {
+    identity_link_id: identityLinkId,
+    wallpaper_path: wallpaperPath,
+    wallpaper_fit: fit,
+    wallpaper_position: position,
+    created_at: createdAt,
+    updated_at: updatedAt,
+  }
+}
+
+function parseInstalledAppIds(value: unknown): NetOptionalAppId[] {
+  if (!Array.isArray(value)) throw new Error('Invalid NET application library response.')
+
+  return [...new Set(value.flatMap((entry) => {
+    if (!isRecord(entry) || typeof entry.app_id !== 'string') return []
+    return isNetOptionalAppId(entry.app_id) ? [entry.app_id] : []
+  }))]
+}
+
+function assertIdentityLinkId(identityLinkId: string): string {
+  const normalized = identityLinkId.trim()
+  if (!normalized) throw new Error('An active character identity is required.')
+  return normalized
+}
+
+async function createWallpaperSignedUrl(path: string): Promise<string> {
+  const cacheKey = `${WALLPAPER_BUCKET}:${path}`
+  const cached = readSignedMediaUrl(cacheKey)
+  if (cached) return cached
+  const active = readMediaInflight(cacheKey)
+  if (active) return active
+  const request = client().storage.from(WALLPAPER_BUCKET)
+    .createSignedUrl(path, WALLPAPER_SIGNED_URL_SECONDS)
+    .then(({ data, error }) => {
+      if (error || !data?.signedUrl) {
+        throw new Error(`Wallpaper could not be opened securely: ${error?.message ?? 'signed URL unavailable'}`)
+      }
+      cacheSignedMediaUrl(cacheKey, data.signedUrl, WALLPAPER_SIGNED_URL_CACHE_MS)
+      return data.signedUrl
+    })
+  cacheMediaInflight(cacheKey, request)
+  return request
+}
+
+async function fetchSystemSnapshot(identityLinkId: string): Promise<NetIdentitySystemSnapshot> {
+  const normalizedLinkId = assertIdentityLinkId(identityLinkId)
+  const database = client()
+
+  const [profileResult, installsResult] = await Promise.all([
+    database
+      .from('net_identity_system_profiles')
+      .select('identity_link_id, wallpaper_path, wallpaper_fit, wallpaper_position, created_at, updated_at')
+      .eq('identity_link_id', normalizedLinkId)
+      .maybeSingle(),
+    database
+      .from('net_identity_app_installs')
+      .select('app_id')
+      .eq('identity_link_id', normalizedLinkId)
+      .order('installed_at', { ascending: true }),
+  ])
+
+  if (profileResult.error) {
+    throw new Error(`NET system profile could not be loaded: ${profileResult.error.message}`)
+  }
+  if (installsResult.error) {
+    throw new Error(`NET application library could not be loaded: ${installsResult.error.message}`)
+  }
+
+  const profile = parseSystemProfile(profileResult.data)
+  const installedOptionalAppIds = parseInstalledAppIds(installsResult.data ?? [])
+  const wallpaper = profile?.wallpaper_path
+    ? {
+        path: profile.wallpaper_path,
+        signedUrl: await createWallpaperSignedUrl(profile.wallpaper_path),
+        fit: profile.wallpaper_fit,
+        position: profile.wallpaper_position,
+      }
+    : null
+
+  return {
+    identityLinkId: normalizedLinkId,
+    installedOptionalAppIds,
+    wallpaper,
+    updatedAt: profile?.updated_at ?? null,
+  }
+}
+
+/** Loads only the active player's RLS-authorised fictional computer state. */
+export function fetchNetIdentitySystem(identityLinkId: string): Promise<NetIdentitySystemSnapshot> {
+  return fetchSystemSnapshot(identityLinkId)
+}
+
+/**
+ * Read-only foundation for a future GM System Snapshot surface. RLS decides
+ * whether the authenticated actor may inspect the requested identity link.
+ */
+export function fetchNetIdentitySystemForInspection(
+  identityLinkId: string,
+): Promise<NetIdentitySystemSnapshot> {
+  return fetchSystemSnapshot(identityLinkId)
+}
+
+export async function setNetIdentityAppInstalled(
+  identityLinkId: string,
+  appId: NetOptionalAppId,
+  installed: boolean,
+): Promise<void> {
+  const normalizedLinkId = assertIdentityLinkId(identityLinkId)
+  if (!isNetOptionalAppId(appId)) throw new Error('This application cannot be installed from NET STORE.')
+
+  const { error } = await client().rpc('set_net_identity_app_install', {
+    requested_identity_link_id: normalizedLinkId,
+    requested_app_id: appId,
+    requested_installed: installed,
+  })
+  if (error) throw new Error(`Application library could not be updated: ${error.message}`)
+}
+
+export async function uploadNetIdentityWallpaper(
+  identityLinkId: string,
+  file: File,
+  presentation: {
+    readonly fit: WallpaperFit
+    readonly position: WallpaperPosition
+    readonly previousPath?: string
+  },
+): Promise<NetIdentitySystemWallpaper> {
+  const normalizedLinkId = assertIdentityLinkId(identityLinkId)
+  const validationError = validateWallpaperFile(file)
+  if (validationError) throw new Error(validationError)
+
+  const optimized = await optimizeImage(file, 'wallpaper')
+  const display = optimized.variants.find((variant) => variant.name === 'display')
+  if (!display) throw new Error('The wallpaper optimizer returned no display image.')
+  const path = `${normalizedLinkId}/${optimized.contentHash.slice(0, 32)}/display.${display.extension}`
+  const storage = client().storage.from(WALLPAPER_BUCKET)
+  const { error: uploadError } = await storage.upload(path, display.blob, {
+    cacheControl: SHARED_MEDIA_IMMUTABLE_CACHE_CONTROL,
+    contentType: display.mimeType,
+    upsert: false,
+  })
+  if (uploadError && !/already exists|duplicate/i.test(uploadError.message)) {
+    throw new Error(`Wallpaper upload failed: ${uploadError.message}`)
+  }
+
+  try {
+    const signedUrl = await createWallpaperSignedUrl(path)
+    const { data, error } = await client().rpc('set_net_identity_wallpaper', {
+      requested_identity_link_id: normalizedLinkId,
+      requested_wallpaper_path: path,
+      requested_fit: presentation.fit,
+      requested_position: presentation.position,
+    })
+    if (error) throw new Error(`Wallpaper profile could not be updated: ${error.message}`)
+    const profile = parseSystemProfile(Array.isArray(data) ? data[0] : data)
+    if (!profile?.wallpaper_path) throw new Error('The server did not confirm the new wallpaper.')
+
+    const previousPath = presentation.previousPath
+    if (previousPath && previousPath !== path && previousPath.startsWith(`${normalizedLinkId}/`)) {
+      void storage.remove([previousPath]).catch(() => undefined)
+    }
+
+    return {
+      path: profile.wallpaper_path,
+      signedUrl,
+      fit: profile.wallpaper_fit,
+      position: profile.wallpaper_position,
+    }
+  } catch (error) {
+    if (!uploadError) await storage.remove([path]).catch(() => undefined)
+    throw error
+  }
+}
+
+export async function updateNetIdentityWallpaperPresentation(
+  identityLinkId: string,
+  wallpaperPath: string,
+  fit: WallpaperFit,
+  position: WallpaperPosition,
+): Promise<NetIdentitySystemWallpaper> {
+  const normalizedLinkId = assertIdentityLinkId(identityLinkId)
+  const signedUrl = await createWallpaperSignedUrl(wallpaperPath)
+  const { data, error } = await client().rpc('set_net_identity_wallpaper', {
+    requested_identity_link_id: normalizedLinkId,
+    requested_wallpaper_path: wallpaperPath,
+    requested_fit: fit,
+    requested_position: position,
+  })
+  if (error) throw new Error(`Wallpaper presentation could not be updated: ${error.message}`)
+  const profile = parseSystemProfile(Array.isArray(data) ? data[0] : data)
+  if (!profile?.wallpaper_path) throw new Error('The server did not confirm the wallpaper presentation.')
+
+  return {
+    path: profile.wallpaper_path,
+    signedUrl,
+    fit: profile.wallpaper_fit,
+    position: profile.wallpaper_position,
+  }
+}
+
+export async function clearNetIdentityWallpaper(
+  identityLinkId: string,
+  previousPath?: string,
+): Promise<void> {
+  const normalizedLinkId = assertIdentityLinkId(identityLinkId)
+  const { error } = await client().rpc('clear_net_identity_wallpaper', {
+    requested_identity_link_id: normalizedLinkId,
+  })
+  if (error) throw new Error(`Default wallpaper could not be restored: ${error.message}`)
+
+  if (previousPath && previousPath.startsWith(`${normalizedLinkId}/`)) {
+    await client().storage.from(WALLPAPER_BUCKET).remove([previousPath]).catch(() => undefined)
+  }
+}

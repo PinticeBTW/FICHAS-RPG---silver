@@ -9,6 +9,7 @@ import '../../styles/bankPayments.css'
 interface BankPaymentReview {
   readonly payee: NetBankPayee
   readonly amount: number
+  readonly note?: string
   readonly requestKey: string
   readonly quote?: BankPaymentQuote
 }
@@ -34,6 +35,8 @@ interface BankPaySurfaceProps {
   readonly currencyLabel?: string
   readonly currencySingularLabel?: string
   readonly currencyPluralLabel?: string
+  readonly noteMaxLength?: number
+  readonly noteLabel?: string
   readonly showPayeeAvatars?: boolean
   readonly describePayee?: (payee: NetBankPayee) => string | undefined
   readonly formatQuoteError?: (error: unknown, payee: NetBankPayee) => string | undefined
@@ -47,6 +50,7 @@ interface BankPaySurfaceProps {
     paymentIdentifier: string
     amount: number
     rateRevision?: string
+    note?: string
     requestKey: string
   }) => Promise<void>
   readonly onSuccess: (payee: NetBankPayee, amount: number) => void
@@ -164,6 +168,12 @@ function BankPaymentConfirmation({
             <span><small>{review.payee.displayName.toUpperCase()} RECEIVES</small><strong>{formatAmount(review.amount, currencyLabel)}</strong></span>
           </div>
         ) : null}
+        {review.note ? (
+          <p className="bank-payment-dialog__note">
+            <small>PAYMENT NOTE</small>
+            <span>{review.note}</span>
+          </p>
+        ) : null}
         <small>{review.quote?.sameCurrency
           ? `Funds move directly between two ${institutionName} accounts. This payment cannot be undone.`
           : 'Two currency-homogeneous ledger transactions will settle this quoted exchange. This payment cannot be undone.'}</small>
@@ -188,6 +198,8 @@ export function BankPaySurface({
   currencyLabel = 'vG',
   currencySingularLabel,
   currencyPluralLabel,
+  noteMaxLength,
+  noteLabel = 'NOTE (OPTIONAL)',
   showPayeeAvatars = false,
   describePayee,
   formatQuoteError,
@@ -201,6 +213,7 @@ export function BankPaySurface({
   const [results, setResults] = useState<readonly NetBankPayee[]>([])
   const [selected, setSelected] = useState<NetBankPayee | null>(null)
   const [amount, setAmount] = useState('')
+  const [note, setNote] = useState('')
   const [searching, setSearching] = useState(false)
   const [reviewing, setReviewing] = useState(false)
   const [searched, setSearched] = useState(false)
@@ -251,7 +264,13 @@ export function BankPaySurface({
       const quote = quotePayment
         ? await quotePayment({ paymentIdentifier: selected.paymentIdentifier, amount: parsed })
         : undefined
-      setReview({ payee: selected, amount: parsed, requestKey: crypto.randomUUID(), ...(quote ? { quote } : {}) })
+      setReview({
+        payee: selected,
+        amount: parsed,
+        requestKey: crypto.randomUUID(),
+        ...(note.trim() ? { note: note.trim() } : {}),
+        ...(quote ? { quote } : {}),
+      })
     } catch (caught) {
       setError(formatQuoteError?.(caught, selected)
         ?? (caught instanceof Error ? caught.message : 'The bank could not prepare this payment quote.'))
@@ -268,6 +287,7 @@ export function BankPaySurface({
         paymentIdentifier: review.payee.paymentIdentifier,
         amount: review.amount,
         ...(review.quote?.rateRevision ? { rateRevision: review.quote.rateRevision } : {}),
+        ...(review.note ? { note: review.note } : {}),
         requestKey: review.requestKey,
       })
       onSuccess(review.payee, review.amount)
@@ -277,6 +297,7 @@ export function BankPaySurface({
       setSearched(false)
       setQuery('')
       setAmount('')
+      setNote('')
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Bank payment failed.')
     }
@@ -306,6 +327,20 @@ export function BankPaySurface({
           <span>AVAILABLE</span><strong>{formatAmount(balanceAmount, amountLabel(balanceAmount, currencyLabel, currencySingularLabel, currencyPluralLabel))}</strong>
           <label htmlFor={`${idPrefix}-payment-amount`}>AMOUNT</label>
           <div><input id={`${idPrefix}-payment-amount`} inputMode="numeric" pattern="[0-9]*" value={amount} onChange={(event) => { setAmount(event.target.value.replace(/[^0-9]/g, '').slice(0, 10)); setError(undefined) }} placeholder="0" /><b>{currencyPluralLabel ?? currencyLabel}</b></div>
+          {noteMaxLength ? (
+            <label className="bank-payment-note" htmlFor={`${idPrefix}-payment-note`}>
+              <span>{noteLabel}</span>
+              <textarea
+                id={`${idPrefix}-payment-note`}
+                value={note}
+                maxLength={noteMaxLength}
+                rows={3}
+                placeholder="What is this payment for?"
+                onChange={(event) => { setNote(event.target.value); setError(undefined) }}
+              />
+              <small>{note.length}/{noteMaxLength}</small>
+            </label>
+          ) : null}
           {selected && showPayeeAvatars ? (
             <div className="bank-payment-selected-recipient">
               <BankPayeeAvatar payee={selected} />

@@ -52,6 +52,8 @@ function percentage(basisPoints: number) {
 }
 
 function activityLabel(activity: NetShneiderBankActivity) {
+  if (activity.transactionKind === 'gm-credit') return 'Authorized bank credit'
+  if (activity.transactionKind === 'gm-debit') return 'Authorized bank debit'
   if (activity.transactionKind === 'bank-deposit') return 'Deposit from VLT'
   if (activity.transactionKind === 'bank-withdrawal') return 'Withdrawal to VLT'
   return activity.amount > 0
@@ -70,7 +72,7 @@ function ShneiderActivity({ items }: { readonly items: readonly NetShneiderBankA
         return (
           <article key={activity.transactionId} className="shneider-bank-activity">
             <span data-direction={incoming ? 'incoming' : 'outgoing'}>{incoming ? <ArrowDownToLine size={15} /> : <ArrowUpFromLine size={15} />}</span>
-            <div><strong>{activityLabel(activity)}</strong>{activity.counterpartyPaymentIdentifier ? <small>@{activity.counterpartyPaymentIdentifier}</small> : null}<time>{new Date(activity.createdAt).toLocaleString()}</time></div>
+            <div><strong>{activityLabel(activity)}</strong>{activity.note ? <small>{activity.note}</small> : null}{activity.counterpartyPaymentIdentifier ? <small>@{activity.counterpartyPaymentIdentifier}</small> : null}<time>{new Date(activity.createdAt).toLocaleString()}</time></div>
             <b data-direction={incoming ? 'incoming' : 'outgoing'}>{incoming ? '+' : '−'}{formatNetShneiderBankAmount(Math.abs(activity.amount))}</b>
           </article>
         )

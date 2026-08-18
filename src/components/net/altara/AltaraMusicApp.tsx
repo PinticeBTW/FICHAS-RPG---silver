@@ -28,7 +28,8 @@ import {
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 
 import { SharedMediaImage } from '../../shared/SharedMediaImage'
-import { uploadSharedImage } from '../../../lib/media/mediaStorage'
+import { extractEmbeddedAudioArtwork } from '../../../lib/audio/audioStorage'
+import { removeSharedMediaReference, uploadSharedImage } from '../../../lib/media/mediaStorage'
 import {
   createNetAltaraMusicGmTrack,
   deleteNetAltaraMusicGmTrack,
@@ -443,7 +444,7 @@ type TrackPanel = { readonly key: string; readonly id?: string; readonly artistI
 type AudioInspection = Awaited<ReturnType<typeof inspectNetAltaraMusicAudioFile>>
 type StudioRun = (
   operation: () => Promise<NetAltaraMusicStudioPayload>,
-  notice: string,
+  notice: string | ((payload: NetAltaraMusicStudioPayload) => string),
   onSuccess?: (payload: NetAltaraMusicStudioPayload) => void,
 ) => Promise<void>
 
@@ -484,24 +485,37 @@ function confirmedStudioRecordId(records: readonly { readonly id: string }[], re
   return confirmed.id
 }
 
-function StudioArtworkUpload({ subjectId, slot, label, source, previewLabel, kind = 'square', onUploaded }: {
+function StudioArtworkUpload({ subjectId, slot, label, source, previewLabel, kind = 'square', embeddedPreviewUrl, onUploaded }: {
   readonly subjectId?: string
   readonly slot: string
   readonly label: string
   readonly source?: string
   readonly previewLabel: string
   readonly kind?: 'square' | 'artist' | 'banner'
+  /** Local object URL for artwork detected in the audio file's own metadata, shown only before the record has been saved. */
+  readonly embeddedPreviewUrl?: string
   readonly onUploaded: (reference: string) => void
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
+  const showEmbeddedPreview = !subjectId && !source && Boolean(embeddedPreviewUrl)
   return (
     <div className="altara-music-studio-artwork" data-kind={kind}>
-      <Artwork source={source} label={previewLabel} kind={kind} />
+      {showEmbeddedPreview
+        ? <span className="altara-music-artwork" data-kind={kind}><img src={embeddedPreviewUrl} alt={previewLabel} /></span>
+        : <Artwork source={source} label={previewLabel} kind={kind} />}
       <div>
         <strong>{label}</strong>
-        <small>{source ? 'Private artwork attached. Replace it without changing the record.' : subjectId ? 'No artwork attached yet.' : 'Save this record once to enable private artwork.'}</small>
+        <small>
+          {showEmbeddedPreview
+            ? 'EMBEDDED ARTWORK — detected from audio metadata. Save the track to keep it, or replace it below afterward.'
+            : source
+              ? 'Private artwork attached. Replace it without changing the record.'
+              : subjectId
+                ? 'No artwork attached yet.'
+                : 'Save this record once to enable private artwork.'}
+        </small>
         <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif" hidden onChange={(event) => {
           const file = event.target.files?.[0]
           if (!file || !subjectId) return
@@ -549,7 +563,7 @@ function Studio({ enabled, onNotice }: Pick<AltaraMusicAppProps, 'enabled' | 'on
       const nextPayload = await operation()
       setPayload(nextPayload)
       onSuccess?.(nextPayload)
-      onNotice(notice)
+      onNotice(typeof notice === 'function' ? notice(nextPayload) : notice)
     } catch (operationError) {
       setError(studioErrorMessage(operationError))
     } finally {
@@ -796,15 +810,22 @@ function TrackEditor({ value, defaultArtistId, defaultReleaseId, defaultTrackNum
   const [file, setFile] = useState<File>()
   const [fileMetadata, setFileMetadata] = useState<AudioInspection>()
   const [fileError, setFileError] = useState<string>()
+  // Embedded cover art detected from the selected audio file's own metadata.
+  // Only offered for brand-new tracks: Storage RLS requires the track row to
+  // exist before any artwork object can be written, and replacing audio on an
+  // already-published track must never silently overwrite curated artwork.
+  const [embeddedArtwork, setEmbeddedArtwork] = useState<{ readonly blob: Blob; readonly mimeType: string; readonly previewUrl: string }>()
   const fileRef = useRef<HTMLInputElement | null>(null)
   const fileGenerationRef = useRef(0)
   const compatibleReleases = releases.filter((release) => release.artistId === artistId)
   const artistName = artists.find((artist) => artist.id === artistId)?.name
   const releaseName = releases.find((release) => release.id === releaseId)?.title
+  useEffect(() => () => { if (embeddedArtwork) URL.revokeObjectURL(embeddedArtwork.previewUrl) }, [embeddedArtwork])
   const selectFile = (nextFile?: File) => {
     if (!nextFile) return
     const generation = ++fileGenerationRef.current
     setFile(nextFile); setFileMetadata(undefined); setFileError(undefined)
+    setEmbeddedArtwork(undefined)
     if (!value && !title.trim()) setTitle(titleFromAudioFilename(nextFile.name))
     void inspectNetAltaraMusicAudioFile(nextFile)
       .then((metadata) => { if (generation === fileGenerationRef.current) setFileMetadata(metadata) })
@@ -814,9 +835,52 @@ function TrackEditor({ value, defaultArtistId, defaultReleaseId, defaultTrackNum
         setFileMetadata(undefined)
         setFileError(metadataError instanceof Error ? metadataError.message : 'Audio validation failed.')
       })
+    if (!value) {
+      void extractEmbeddedAudioArtwork(nextFile)
+        .then((artwork) => {
+          if (generation !== fileGenerationRef.current || !artwork) return
+          setEmbeddedArtwork({ blob: artwork.blob, mimeType: artwork.mimeType, previewUrl: URL.createObjectURL(artwork.blob) })
+        })
+        .catch(() => undefined)
+    }
   }
   const input = { id: recordId, artistId, releaseId: releaseId || undefined, title, trackNumber: trackNumber ? Number(trackNumber) : undefined, discNumber: Number(discNumber), artworkRef, explicit, status, featured }
-  return <form className="altara-music-studio-form altara-music-studio-form--track" onSubmit={(event) => { event.preventDefault(); if (!value && (!file || !fileMetadata)) return; void run(() => value ? updateNetAltaraMusicGmTrack({ ...input, id: value.id }) : createNetAltaraMusicGmTrack(input, file!), `ALTARA MUSIC // TRACK ${value ? 'SAVED' : 'REGISTERED'}`, (nextPayload) => onSaved(confirmedStudioRecordId(nextPayload.tracks, recordId, 'track'))) }}><header><div><small>{value ? 'EDIT TRACK' : 'NEW NATIVE TRACK'}</small><h2>{title || 'Add a recording'}</h2><p>{lockedContext ? `${artistName ?? 'Artist'} · ${releaseName ?? 'Release'}` : 'Canonical ALTARA audio and editorial metadata.'}</p></div><button type="submit" disabled={busy || !artists.length || (!value && (!file || !fileMetadata))}><Check size={14} /> {busy ? 'WORKING…' : value ? 'SAVE TRACK' : 'UPLOAD & ADD TRACK'}</button></header><fieldset><legend>{value ? 'AUDIO MASTER' : '1 · SELECT AUDIO FILE'}</legend><input ref={fileRef} type="file" hidden accept="audio/mpeg,audio/mp4,audio/m4a,audio/x-m4a,audio/ogg,audio/webm,.mp3,.m4a,.mp4,.ogg,.webm" onChange={(event) => selectFile(event.target.files?.[0])} /><button type="button" className="altara-music-file-button" onClick={() => fileRef.current?.click()}><Upload size={14} /> {file ? 'REPLACE SELECTION' : value ? 'CHOOSE REPLACEMENT AUDIO' : 'SELECT AUDIO FILE'}</button>{file ? <div className="altara-music-audio-summary" data-valid={fileMetadata ? 'true' : 'false'}><span><small>FILE</small><strong>{file.name}</strong></span><span><small>SIZE</small><strong>{fileMetadata ? `${(fileMetadata.byteSize / 1024 / 1024).toFixed(2)} MB` : 'READING…'}</strong></span><span><small>DURATION</small><strong>{fileMetadata ? formatAltaraMusicDuration(fileMetadata.durationMs) : '—'}</strong></span><span><small>FORMAT</small><strong>{fileMetadata?.mimeType ?? 'VALIDATING'}</strong></span></div> : <p className="altara-music-file-status">{value ? `${value.audioMimeType} · ${(value.audioByteSize / 1024 / 1024).toFixed(2)} MB · ${formatAltaraMusicDuration(value.durationMs)}` : 'MP3, M4A/MP4, OGG or WebM · max 15 MB / 15 min'}</p>}{fileError ? <p className="altara-music-file-error" role="alert">{fileError}</p> : null}{value && file && fileMetadata ? <button type="button" disabled={busy} onClick={() => { void run(() => replaceNetAltaraMusicGmTrackAudio(value.id, file), 'ALTARA MUSIC // TRACK AUDIO REPLACED') }}>REPLACE AUDIO ONLY</button> : null}</fieldset><fieldset><legend>2 · TRACK DETAILS</legend>{lockedContext ? <div className="altara-music-studio-context"><span><small>ARTIST</small><strong>{artistName}</strong></span><ChevronRight size={13} /><span><small>RELEASE</small><strong>{releaseName}</strong></span></div> : <><label>ARTIST<select value={artistId} onChange={(event) => { setArtistId(event.target.value); setReleaseId('') }}>{artists.map((artist) => <option key={artist.id} value={artist.id}>{artist.name}</option>)}</select></label><label>RELEASE<select value={releaseId} onChange={(event) => setReleaseId(event.target.value)}><option value="">STANDALONE</option>{compatibleReleases.map((release) => <option key={release.id} value={release.id}>{release.title}</option>)}</select></label></>}<label>TRACK TITLE<input required maxLength={180} value={title} onChange={(event) => setTitle(event.target.value)} /></label><div className="altara-music-form-pair"><label>TRACK NUMBER<input type="number" min={1} max={999} value={trackNumber} onChange={(event) => setTrackNumber(event.target.value)} /></label><label>DISC<input type="number" min={1} max={99} value={discNumber} onChange={(event) => setDiscNumber(event.target.value)} /></label></div><StudioArtworkUpload subjectId={value?.id} slot="track" label="TRACK ARTWORK" source={artworkRef} previewLabel={`${title || 'Track'} artwork`} onUploaded={setArtworkRef} /></fieldset><fieldset><legend>3 · PUBLICATION</legend><label>STATUS<select value={status} onChange={(event) => setStatus(event.target.value as NetAltaraMusicStatus)}>{statusOptions}</select></label><label className="altara-music-check"><input type="checkbox" checked={explicit} onChange={(event) => setExplicit(event.target.checked)} /> EXPLICIT</label><label className="altara-music-check"><input type="checkbox" checked={featured} onChange={(event) => setFeatured(event.target.checked)} /> FEATURED</label>{value?.status === 'archived' ? <button type="button" className="altara-music-danger" onClick={() => { if (window.confirm(`Permanently delete ${value.title}? This requires no playlist/like dependencies and removes its exact audio object.`)) void run(() => deleteNetAltaraMusicGmTrack(value.id), 'ALTARA MUSIC // TRACK PERMANENTLY DELETED', onDeleted) }}><Trash2 size={14} /> PERMANENT DELETE</button> : null}</fieldset></form>
+  const submitTrack = async (onArtworkWarning: (message: string) => void): Promise<NetAltaraMusicStudioPayload> => {
+    if (value) return updateNetAltaraMusicGmTrack({ ...input, id: value.id })
+    const createdPayload = await createNetAltaraMusicGmTrack(input, file!)
+    if (!embeddedArtwork) return createdPayload
+    const createdId = confirmedStudioRecordId(createdPayload.tracks, recordId, 'track')
+    let reference: string
+    try {
+      reference = (await uploadSharedImage(
+        { subjectKind: 'altara-music-artwork', subjectId: createdId, mediaKind: 'general', slot: 'track' },
+        embeddedArtwork.blob,
+        'general',
+      )).reference
+    } catch {
+      onArtworkWarning('embedded artwork could not be read')
+      return createdPayload
+    }
+    try {
+      return await updateNetAltaraMusicGmTrack({ ...input, id: createdId, artworkRef: reference })
+    } catch {
+      await removeSharedMediaReference(reference).catch(() => undefined)
+      onArtworkWarning('embedded artwork could not be saved')
+      return createdPayload
+    }
+  }
+  return <form className="altara-music-studio-form altara-music-studio-form--track" onSubmit={(event) => {
+    event.preventDefault()
+    if (!value && (!file || !fileMetadata)) return
+    let artworkWarning: string | undefined
+    void run(
+      () => submitTrack((message) => { artworkWarning = message }),
+      () => artworkWarning
+        ? `ALTARA MUSIC // TRACK ${value ? 'SAVED' : 'REGISTERED'} — ${artworkWarning.toUpperCase()}`
+        : `ALTARA MUSIC // TRACK ${value ? 'SAVED' : 'REGISTERED'}`,
+      (nextPayload) => onSaved(confirmedStudioRecordId(nextPayload.tracks, recordId, 'track')),
+    )
+  }}><header><div><small>{value ? 'EDIT TRACK' : 'NEW NATIVE TRACK'}</small><h2>{title || 'Add a recording'}</h2><p>{lockedContext ? `${artistName ?? 'Artist'} · ${releaseName ?? 'Release'}` : 'Canonical ALTARA audio and editorial metadata.'}</p></div><button type="submit" disabled={busy || !artists.length || (!value && (!file || !fileMetadata))}><Check size={14} /> {busy ? 'WORKING…' : value ? 'SAVE TRACK' : 'UPLOAD & ADD TRACK'}</button></header><fieldset><legend>{value ? 'AUDIO MASTER' : '1 · SELECT AUDIO FILE'}</legend><input ref={fileRef} type="file" hidden accept="audio/mpeg,audio/mp4,audio/m4a,audio/x-m4a,audio/ogg,audio/webm,.mp3,.m4a,.mp4,.ogg,.webm" onChange={(event) => selectFile(event.target.files?.[0])} /><button type="button" className="altara-music-file-button" onClick={() => fileRef.current?.click()}><Upload size={14} /> {file ? 'REPLACE SELECTION' : value ? 'CHOOSE REPLACEMENT AUDIO' : 'SELECT AUDIO FILE'}</button>{file ? <div className="altara-music-audio-summary" data-valid={fileMetadata ? 'true' : 'false'}><span><small>FILE</small><strong>{file.name}</strong></span><span><small>SIZE</small><strong>{fileMetadata ? `${(fileMetadata.byteSize / 1024 / 1024).toFixed(2)} MB` : 'READING…'}</strong></span><span><small>DURATION</small><strong>{fileMetadata ? formatAltaraMusicDuration(fileMetadata.durationMs) : '—'}</strong></span><span><small>FORMAT</small><strong>{fileMetadata?.mimeType ?? 'VALIDATING'}</strong></span></div> : <p className="altara-music-file-status">{value ? `${value.audioMimeType} · ${(value.audioByteSize / 1024 / 1024).toFixed(2)} MB · ${formatAltaraMusicDuration(value.durationMs)}` : 'MP3, M4A/MP4, OGG or WebM · max 15 MB / 15 min'}</p>}{fileError ? <p className="altara-music-file-error" role="alert">{fileError}</p> : null}{value && file && fileMetadata ? <button type="button" disabled={busy} onClick={() => { void run(() => replaceNetAltaraMusicGmTrackAudio(value.id, file), 'ALTARA MUSIC // TRACK AUDIO REPLACED') }}>REPLACE AUDIO ONLY</button> : null}</fieldset><fieldset><legend>2 · TRACK DETAILS</legend>{lockedContext ? <div className="altara-music-studio-context"><span><small>ARTIST</small><strong>{artistName}</strong></span><ChevronRight size={13} /><span><small>RELEASE</small><strong>{releaseName}</strong></span></div> : <><label>ARTIST<select value={artistId} onChange={(event) => { setArtistId(event.target.value); setReleaseId('') }}>{artists.map((artist) => <option key={artist.id} value={artist.id}>{artist.name}</option>)}</select></label><label>RELEASE<select value={releaseId} onChange={(event) => setReleaseId(event.target.value)}><option value="">STANDALONE</option>{compatibleReleases.map((release) => <option key={release.id} value={release.id}>{release.title}</option>)}</select></label></>}<label>TRACK TITLE<input required maxLength={180} value={title} onChange={(event) => setTitle(event.target.value)} /></label><div className="altara-music-form-pair"><label>TRACK NUMBER<input type="number" min={1} max={999} value={trackNumber} onChange={(event) => setTrackNumber(event.target.value)} /></label><label>DISC<input type="number" min={1} max={99} value={discNumber} onChange={(event) => setDiscNumber(event.target.value)} /></label></div><StudioArtworkUpload subjectId={value?.id} slot="track" label="TRACK ARTWORK" source={artworkRef} previewLabel={`${title || 'Track'} artwork`} embeddedPreviewUrl={!value ? embeddedArtwork?.previewUrl : undefined} onUploaded={setArtworkRef} /></fieldset><fieldset><legend>3 · PUBLICATION</legend><label>STATUS<select value={status} onChange={(event) => setStatus(event.target.value as NetAltaraMusicStatus)}>{statusOptions}</select></label><label className="altara-music-check"><input type="checkbox" checked={explicit} onChange={(event) => setExplicit(event.target.checked)} /> EXPLICIT</label><label className="altara-music-check"><input type="checkbox" checked={featured} onChange={(event) => setFeatured(event.target.checked)} /> FEATURED</label>{value?.status === 'archived' ? <button type="button" className="altara-music-danger" onClick={() => { if (window.confirm(`Permanently delete ${value.title}? This requires no playlist/like dependencies and removes its exact audio object.`)) void run(() => deleteNetAltaraMusicGmTrack(value.id), 'ALTARA MUSIC // TRACK PERMANENTLY DELETED', onDeleted) }}><Trash2 size={14} /> PERMANENT DELETE</button> : null}</fieldset></form>
 }
 
 function PlaylistEditor({ value, tracks, busy, run, onSaved }: {

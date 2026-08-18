@@ -97,6 +97,16 @@ export interface NetAltaraReadCursorResult {
   readonly updated: boolean
 }
 
+export interface NetAltaraLeaveGroupResult {
+  readonly conversationId: string
+  readonly left: boolean
+}
+
+export interface NetAltaraDeleteGroupResult {
+  readonly conversationId: string
+  readonly deleted: boolean
+}
+
 export type NetAltaraMessengerRealtimeStatus =
   | 'idle'
   | 'connecting'

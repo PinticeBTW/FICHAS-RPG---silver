@@ -2,26 +2,29 @@ import { netAppCatalog } from '../netAppCatalog'
 import { getEntityHandle, getNetEntity, getNetOrganisation } from '../world/netSelectors'
 import type { NetAppId as NetWorldAppId } from '../world/netWorldTypes'
 import { netAppAccountPolicies } from './netAppAccountPolicies'
-import { netAppAccountSeeds } from './netAppAccountSeeds'
 import { getNetAppAccountOwnerKey, normalizeNetHandle } from './netAppAccountSelectors'
 import type { NetAppAccount } from './netAppAccountTypes'
 
-function isNetWorldAppId(appId: NetAppAccount['appId']): appId is NetWorldAppId {
+function isNetWorldAppId(
+  appId: NetAppAccount['appId'],
+): appId is Extract<NetWorldAppId, NetAppAccount['appId']> {
   return appId !== 'net-store'
     && appId !== 'vlt'
     && appId !== 'vox-bank'
     && appId !== 'shneider-bank'
     && appId !== 'altara-messenger'
     && appId !== 'altara-bank'
+    && appId !== 'nova-bank'
     && appId !== 'altara-news'
     && appId !== 'altara-music'
+    && appId !== 'altara-wave'
     && appId !== 'altara-store'
     && appId !== 'altara-settings'
 }
 
 /** Dependency-free validation for tests or development tooling; it never logs. */
 export function validateNetAppAccountData(
-  accounts: readonly NetAppAccount[] = netAppAccountSeeds,
+  accounts: readonly NetAppAccount[] = [],
 ): readonly string[] {
   const errors: string[] = []
   const accountIds = new Set<string>()

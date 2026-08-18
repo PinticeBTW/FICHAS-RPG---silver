@@ -14,6 +14,7 @@ import {
   type WallpaperPosition,
 } from '../../../lib/netWallpaperStore'
 import type { NetIdentitySystemWallpaper } from '../../../lib/netIdentitySystemService'
+import { NetSystemSecurityControl } from '../identity/NetSystemSecurityControl'
 
 export function AltaraSettingsApp({
   identityName,
@@ -28,6 +29,8 @@ export function AltaraSettingsApp({
   onChangeIdentity,
   workspaceControl,
   readOnly = false,
+  securityIdentityLinkId,
+  securityProfileId,
 }: {
   readonly identityName: string
   readonly baseWallpaperVisual: 'nocturne' | 'atlas' | 'silk'
@@ -41,6 +44,8 @@ export function AltaraSettingsApp({
   readonly onChangeIdentity?: () => void
   readonly workspaceControl?: ReactNode
   readonly readOnly?: boolean
+  readonly securityIdentityLinkId?: string
+  readonly securityProfileId?: string
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [fit, setFit] = useState<WallpaperFit>(customWallpaper?.fit ?? 'cover')
@@ -188,6 +193,22 @@ export function AltaraSettingsApp({
         <div className="altara-settings__identity-actions">
           {onChangeIdentity ? <button type="button" onClick={onChangeIdentity}>CHANGE ACTIVE CHARACTER</button> : null}
           <Link to="/app/sheets"><ArrowLeft size={14} aria-hidden="true" /> RETURN TO SHEETS</Link>
+        </div>
+      </section>
+
+      <section aria-labelledby="altara-security-title">
+        <div className="altara-settings__section-heading">
+          <div>
+            <p>SYSTEM</p>
+            <h3 id="altara-security-title">Security</h3>
+          </div>
+          <small>ALTARA NETWORK</small>
+        </div>
+        <div className="altara-persona-control">
+          <NetSystemSecurityControl
+            identityLinkId={securityIdentityLinkId}
+            profileId={securityProfileId}
+          />
         </div>
       </section>
     </div>

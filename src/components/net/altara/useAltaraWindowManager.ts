@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import type { NetWindowRect, NetWindowSnap } from '../../../lib/netWindowLayoutStore'
+import {
+  loadNetWindowLayouts,
+  saveNetWindowLayout,
+  type NetWindowRect,
+  type NetWindowSnap,
+  type StoredNetWindowLayout,
+  type StoredNetWindowLayouts,
+} from '../../../lib/netWindowLayoutStore'
 import {
   clampNetWindowRect,
   getMaximizedNetWindowRect,
@@ -29,6 +36,11 @@ type SnapPreview = {
 } | null
 
 const WINDOW_BASE_Z_INDEX = 40
+
+/** Every locally remembered window id, shared with VEIL's own persistence
+ * (see netWindowLayoutStore.ts) under the same per-profile record --
+ * AltaraAppId strings never collide with VEIL's NetWindowId strings. */
+const ALTARA_WINDOW_IDS: readonly AltaraAppId[] = altaraAppCatalog.map((app) => app.id)
 
 function getInitialViewport() {
   return {
@@ -63,7 +75,41 @@ function createClosedState(id: AltaraAppId, width: number, height: number): Alta
   }
 }
 
-export function useAltaraWindowManager() {
+/** Same remembered-state reconstruction VEIL uses: a locally saved rect is
+ * only ever a starting point, re-clamped against the current viewport so a
+ * window can never reopen off-screen after a resolution/window-size change. */
+function getRememberedState(
+  id: AltaraAppId,
+  saved: StoredNetWindowLayouts,
+  width: number,
+  height: number,
+): AltaraWindowState {
+  const stored = saved[id]
+  if (!stored) return createClosedState(id, width, height)
+
+  const bounds = getNetDesktopBounds(width, height)
+  const definition = getAltaraAppDefinition(id)
+  const restoreRect = stored.restoreRect
+    ? clampNetWindowRect(stored.restoreRect, definition.window, bounds)
+    : undefined
+  const rect = stored.maximized
+    ? getMaximizedNetWindowRect(bounds)
+    : stored.snap !== 'none'
+      ? getSnappedNetWindowRect(stored.snap, bounds)
+      : clampNetWindowRect(stored.rect, definition.window, bounds)
+
+  return {
+    open: false,
+    minimized: false,
+    maximized: stored.maximized,
+    zIndex: 0,
+    rect,
+    ...(restoreRect ? { restoreRect } : {}),
+    snap: stored.snap,
+  }
+}
+
+export function useAltaraWindowManager(profileId?: string) {
   const [viewport, setViewport] = useState(getInitialViewport)
   const [windows, setWindows] = useState<Partial<Record<AltaraAppId, AltaraWindowState>>>({})
   const [snapPreview, setSnapPreview] = useState<SnapPreview>(null)
@@ -75,6 +121,13 @@ export function useAltaraWindowManager() {
   const boundsRef = useRef(bounds)
   const viewportRef = useRef(viewport)
   const isMobile = viewport.width <= 760
+  const savedLayoutsRef = useRef<StoredNetWindowLayouts>({})
+  const layoutWriteRef = useRef<Promise<void>>(Promise.resolve())
+  const profileIdRef = useRef(profileId)
+
+  useEffect(() => {
+    profileIdRef.current = profileId
+  }, [profileId])
 
   const nextZIndex = useCallback(() => {
     zIndexCounterRef.current += 1
@@ -82,7 +135,7 @@ export function useAltaraWindowManager() {
   }, [])
 
   const readWindow = useCallback((id: AltaraAppId): AltaraWindowState => (
-    windows[id] ?? createClosedState(id, viewport.width, viewport.height)
+    windows[id] ?? getRememberedState(id, savedLayoutsRef.current, viewport.width, viewport.height)
   ), [viewport.height, viewport.width, windows])
 
   const visibleRect = useCallback((id: AltaraAppId, state = readWindow(id)) => {
@@ -91,10 +144,34 @@ export function useAltaraWindowManager() {
     return clampNetWindowRect(state.rect, getAltaraAppDefinition(id).window, bounds)
   }, [bounds, isMobile, readWindow])
 
+  const persistLayout = useCallback((id: AltaraAppId, state: AltaraWindowState) => {
+    const userId = profileIdRef.current
+    if (!userId) return
+
+    const layout: Omit<StoredNetWindowLayout, 'updatedAt'> = {
+      rect: state.rect,
+      ...(state.restoreRect ? { restoreRect: state.restoreRect } : {}),
+      snap: state.snap,
+      maximized: state.maximized,
+    }
+
+    savedLayoutsRef.current = {
+      ...savedLayoutsRef.current,
+      [id]: { ...layout, updatedAt: Date.now() },
+    }
+    layoutWriteRef.current = layoutWriteRef.current
+      .catch(() => undefined)
+      .then(() => saveNetWindowLayout(userId, id, layout))
+      .catch(() => {
+        // Layout persistence is a local convenience; current geometry remains usable.
+      })
+  }, [])
+
   const openWindow = useCallback((id: AltaraAppId) => {
     setWindows((current) => {
-      const existing = current[id] ?? createClosedState(
+      const existing = current[id] ?? getRememberedState(
         id,
+        savedLayoutsRef.current,
         viewportRef.current.width,
         viewportRef.current.height,
       )
@@ -137,64 +214,65 @@ export function useAltaraWindowManager() {
   }, [nextZIndex])
 
   const toggleMaximize = useCallback((id: AltaraAppId) => {
-    setWindows((current) => {
-      const existing = current[id] ?? createClosedState(
-        id,
-        viewportRef.current.width,
-        viewportRef.current.height,
-      )
-      const definition = getAltaraAppDefinition(id)
-      const normalRect = clampNetWindowRect(
-        existing.restoreRect ?? existing.rect,
-        definition.window,
-        boundsRef.current,
-      )
-      return {
-        ...current,
-        [id]: existing.maximized
-          ? {
-              ...existing,
-              maximized: false,
-              minimized: false,
-              rect: normalRect,
-              restoreRect: undefined,
-              snap: 'none',
-              zIndex: nextZIndex(),
-            }
-          : {
-              ...existing,
-              maximized: true,
-              minimized: false,
-              rect: getMaximizedNetWindowRect(boundsRef.current),
-              restoreRect: normalRect,
-              snap: 'none',
-              zIndex: nextZIndex(),
-            },
-      }
-    })
-  }, [nextZIndex])
+    const existing = windows[id] ?? getRememberedState(
+      id,
+      savedLayoutsRef.current,
+      viewportRef.current.width,
+      viewportRef.current.height,
+    )
+    const definition = getAltaraAppDefinition(id)
+    const normalRect = clampNetWindowRect(
+      existing.restoreRect ?? existing.rect,
+      definition.window,
+      boundsRef.current,
+    )
+    const next: AltaraWindowState = existing.maximized
+      ? {
+          ...existing,
+          maximized: false,
+          minimized: false,
+          rect: normalRect,
+          restoreRect: undefined,
+          snap: 'none',
+          zIndex: nextZIndex(),
+        }
+      : {
+          ...existing,
+          maximized: true,
+          minimized: false,
+          rect: getMaximizedNetWindowRect(boundsRef.current),
+          restoreRect: normalRect,
+          snap: 'none',
+          zIndex: nextZIndex(),
+        }
+
+    setWindows((current) => ({ ...current, [id]: next }))
+    // The remembered "normal" position is the pre-maximize restoreRect, not
+    // the maximized rect itself -- persisting here (not just on commitRect)
+    // means toggling maximize can never corrupt or lose that position.
+    persistLayout(id, next)
+  }, [nextZIndex, persistLayout, windows])
 
   const commitRect = useCallback((id: AltaraAppId, rect: NetWindowRect) => {
-    setWindows((current) => {
-      const existing = current[id]
-      if (!existing) return current
-      return {
-        ...current,
-        [id]: {
-          ...existing,
-          rect: clampNetWindowRect(
-            rect,
-            getAltaraAppDefinition(id).window,
-            boundsRef.current,
-          ),
-        },
-      }
-    })
-  }, [])
+    const existing = windows[id] ?? getRememberedState(
+      id,
+      savedLayoutsRef.current,
+      viewportRef.current.width,
+      viewportRef.current.height,
+    )
+    const next: AltaraWindowState = {
+      ...existing,
+      rect: clampNetWindowRect(rect, getAltaraAppDefinition(id).window, boundsRef.current),
+    }
+
+    setWindows((current) => ({ ...current, [id]: next }))
+    persistLayout(id, next)
+  }, [persistLayout, windows])
 
   const prepareDrag = useCallback((id: AltaraAppId, pointerX: number, pointerY: number) => {
-    const current = windows[id] ?? createClosedState(
+    const current = windows[id] ?? getRememberedState(
       id,
+      savedLayoutsRef.current,
       viewportRef.current.width,
       viewportRef.current.height,
     )
@@ -231,42 +309,41 @@ export function useAltaraWindowManager() {
   }, [nextZIndex, visibleRect, windows])
 
   const applySnap = useCallback((id: AltaraAppId, snap: 'left' | 'right' | 'maximize') => {
-    setWindows((current) => {
-      const existing = current[id] ?? createClosedState(
-        id,
-        viewportRef.current.width,
-        viewportRef.current.height,
-      )
-      const definition = getAltaraAppDefinition(id)
-      const normalRect = clampNetWindowRect(
-        existing.restoreRect ?? existing.rect,
-        definition.window,
-        boundsRef.current,
-      )
-      return {
-        ...current,
-        [id]: snap === 'maximize'
-          ? {
-              ...existing,
-              maximized: true,
-              minimized: false,
-              rect: getMaximizedNetWindowRect(boundsRef.current),
-              restoreRect: normalRect,
-              snap: 'none',
-              zIndex: nextZIndex(),
-            }
-          : {
-              ...existing,
-              maximized: false,
-              minimized: false,
-              rect: getSnappedNetWindowRect(snap, boundsRef.current),
-              restoreRect: normalRect,
-              snap,
-              zIndex: nextZIndex(),
-            },
-      }
-    })
-  }, [nextZIndex])
+    const existing = windows[id] ?? getRememberedState(
+      id,
+      savedLayoutsRef.current,
+      viewportRef.current.width,
+      viewportRef.current.height,
+    )
+    const definition = getAltaraAppDefinition(id)
+    const normalRect = clampNetWindowRect(
+      existing.restoreRect ?? existing.rect,
+      definition.window,
+      boundsRef.current,
+    )
+    const next: AltaraWindowState = snap === 'maximize'
+      ? {
+          ...existing,
+          maximized: true,
+          minimized: false,
+          rect: getMaximizedNetWindowRect(boundsRef.current),
+          restoreRect: normalRect,
+          snap: 'none',
+          zIndex: nextZIndex(),
+        }
+      : {
+          ...existing,
+          maximized: false,
+          minimized: false,
+          rect: getSnappedNetWindowRect(snap, boundsRef.current),
+          restoreRect: normalRect,
+          snap,
+          zIndex: nextZIndex(),
+        }
+
+    setWindows((current) => ({ ...current, [id]: next }))
+    persistLayout(id, next)
+  }, [nextZIndex, persistLayout, windows])
 
   const handleSnapPreview = useCallback((
     id: AltaraAppId,
@@ -292,6 +369,24 @@ export function useAltaraWindowManager() {
     window.addEventListener('resize', updateViewport)
     return () => window.removeEventListener('resize', updateViewport)
   }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    savedLayoutsRef.current = {}
+
+    if (!profileId) return () => { cancelled = true }
+
+    loadNetWindowLayouts(profileId, ALTARA_WINDOW_IDS)
+      .then((layouts) => {
+        if (cancelled || profileIdRef.current !== profileId) return
+        savedLayoutsRef.current = layouts
+      })
+      .catch(() => {
+        // Default placement remains available if IndexedDB is unavailable.
+      })
+
+    return () => { cancelled = true }
+  }, [profileId])
 
   const openVisibleIds = useMemo(() => (
     (Object.entries(windows) as [AltaraAppId, AltaraWindowState][])

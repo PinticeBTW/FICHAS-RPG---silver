@@ -1,5 +1,5 @@
-import { CircleDollarSign, Eye, Laptop, RotateCcw, Search, ShieldAlert, UserRoundCog, X } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { CircleDollarSign, Laptop, RotateCcw, Search, Unlock, UserRoundCog, X } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import {
   fetchNetGmIdentityDetail,
@@ -33,6 +33,15 @@ import {
 } from '../../../lib/netAltaraBankService'
 import type { NetAltaraCurrencyCode } from '../../../lib/netAltaraBankTypes'
 import { notifySheetEconomyAuthorityChanged } from '../../../lib/sheetEconomyService'
+import {
+  confirmNetSystemHackingRollSuccess,
+  failNetSystemHackingRollAttempt,
+  fetchNetSystemHackingGrants,
+  revokeNetSystemHackingGrant,
+  setNetSystemHackingGrant,
+  type NetSystemHackingGrantSummary,
+  type NetSystemHackingMethod,
+} from '../../../lib/netSystemHackingService'
 
 interface NetGmPersonaSettingsProps {
   readonly candidates: readonly NetPlayableIdentityCandidate[]
@@ -59,6 +68,15 @@ type PersonaDetailLoadState =
   | { readonly status: 'ready'; readonly profileId: string; readonly key: string; readonly detail: NetGmIdentityDetail }
   | { readonly status: 'error'; readonly profileId: string; readonly key: string; readonly reason: string }
 
+// TEMPORARY DIAGNOSTIC — DUPLICATE-OS-CARD-DEBUG. Remove once the duplicate
+// OPERATING SYSTEM card report is confirmed root-caused. Tracks every
+// currently-mounted NetGmPrimaryOsControl instance (by a unique per-instance
+// id, not by identityLinkId, so it also catches the case where two
+// instances happen to carry the same identityLinkId). Logs to the browser
+// console -- reproduce the bug with DevTools open and read the output.
+let netGmPrimaryOsControlInstanceSeq = 0
+const netGmPrimaryOsControlActiveInstances = new Map<number, string>()
+
 function NetGmPrimaryOsControl({
   identityLinkId,
   city,
@@ -75,6 +93,27 @@ function NetGmPrimaryOsControl({
   const [saving, setSaving] = useState(false)
   const [loadVersion, setLoadVersion] = useState(0)
   const suggestion = suggestNetOsForCity(city)
+  const diagnosticInstanceIdRef = useRef<number | null>(null)
+  if (diagnosticInstanceIdRef.current === null) {
+    diagnosticInstanceIdRef.current = ++netGmPrimaryOsControlInstanceSeq
+  }
+
+  useEffect(() => {
+    const instanceId = diagnosticInstanceIdRef.current
+    if (instanceId === null) return undefined
+    netGmPrimaryOsControlActiveInstances.set(instanceId, identityLinkId)
+    const snapshot = Array.from(netGmPrimaryOsControlActiveInstances.entries())
+    if (netGmPrimaryOsControlActiveInstances.size > 1) {
+      console.error('[DUPLICATE-OS-CARD-DEBUG] MULTIPLE NetGmPrimaryOsControl instances mounted simultaneously:', snapshot)
+    } else {
+      console.debug('[DUPLICATE-OS-CARD-DEBUG] mounted', { instanceId, identityLinkId, activeCount: snapshot.length })
+    }
+    return () => {
+      netGmPrimaryOsControlActiveInstances.delete(instanceId)
+      console.debug('[DUPLICATE-OS-CARD-DEBUG] unmounted', { instanceId, identityLinkId, remaining: netGmPrimaryOsControlActiveInstances.size })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -240,6 +279,471 @@ function NetGmEconomicCurrencyControl({
       <label><span className="sr-only">Currency assignment audit reason</span><input value={reason} maxLength={200} placeholder="Mandatory audit reason" onChange={(event) => setReason(event.target.value)} /></label>
       {error ? <p role="alert">{error} <button type="button" onClick={() => setLoadVersion((version) => version + 1)}>RETRY</button></p> : null}
       <small>{city ? `${city} is advisory lore only. ` : ''}Only this explicit assignment denominates a future ALTARA BANK account. Existing money is never relabelled.</small>
+    </section>
+  )
+}
+
+type HackingGrantsLoadState =
+  | { readonly status: 'loading' }
+  | { readonly status: 'ready'; readonly grants: readonly NetSystemHackingGrantSummary[] }
+  | { readonly status: 'error'; readonly reason: string }
+
+type HackingTargetOsState = Record<string, NetOsId | null | 'error'>
+
+function resolveHackingTargetCandidate(
+  targetIdentityLinkId: string,
+  candidates: readonly NetPlayableIdentityCandidate[],
+  identityLinks: readonly NetIdentityLink[],
+): NetPlayableIdentityCandidate | undefined {
+  return candidates.find((candidate) => (
+    identityLinkIdForCandidate(candidate, identityLinks) === targetIdentityLinkId
+  ))
+}
+
+/**
+ * GM System only. Reuses the same candidate universe, classification, and
+ * portrait rendering as the persona directory above -- no second identity
+ * browser. Persistent actor -> target hacking grants for the identity
+ * currently selected in that directory.
+ */
+function NetGmHackingAccessControl({
+  identityLinkId,
+  actorSubjectKey,
+  candidates,
+  identityLinks,
+}: {
+  readonly identityLinkId: string
+  readonly actorSubjectKey: string
+  readonly candidates: readonly NetPlayableIdentityCandidate[]
+  readonly identityLinks: readonly NetIdentityLink[]
+}) {
+  const [grantsState, setGrantsState] = useState<HackingGrantsLoadState>({ status: 'loading' })
+  const [targetOs, setTargetOs] = useState<HackingTargetOsState>({})
+  const [authorizing, setAuthorizing] = useState(false)
+  const [targetQuery, setTargetQuery] = useState('')
+  const [pendingTargetKey, setPendingTargetKey] = useState<string | null>(null)
+  const [pendingMethod, setPendingMethod] = useState<NetSystemHackingMethod | null>(null)
+  const [changingMethodFor, setChangingMethodFor] = useState<string | null>(null)
+  const [refreshingGrants, setRefreshingGrants] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  // Shared by the mount fetch, the manual REFRESH action, and every
+  // grant-mutating action's post-mutation reload below, so whichever fetch
+  // was started LAST always wins the eventual setGrantsState -- an earlier
+  // fetch resolving after a later one can never overwrite fresher state with
+  // stale roll_pending data.
+  const grantsRequestIdRef = useRef(0)
+
+  // The ONE and only place that fetches grants and writes grantsState. The
+  // mount/actor-switch effect and the manual REFRESH button both call this
+  // exact function -- there is no second, separately-maintained "equivalent"
+  // implementation for either of them to drift out of sync with. `initial`
+  // only controls the loading-state/indicator presentation (a first load has
+  // nothing on screen yet and shows RESOLVING…; every later reload keeps the
+  // existing list visible and shows REFRESHING… on the button instead) --
+  // the fetch + parse + state-write itself is identical either way.
+  const loadGrants = useCallback(async (initial: boolean) => {
+    const requestId = ++grantsRequestIdRef.current
+    if (initial) setGrantsState({ status: 'loading' })
+    else setRefreshingGrants(true)
+    try {
+      const grants = await fetchNetSystemHackingGrants(identityLinkId)
+      if (requestId !== grantsRequestIdRef.current) return
+      setGrantsState({ status: 'ready', grants })
+    } catch (caught) {
+      if (requestId !== grantsRequestIdRef.current) return
+      if (initial) {
+        setGrantsState({
+          status: 'error',
+          reason: caught instanceof Error ? caught.message : 'Hacking grants could not be loaded.',
+        })
+      } else {
+        setError(caught instanceof Error ? caught.message : 'Hacking grants could not be refreshed.')
+      }
+    } finally {
+      if (requestId === grantsRequestIdRef.current) setRefreshingGrants(false)
+    }
+  }, [identityLinkId])
+
+  // No automatic polling for ROLL PENDING -- Silver reloads this list via
+  // the actor switch below, the manual REFRESH action, or (below) every
+  // grant-mutating action, so a fresh fetch (not a locally-spliced mutation
+  // response, which never carries roll_pending/roll_requested_at) is always
+  // what ends up on screen.
+  const refreshGrants = useCallback(() => loadGrants(false), [loadGrants])
+
+  // The actor -> B switch resets every transient picker/error/OS-cache field
+  // and reloads grants for the newly selected actor, so nothing from the
+  // previous actor can leak into the new selection.
+  useEffect(() => {
+    setTargetOs({})
+    setAuthorizing(false)
+    setTargetQuery('')
+    setPendingTargetKey(null)
+    setPendingMethod(null)
+    setChangingMethodFor(null)
+    setError(null)
+    void loadGrants(true)
+  }, [identityLinkId, loadGrants])
+
+  useEffect(() => {
+    if (grantsState.status !== 'ready') return
+    const targets = [...new Set(grantsState.grants.map((grant) => grant.targetIdentityLinkId))]
+    if (!targets.length) return
+    let cancelled = false
+    void Promise.all(targets.map((targetId) => (
+      fetchNetGmIdentityOs(targetId)
+        .then((assignment) => [targetId, assignment.primaryOsId] as const)
+        .catch(() => [targetId, 'error'] as const)
+    ))).then((results) => {
+      if (cancelled) return
+      setTargetOs((current) => {
+        const next = { ...current }
+        for (const [targetId, os] of results) next[targetId] = os
+        return next
+      })
+    })
+    return () => { cancelled = true }
+  }, [grantsState])
+
+  const authorizeCandidates = useMemo(() => {
+    const normalizedQuery = targetQuery.trim().toLocaleLowerCase()
+    return candidates
+      .filter((candidate) => candidate.subject.kind !== 'character')
+      .filter((candidate) => subjectKey(candidate.subject) !== actorSubjectKey)
+      .filter((candidate) => Boolean(identityLinkIdForCandidate(candidate, identityLinks)))
+      .filter((candidate) => !normalizedQuery || [
+        candidate.displayName,
+        candidate.ownerDisplayName,
+        candidate.occupation,
+        candidate.city,
+      ].some((value) => value?.toLocaleLowerCase().includes(normalizedQuery)))
+  }, [candidates, targetQuery, actorSubjectKey, identityLinks])
+
+  const pendingTargetCandidate = pendingTargetKey
+    ? candidates.find((candidate) => subjectKey(candidate.subject) === pendingTargetKey)
+    : undefined
+  const pendingTargetLinkId = pendingTargetCandidate
+    ? identityLinkIdForCandidate(pendingTargetCandidate, identityLinks)
+    : undefined
+
+  const saveGrant = async (targetIdentityLinkId: string, method: NetSystemHackingMethod) => {
+    if (saving) return
+    setSaving(true)
+    setError(null)
+    try {
+      // A locally-spliced mutation response never carries roll_pending /
+      // roll_requested_at (only the grants-list RPC does), so this always
+      // reloads the full list from the server rather than trusting the
+      // save call's own return value.
+      await setNetSystemHackingGrant(identityLinkId, targetIdentityLinkId, method)
+      await refreshGrants()
+      setAuthorizing(false)
+      setTargetQuery('')
+      setPendingTargetKey(null)
+      setPendingMethod(null)
+      setChangingMethodFor(null)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'The hacking grant could not be saved.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const revoke = async (targetIdentityLinkId: string) => {
+    if (saving) return
+    setSaving(true)
+    setError(null)
+    try {
+      await revokeNetSystemHackingGrant(identityLinkId, targetIdentityLinkId)
+      await refreshGrants()
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'The hacking grant could not be revoked.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const confirmRoll = async (targetIdentityLinkId: string) => {
+    if (saving) return
+    setSaving(true)
+    setError(null)
+    try {
+      await confirmNetSystemHackingRollSuccess(identityLinkId, targetIdentityLinkId)
+      await refreshGrants()
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'The roll could not be confirmed.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const failRoll = async (targetIdentityLinkId: string) => {
+    if (saving) return
+    setSaving(true)
+    setError(null)
+    try {
+      await failNetSystemHackingRollAttempt(identityLinkId, targetIdentityLinkId)
+      await refreshGrants()
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'The roll attempt could not be marked failed.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const activeCount = grantsState.status === 'ready'
+    ? grantsState.grants.filter((grant) => grant.enabled).length
+    : 0
+
+  return (
+    <section className="net-persona-control__os net-persona-control__hacking" aria-label="Hacking access authority">
+      <header>
+        <Unlock size={15} aria-hidden="true" />
+        <div>
+          <span>HACKING ACCESS</span>
+          <strong>
+            {grantsState.status === 'ready'
+              ? `${activeCount} ACTIVE`
+              : grantsState.status === 'loading' ? 'RESOLVING…' : 'UNAVAILABLE'}
+          </strong>
+        </div>
+        <button
+          type="button"
+          disabled={grantsState.status !== 'ready' || refreshingGrants}
+          onClick={() => { void refreshGrants() }}
+          aria-label="Refresh hacking access grants"
+          title="Refresh -- pick up any new ROLL PENDING attempt"
+        >
+          <RotateCcw size={13} aria-hidden="true" /> {refreshingGrants ? 'REFRESHING…' : 'REFRESH'}
+        </button>
+      </header>
+
+      {grantsState.status === 'error' ? (
+        <p role="alert">{grantsState.reason}</p>
+      ) : (
+        <div className="net-persona-control__hacking-list">
+          {grantsState.status === 'ready' && !grantsState.grants.length ? (
+            <p className="net-persona-control__hacking-empty">
+              No hacking permissions authorised for this identity.
+            </p>
+          ) : null}
+          {grantsState.status === 'ready' ? grantsState.grants.map((grant) => {
+            const targetCandidate = resolveHackingTargetCandidate(
+              grant.targetIdentityLinkId, candidates, identityLinks,
+            )
+            const classification = targetCandidate
+              ? classifyPersonaIdentity(targetCandidate, identityLinks)
+              : undefined
+            const os = targetOs[grant.targetIdentityLinkId]
+            const changingMethod = changingMethodFor === grant.targetIdentityLinkId
+            return (
+              <div
+                key={grant.targetIdentityLinkId}
+                className="net-persona-control__hacking-row"
+                data-enabled={grant.enabled ? 'true' : 'false'}
+              >
+                {targetCandidate ? (
+                  <CandidatePortrait candidate={targetCandidate} />
+                ) : (
+                  <span className="net-persona-control__portrait" aria-hidden="true">??</span>
+                )}
+                <span className="net-persona-control__hacking-row-copy">
+                  <strong>{targetCandidate?.displayName ?? 'UNKNOWN SYSTEM'}</strong>
+                  <span>
+                    {classification === 'player' ? 'PLAYER' : classification === 'npc' ? 'NPC' : 'UNKNOWN'}
+                    {' // '}
+                    {os === undefined
+                      ? 'RESOLVING OS…'
+                      : os === 'error' ? 'OS UNAVAILABLE' : os ? getNetOsLabel(os) : 'NO OS'}
+                    {targetCandidate?.city ? ` // ${targetCandidate.city}` : ''}
+                  </span>
+                </span>
+                <span className="net-persona-control__hacking-row-status">
+                  <b data-enabled={grant.enabled ? 'true' : 'false'}>
+                    {grant.enabled ? 'ACTIVE' : 'REVOKED'}
+                  </b>
+                  <span>
+                    {grant.method === 'credential' ? 'CREDENTIAL' : grant.rollPending ? 'ROLL PENDING' : 'ROLL'}
+                  </span>
+                </span>
+                <span className="net-persona-control__hacking-row-actions">
+                  {grant.enabled ? (
+                    changingMethod ? (
+                      <>
+                        <button
+                          type="button"
+                          disabled={saving || grant.method === 'credential'}
+                          onClick={() => { void saveGrant(grant.targetIdentityLinkId, 'credential') }}
+                        >
+                          CREDENTIAL
+                        </button>
+                        <button
+                          type="button"
+                          disabled={saving || grant.method === 'roll'}
+                          onClick={() => { void saveGrant(grant.targetIdentityLinkId, 'roll') }}
+                        >
+                          ROLL
+                        </button>
+                        <button type="button" disabled={saving} onClick={() => setChangingMethodFor(null)}>
+                          CANCEL
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        {grant.method === 'roll' && grant.rollPending ? (
+                          <>
+                            <button
+                              type="button"
+                              disabled={saving}
+                              onClick={() => { void confirmRoll(grant.targetIdentityLinkId) }}
+                            >
+                              {saving ? 'CONFIRMING…' : 'CONFIRM SUCCESS'}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={saving}
+                              onClick={() => { void failRoll(grant.targetIdentityLinkId) }}
+                            >
+                              {saving ? 'MARKING…' : 'MARK FAILED'}
+                            </button>
+                          </>
+                        ) : null}
+                        <button
+                          type="button"
+                          disabled={saving}
+                          onClick={() => setChangingMethodFor(grant.targetIdentityLinkId)}
+                        >
+                          CHANGE METHOD
+                        </button>
+                        <button
+                          type="button"
+                          disabled={saving}
+                          onClick={() => { void revoke(grant.targetIdentityLinkId) }}
+                        >
+                          REVOKE
+                        </button>
+                      </>
+                    )
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={saving}
+                      onClick={() => { void saveGrant(grant.targetIdentityLinkId, grant.method) }}
+                    >
+                      RE-ENABLE
+                    </button>
+                  )}
+                </span>
+              </div>
+            )
+          }) : null}
+        </div>
+      )}
+
+      {error ? <p role="alert">{error}</p> : null}
+
+      {authorizing ? (
+        <div className="net-persona-control__hacking-picker">
+          <label className="net-persona-control__search">
+            <Search size={14} aria-hidden="true" />
+            <input
+              type="search"
+              aria-label="Search hacking targets"
+              value={targetQuery}
+              placeholder="Search characters, owners, occupation or city"
+              onChange={(event) => {
+                setTargetQuery(event.target.value)
+                setPendingTargetKey(null)
+              }}
+            />
+          </label>
+          <div className="net-persona-control__hacking-picker-results">
+            {authorizeCandidates.map((candidate) => {
+              const key = subjectKey(candidate.subject)
+              return (
+                <button
+                  type="button"
+                  key={key}
+                  className="net-persona-control__identity-row"
+                  data-selected={pendingTargetKey === key ? 'true' : 'false'}
+                  aria-pressed={pendingTargetKey === key}
+                  onClick={() => setPendingTargetKey(key)}
+                >
+                  <CandidatePortrait candidate={candidate} />
+                  <span className="net-persona-control__identity-copy">
+                    <strong>{candidate.displayName}</strong>
+                    <span>
+                      {[candidate.occupation, candidate.city].filter(Boolean).join(' · ')
+                        || `Owner: ${ownerLabel(candidate)}`}
+                    </span>
+                  </span>
+                  <span className="net-persona-control__identity-source">
+                    <span>
+                      {classifyPersonaIdentity(candidate, identityLinks) === 'player'
+                        ? 'PLAYER CHARACTER' : 'NPC IDENTITY'}
+                    </span>
+                  </span>
+                </button>
+              )
+            })}
+            {!authorizeCandidates.length ? <p>No eligible target identities.</p> : null}
+          </div>
+          {pendingTargetKey ? (
+            <div className="net-persona-control__hacking-picker-methods">
+              <button
+                type="button"
+                data-selected={pendingMethod === 'credential' ? 'true' : 'false'}
+                onClick={() => setPendingMethod('credential')}
+              >
+                CREDENTIAL
+              </button>
+              <button
+                type="button"
+                data-selected={pendingMethod === 'roll' ? 'true' : 'false'}
+                onClick={() => setPendingMethod('roll')}
+              >
+                ROLL
+              </button>
+            </div>
+          ) : null}
+          <div className="net-persona-control__hacking-row-actions">
+            <button
+              type="button"
+              className="net-persona-control__act"
+              disabled={saving || !pendingTargetLinkId || !pendingMethod}
+              onClick={() => {
+                if (!pendingTargetLinkId || !pendingMethod) return
+                void saveGrant(pendingTargetLinkId, pendingMethod)
+              }}
+            >
+              {saving ? 'ENABLING…' : 'ENABLE ACCESS'}
+            </button>
+            <button
+              type="button"
+              className="net-persona-control__take-control-cancel"
+              disabled={saving}
+              onClick={() => {
+                setAuthorizing(false)
+                setTargetQuery('')
+                setPendingTargetKey(null)
+                setPendingMethod(null)
+              }}
+            >
+              CANCEL
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="net-persona-control__hacking-authorize"
+          disabled={grantsState.status !== 'ready'}
+          onClick={() => setAuthorizing(true)}
+        >
+          <Unlock size={14} aria-hidden="true" /> + AUTHORIZE SYSTEM
+        </button>
+      )}
     </section>
   )
 }
@@ -428,9 +932,14 @@ function PersonaCandidateRow({
   )
 }
 
+// TEMPORARY DIAGNOSTIC — DUPLICATE-OS-CARD-DEBUG. Remove once root-caused.
+let netGmPersonaDetailInstanceSeq = 0
+const netGmPersonaDetailActiveInstances = new Map<number, string>()
+
 function PersonaDetail({
   authenticatedProfileId,
   candidate,
+  candidates,
   classification,
   controller,
   pending,
@@ -438,16 +947,13 @@ function PersonaDetail({
   confirmingTakeControl,
   onRequestTakeControl,
   onCancelTakeControl,
-  confirmingCompromise,
-  onRequestCompromise,
-  onCancelCompromise,
-  localInspect,
   detailState,
   onRetryDetail,
   onNetworkIdentityEnabled,
 }: {
   readonly authenticatedProfileId: string
   readonly candidate: NetPlayableIdentityCandidate
+  readonly candidates: readonly NetPlayableIdentityCandidate[]
   readonly classification: PersonaIdentityClassification
   readonly controller: NetGmPersonaController
   readonly pending: PendingPersonaAction | null
@@ -455,10 +961,6 @@ function PersonaDetail({
   readonly confirmingTakeControl: boolean
   readonly onRequestTakeControl: () => void
   readonly onCancelTakeControl: () => void
-  readonly confirmingCompromise: boolean
-  readonly onRequestCompromise: () => void
-  readonly onCancelCompromise: () => void
-  readonly localInspect: boolean
   readonly detailState: PersonaDetailLoadState | null
   readonly onRetryDetail: () => void
   readonly onNetworkIdentityEnabled?: () => void
@@ -466,6 +968,30 @@ function PersonaDetail({
   const key = subjectKey(candidate.subject)
   const summaryReady = candidate.summaryStatus === 'ready'
   const identityLinkId = identityLinkIdForCandidate(candidate, controller.identityLinks)
+
+  // TEMPORARY DIAGNOSTIC — DUPLICATE-OS-CARD-DEBUG. Remove alongside the
+  // matching block in NetGmPrimaryOsControl once root-caused.
+  const diagnosticInstanceIdRef = useRef<number | null>(null)
+  if (diagnosticInstanceIdRef.current === null) {
+    diagnosticInstanceIdRef.current = ++netGmPersonaDetailInstanceSeq
+  }
+  useEffect(() => {
+    const instanceId = diagnosticInstanceIdRef.current
+    if (instanceId === null) return undefined
+    netGmPersonaDetailActiveInstances.set(instanceId, key)
+    const snapshot = Array.from(netGmPersonaDetailActiveInstances.entries())
+    if (netGmPersonaDetailActiveInstances.size > 1) {
+      console.error('[DUPLICATE-OS-CARD-DEBUG] MULTIPLE PersonaDetail instances mounted simultaneously:', snapshot)
+    } else {
+      console.debug('[DUPLICATE-OS-CARD-DEBUG] PersonaDetail mounted', { instanceId, key, activeCount: snapshot.length })
+    }
+    return () => {
+      netGmPersonaDetailActiveInstances.delete(instanceId)
+      console.debug('[DUPLICATE-OS-CARD-DEBUG] PersonaDetail unmounted', { instanceId, key, remaining: netGmPersonaDetailActiveInstances.size })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Never offer a client-side route into persona authoring until the GM's
   // server-authoritative link classification has completed. The RPC remains
   // the final authority even after this presentation guard.
@@ -491,7 +1017,7 @@ function PersonaDetail({
     && detailState.key === key
     ? detailState
     : null
-  const snapshotIdentityLinkId = currentMode || localInspect ? identityLinkId : undefined
+  const snapshotIdentityLinkId = currentMode ? identityLinkId : undefined
   const fields = [
     ['Age', candidate.age],
     ['Gender', candidate.gender],
@@ -500,12 +1026,10 @@ function PersonaDetail({
     ['Identity class', classification === 'player' ? 'PLAYER CHARACTER' : 'NPC IDENTITY'],
     ['Source', sourceLabel(candidate)],
     ['Owner account', ownerLabel(candidate)],
-    ['Mode available', !summaryReady ? 'SUMMARY SYNC REQUIRED' : canActAs ? 'INSPECT / ACT AS' : canTakeControl ? 'INSPECT / TAKE CONTROL' : 'INSPECT ONLY'],
+    ['Mode available', !summaryReady ? 'SUMMARY SYNC REQUIRED' : canActAs ? 'ACT AS' : canTakeControl ? 'TAKE CONTROL' : 'VIEW ONLY'],
   ].filter((field): field is [string, string] => Boolean(field[1]))
-  const inspectPending = pending?.key === key && pending.mode === 'inspect'
   const actPending = classification === 'npc' && pending?.key === key && pending.mode === 'take-control'
   const controlPending = classification === 'player' && pending?.key === key && pending.mode === 'take-control'
-  const compromisePending = pending?.key === key && pending.mode === 'compromised-session'
 
   return (
     <aside className="net-persona-control__detail" aria-labelledby="net-persona-detail-name">
@@ -540,6 +1064,15 @@ function PersonaDetail({
           {classification === 'player' ? (
             <NetGmEconomicCurrencyControl identityLinkId={identityLinkId} city={candidate.city} />
           ) : null}
+          {controller.state.status === 'none' ? (
+            <NetGmHackingAccessControl
+              key={`hacking-${identityLinkId}`}
+              identityLinkId={identityLinkId}
+              actorSubjectKey={key}
+              candidates={candidates}
+              identityLinks={controller.identityLinks}
+            />
+          ) : null}
         </>
       ) : classification === 'npc' && candidate.subject.kind === 'npc-card' ? (
         <NetGmNpcNetworkIdentityControl
@@ -559,16 +1092,6 @@ function PersonaDetail({
       ) : null}
 
       <div className="net-persona-control__detail-actions" aria-busy={controller.changing}>
-        <button
-          type="button"
-          className="net-persona-control__inspect"
-          disabled={controller.changing || !summaryReady}
-          aria-pressed={currentMode === 'inspect' || localInspect}
-          onClick={() => onAction('inspect')}
-        >
-          <Eye size={14} />
-          {inspectPending ? 'INSPECTING…' : currentMode === 'inspect' || localInspect ? 'INSPECTING' : 'INSPECT'}
-        </button>
         {canActAs ? (
           <button
             type="button"
@@ -582,29 +1105,16 @@ function PersonaDetail({
           </button>
         ) : null}
         {canTakeControl ? (
-          <>
-            <button
-              type="button"
-              className="net-persona-control__take-control"
-              disabled={controller.changing || currentMode === 'take-control'}
-              aria-pressed={currentMode === 'take-control'}
-              onClick={onRequestTakeControl}
-            >
-              <Laptop size={14} />
-              {controlPending ? 'ENTERING…' : currentMode === 'take-control' ? 'CONTROL ACTIVE' : 'TAKE CONTROL'}
-            </button>
-            <button
-              type="button"
-              className="net-persona-control__compromise"
-              disabled={controller.changing || controller.session?.mode === 'take-control'}
-              aria-pressed={currentMode === 'compromised-session'}
-              title="Compromised PULSE session only"
-              onClick={onRequestCompromise}
-            >
-              <ShieldAlert size={14} />
-              {compromisePending ? 'STARTING…' : currentMode === 'compromised-session' ? 'PULSE CONTROL ACTIVE' : 'PULSE CONTROL'}
-            </button>
-          </>
+          <button
+            type="button"
+            className="net-persona-control__take-control"
+            disabled={controller.changing || currentMode === 'take-control'}
+            aria-pressed={currentMode === 'take-control'}
+            onClick={onRequestTakeControl}
+          >
+            <Laptop size={14} />
+            {controlPending ? 'ENTERING…' : currentMode === 'take-control' ? 'CONTROL ACTIVE' : 'TAKE CONTROL'}
+          </button>
         ) : null}
       </div>
       {confirmingTakeControl && summaryReady ? (
@@ -644,43 +1154,6 @@ function PersonaDetail({
           </div>
         </section>
       ) : null}
-      {confirmingCompromise && summaryReady ? (
-        <section
-          className="net-persona-control__compromise-confirm"
-          data-kind="pulse-control"
-          role="alertdialog"
-          aria-labelledby="net-persona-compromise-title"
-          aria-describedby="net-persona-compromise-detail"
-        >
-          <div>
-            <strong id="net-persona-compromise-title">START PULSE CONTROL</strong>
-            <span>COMPROMISED PULSE SESSION ONLY</span>
-          </div>
-          <p id="net-persona-compromise-detail">
-            This separate narrative session can publish PULSE posts and replies through {candidate.displayName}'s existing account. It does not switch operating systems or grant general identity control.
-          </p>
-          <div>
-            <button
-              type="button"
-              className="net-persona-control__take-control-confirm net-persona-control__take-control-confirm--compromise"
-              autoFocus
-              disabled={controller.changing}
-              onClick={() => onAction('compromised-session')}
-            >
-              <ShieldAlert size={14} />
-              {compromisePending ? 'STARTING…' : 'START PULSE CONTROL'}
-            </button>
-            <button
-              type="button"
-              className="net-persona-control__take-control-cancel"
-              disabled={controller.changing}
-              onClick={onCancelCompromise}
-            >
-              CANCEL
-            </button>
-          </div>
-        </section>
-      ) : null}
       <p className="net-persona-control__authoring-note">
         {currentMode === 'take-control'
           ? classification === 'npc'
@@ -690,7 +1163,7 @@ function PersonaDetail({
           ? 'Compromised authority is limited to audited PULSE posts and replies.'
           : 'Persona context is read-only. Application content authoring remains unavailable.'}
       </p>
-      {currentMode || localInspect ? (
+      {currentMode ? (
         <NetGmRemoteSystemSnapshot
           authenticatedProfileId={authenticatedProfileId}
           identityLinkId={snapshotIdentityLinkId}
@@ -713,8 +1186,6 @@ export function NetGmPersonaSettings({
   const [pending, setPending] = useState<PendingPersonaAction | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [takeControlKey, setTakeControlKey] = useState<string | null>(null)
-  const [compromiseKey, setCompromiseKey] = useState<string | null>(null)
-  const [localInspectKey, setLocalInspectKey] = useState<string | null>(null)
   const [detailRequestVersion, setDetailRequestVersion] = useState(0)
   const detailForceKeyRef = useRef<string | null>(null)
   const [detailState, setDetailState] = useState<PersonaDetailLoadState | null>(null)
@@ -730,8 +1201,6 @@ export function NetGmPersonaSettings({
     setPending(null)
     setActionError(null)
     setTakeControlKey(null)
-    setCompromiseKey(null)
-    setLocalInspectKey(null)
   }, [authenticatedProfileId])
 
   useEffect(() => {
@@ -820,13 +1289,6 @@ export function NetGmPersonaSettings({
   ) => {
     if (candidate.subject.kind === 'character') return
     const key = subjectKey(candidate.subject)
-    if (mode === 'inspect' && controller.session?.mode === 'take-control') {
-      setSelectedKey(key)
-      setLocalInspectKey(key)
-      setTakeControlKey(null)
-      setCompromiseKey(null)
-      return
-    }
     setActionError(null)
     setPending({ key, mode })
     try {
@@ -836,8 +1298,6 @@ export function NetGmPersonaSettings({
       if (succeeded) {
         setSelectedKey(key)
         setTakeControlKey(null)
-        setCompromiseKey(null)
-        setLocalInspectKey(null)
       } else {
         setActionError('The persona mutation was not confirmed. Review the server error and retry.')
       }
@@ -977,8 +1437,6 @@ export function NetGmPersonaSettings({
                 onSelect={() => {
                   setSelectedKey(subjectKey(candidate.subject))
                   setTakeControlKey(null)
-                  setCompromiseKey(null)
-                  setLocalInspectKey(null)
                 }}
               />
             ))}
@@ -1000,8 +1458,6 @@ export function NetGmPersonaSettings({
                 onSelect={() => {
                   setSelectedKey(subjectKey(candidate.subject))
                   setTakeControlKey(null)
-                  setCompromiseKey(null)
-                  setLocalInspectKey(null)
                 }}
               />
             ))}
@@ -1013,6 +1469,7 @@ export function NetGmPersonaSettings({
           <PersonaDetail
             authenticatedProfileId={authenticatedProfileId}
             candidate={hydratedSelectedCandidate}
+            candidates={supportedCandidates}
             classification={classifyPersonaIdentity(hydratedSelectedCandidate, controller.identityLinks)}
             controller={controller}
             pending={pending}
@@ -1020,10 +1477,6 @@ export function NetGmPersonaSettings({
             confirmingTakeControl={takeControlKey === subjectKey(hydratedSelectedCandidate.subject)}
             onRequestTakeControl={() => setTakeControlKey(subjectKey(hydratedSelectedCandidate.subject))}
             onCancelTakeControl={() => setTakeControlKey(null)}
-            confirmingCompromise={compromiseKey === subjectKey(hydratedSelectedCandidate.subject)}
-            onRequestCompromise={() => setCompromiseKey(subjectKey(hydratedSelectedCandidate.subject))}
-            onCancelCompromise={() => setCompromiseKey(null)}
-            localInspect={localInspectKey === subjectKey(hydratedSelectedCandidate.subject)}
             detailState={detailState}
             onRetryDetail={() => {
               setDetailState({

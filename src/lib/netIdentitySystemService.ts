@@ -7,6 +7,7 @@ import {
   type WallpaperFit,
   type WallpaperPosition,
 } from './netWallpaperStore'
+import { isNetOsId, type NetOsId } from './netOsTypes'
 import { supabase, SUPABASE_CONFIG_ERROR } from './supabase'
 import { optimizeImage } from './media/imageOptimization'
 import {
@@ -139,6 +140,28 @@ async function createWallpaperSignedUrl(path: string): Promise<string> {
   return request
 }
 
+/**
+ * A wallpaper failure (e.g. the stored object was deleted) must never abort
+ * the rest of the system snapshot -- installed apps and every other field
+ * still need to load. Callers see a plain `null`, which the OS shell already
+ * renders as its default wallpaper.
+ */
+async function resolveIdentitySystemWallpaper(
+  profile: NetIdentitySystemProfileRow | null,
+): Promise<NetIdentitySystemWallpaper | null> {
+  if (!profile?.wallpaper_path) return null
+  try {
+    return {
+      path: profile.wallpaper_path,
+      signedUrl: await createWallpaperSignedUrl(profile.wallpaper_path),
+      fit: profile.wallpaper_fit,
+      position: profile.wallpaper_position,
+    }
+  } catch {
+    return null
+  }
+}
+
 async function fetchSystemSnapshot(
   identityLinkId: string,
   rpcName: 'fetch_net_runtime_identity_system' | 'fetch_net_gm_inspected_identity_system',
@@ -154,14 +177,7 @@ async function fetchSystemSnapshot(
   }
   const profile = payload.profile
   const installedOptionalAppIds = payload.installs
-  const wallpaper = profile?.wallpaper_path
-    ? {
-        path: profile.wallpaper_path,
-        signedUrl: await createWallpaperSignedUrl(profile.wallpaper_path),
-        fit: profile.wallpaper_fit,
-        position: profile.wallpaper_position,
-      }
-    : null
+  const wallpaper = await resolveIdentitySystemWallpaper(profile)
 
   return {
     identityLinkId: normalizedLinkId,
@@ -185,6 +201,56 @@ export function fetchNetIdentitySystemForInspection(
   identityLinkId: string,
 ): Promise<NetIdentitySystemSnapshot> {
   return fetchSystemSnapshot(identityLinkId, 'fetch_net_gm_inspected_identity_system')
+}
+
+export interface NetSystemHackingTargetSystemSnapshot extends NetIdentitySystemSnapshot {
+  readonly displayName: string
+  readonly osId: NetOsId | null
+}
+
+/**
+ * Read-only system shell (wallpaper + installed-app-id list) for the
+ * identity currently compromised by this actor's own active hacking
+ * session. No identityLinkId parameter -- actor and target are both
+ * resolved server-side from net_system_hacking_sessions, never
+ * client-supplied. Individual apps are not projected here; only the
+ * same narrow snapshot fetch_net_gm_inspected_identity_system already
+ * safely provides for a GM's own compromised context.
+ */
+export async function fetchNetSystemHackingTargetSystem(): Promise<NetSystemHackingTargetSystemSnapshot> {
+  const { data, error } = await client().rpc('fetch_net_system_hacking_target_system')
+  if (error) throw new Error(`The compromised system could not be loaded: ${error.message}`)
+  if (!isRecord(data)) throw new Error('Invalid compromised system response.')
+
+  const displayName = data.display_name
+  const osId = data.os_id
+  if (typeof displayName !== 'string' || !displayName) {
+    throw new Error('Invalid compromised system field: display_name')
+  }
+  if (osId !== null && !isNetOsId(osId)) {
+    throw new Error('Invalid compromised system field: os_id')
+  }
+
+  const payload = parseSystemPayload(data)
+  const profile = payload.profile
+  const wallpaper = profile?.wallpaper_path
+    ? {
+        path: profile.wallpaper_path,
+        signedUrl: await createWallpaperSignedUrl(profile.wallpaper_path),
+        fit: profile.wallpaper_fit,
+        position: profile.wallpaper_position,
+      }
+    : null
+
+  return {
+    identityLinkId: payload.identityLinkId,
+    installedOptionalAppIds: payload.installs,
+    wallpaper,
+    wallpaperPresetId: profile?.wallpaper_preset_id ?? null,
+    updatedAt: profile?.updated_at ?? null,
+    displayName,
+    osId,
+  }
 }
 
 export async function setNetIdentityAppInstalled(

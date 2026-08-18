@@ -268,11 +268,7 @@ export async function listArchiveProfiles() {
     'listArchiveProfiles',
     { functionName: 'listArchiveProfiles', table: 'profiles' },
     async () => {
-      const { data, error } = await client
-        .from('profiles')
-        .select('id, email, display_name, handle, role')
-        .order('display_name', { ascending: true })
-        .limit(500)
+      const { data, error } = await client.rpc('fetch_net_gm_archive_profile_directory')
 
       if (error) {
         throw error

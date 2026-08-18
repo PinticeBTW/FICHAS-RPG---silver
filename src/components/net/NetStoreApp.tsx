@@ -162,7 +162,7 @@ export function NetStoreApp({
 }: NetStoreAppProps) {
   const [view, setView] = useState<StoreView>('featured')
   const [query, setQuery] = useState('')
-  const [selectedId, setSelectedId] = useState<NetAppId>('echo')
+  const [selectedId, setSelectedId] = useState<NetAppId>('pulse')
   const [pendingUninstallId, setPendingUninstallId] = useState<NetOptionalAppId | null>(null)
   const normalizedQuery = query.trim().toLocaleLowerCase()
   const installedSet = useMemo(() => new Set(installedAppIds), [installedAppIds])
@@ -187,7 +187,7 @@ export function NetStoreApp({
 
   const effectiveSelectedId = visibleApps.some((app) => app.id === selectedId)
     ? selectedId
-    : visibleApps[0]?.id ?? 'echo'
+    : visibleApps[0]?.id ?? 'pulse'
   const selectedApp = scopedCatalog.find((app) => app.id === effectiveSelectedId) ?? scopedCatalog[0]
   const SelectedIcon = selectedApp.icon
 
@@ -268,19 +268,6 @@ export function NetStoreApp({
         </header>
 
         <div className="net-store__catalogue-body">
-          {!normalizedQuery && view === 'featured' ? (
-            <button
-              type="button"
-              className="net-store__featured"
-              data-selected={selectedApp.id === 'echo' ? 'true' : 'false'}
-              onClick={() => setSelectedId('echo')}
-            >
-              <strong>ECHO</strong>
-              <p>Local context, nearby moments, and the Resonance layer.</p>
-              <small>Inspection available <ExternalLink size={13} aria-hidden="true" /></small>
-            </button>
-          ) : null}
-
           <div className="net-store__list" aria-label="Catalogue applications">
             {visibleApps.map((app) => {
               const Icon = app.icon

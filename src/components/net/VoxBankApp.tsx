@@ -63,6 +63,8 @@ function yieldRateLabel(rateBasisPoints: number, periodSeconds: number): string 
 }
 
 function activityLabel(activity: NetVoxBankActivity): string {
+  if (activity.transactionKind === 'gm-credit') return 'Authorized bank credit'
+  if (activity.transactionKind === 'gm-debit') return 'Authorized bank debit'
   if (activity.transactionKind === 'bank-deposit') return 'Deposit from VLT'
   if (activity.transactionKind === 'bank-withdrawal') return 'Withdrawal to VLT'
   if (activity.transactionKind === 'bank-transfer') {
@@ -161,6 +163,7 @@ function VoxBankActivityList({ items }: { readonly items: readonly NetVoxBankAct
             </span>
             <div>
               <strong>{activityLabel(activity)}</strong>
+              {activity.note ? <small>{activity.note}</small> : null}
               {activity.counterpartyPaymentIdentifier ? <small>@{activity.counterpartyPaymentIdentifier}</small> : null}
               <time>{new Date(activity.createdAt).toLocaleString()}</time>
             </div>

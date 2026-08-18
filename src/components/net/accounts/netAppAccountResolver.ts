@@ -1,7 +1,6 @@
 import { getNetAppDefinition, type NetAppId } from '../netAppCatalog'
 import type { NetResolvedIdentity } from '../identity/netIdentityTypes'
 import { netAppAccountPolicies } from './netAppAccountPolicies'
-import { netAppAccountSeeds } from './netAppAccountSeeds'
 import {
   createTransientAppAccountCandidate,
   getNetAppAccount,
@@ -72,12 +71,12 @@ export function resolveNetAppAccount(
 
   const primaryOwner = getNetAppAccountOwnerForIdentity(input.identity)
   const account = getNetAppAccount(
-    input.accounts ?? netAppAccountSeeds,
+    input.accounts ?? [],
     input.appId,
     primaryOwner,
   ) ?? (input.identity.identityLinkId && input.identity.worldEntityId
     ? getNetAppAccount(
-        input.accounts ?? netAppAccountSeeds,
+        input.accounts ?? [],
         input.appId,
         { type: 'entity', entityId: input.identity.worldEntityId },
       )

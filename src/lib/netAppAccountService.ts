@@ -6,8 +6,7 @@ import type {
 import { normalizeNetHandle } from '../components/net/accounts/netAppAccountSelectors'
 import { supabase, SUPABASE_CONFIG_ERROR } from './supabase'
 
-export type NetAutomaticAccountAppId = 'iden'
-export type NetExplicitAccountAppId = 'echo' | 'pulse' | 'loop'
+export type NetExplicitAccountAppId = 'pulse' | 'loop'
 
 interface NetAppAccountRow {
   readonly id: string
@@ -118,21 +117,6 @@ export async function fetchNetAppAccount(
 ): Promise<NetAppAccount | null> {
   const accounts = await fetchNetAppAccountsForIdentity(identityLinkId)
   return accounts.find((account) => account.appId === appId) ?? null
-}
-
-/** The RPC derives auth.uid(), verifies identity control, and provisions IDEN only. */
-export async function ensureAutomaticNetAppAccount(
-  identityLinkId: string,
-  appId: NetAutomaticAccountAppId,
-): Promise<NetAppAccount> {
-  const normalizedLinkId = assertIdentityLinkId(identityLinkId)
-  const { data, error } = await client().rpc('ensure_net_app_account', {
-    requested_identity_link_id: normalizedLinkId,
-    requested_app_id: appId,
-  })
-
-  if (error) throw new Error(`${appId.toUpperCase()} account could not be provisioned: ${error.message}`)
-  return parseNetAppAccount(Array.isArray(data) ? data[0] : data)
 }
 
 /** Explicit creation never accepts an owner profile or any GM-authority claim. */

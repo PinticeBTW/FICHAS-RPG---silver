@@ -5,6 +5,7 @@ import { AltaraOsGateway } from '../components/net/AltaraOsGateway'
 import { VeilEarlyAccessGate } from '../components/net/VeilEarlyAccessGate'
 import { useNetActiveIdentitySession } from '../components/net/identity/useNetActiveIdentitySession'
 import { useNetPlayableIdentityCandidates } from '../components/net/identity/useNetPlayableIdentityCandidates'
+import { useNetSystemHackingRuntime } from '../components/net/system/useNetSystemHackingRuntime'
 import { useAuth } from '../hooks/useAuth'
 import { NET_ACTIVE_IDENTITY_CHANGED_EVENT } from '../lib/netIdentityService'
 import { NET_GM_CONTROL_CHANGED_EVENT } from '../lib/netGmPersonaService'
@@ -139,6 +140,7 @@ function ResolutionScreen({ error, onRetry }: { readonly error?: string; readonl
 export function NetOsEntryPage() {
   const { profile, loading: authLoading } = useAuth()
   const profileId = profile?.id
+  const hacking = useNetSystemHackingRuntime(profileId)
   const [requestVersion, setRequestVersion] = useState(0)
   const [state, setState] = useState<ResolutionState>({ status: 'loading' })
   const [showIdentityPicker, setShowIdentityPicker] = useState(false)
@@ -283,7 +285,21 @@ export function NetOsEntryPage() {
   if (state.session.actorMode === 'player' && !state.session.primaryOsId) {
     return <IdentitySelectionGate profile={profile} />
   }
-  if (state.session.effectiveOsId === 'altara') {
+
+  // Full runtime-takeover parity: while a player's own hacking session is
+  // both active and "entered", the OS actually mounted follows the
+  // hacking TARGET's operating system, not the actor's own home OS --
+  // never overridden for GM/TAKE CONTROL sessions, which already have
+  // their own, unrelated OS routing. osSession itself is passed through
+  // completely unchanged below (never Adrian's selected character, never
+  // a GM persona session): AltaraOsGateway / NetHubPage each independently
+  // resolve the same hacking projection internally to decide whose data
+  // to render inside whichever shell this selects.
+  const mountedOsId = state.session.actorMode === 'player' && hacking.mounted && hacking.session?.active
+    ? hacking.session.targetOsId ?? state.session.effectiveOsId
+    : state.session.effectiveOsId
+
+  if (mountedOsId === 'altara') {
     return (
       <AltaraOsGateway
         osSession={state.session}

@@ -38,11 +38,11 @@ const TEMPLATE_URLS: Record<string, string> = {
 const KARMA_FIELD_ALIASES = ['KARMA', 'Karma', 'karma', 'K4rma', 'K4RMA'] as const
 const SHEET_MONEY_SOURCE_STORAGE_PREFIX = 'rpgsilver-sheet-money-source:'
 
-type SheetMoneySourceId = 'vlt' | 'vox-bank' | 'shneider-bank' | 'altara-bank'
+type SheetMoneySourceId = 'vlt' | 'vox-bank' | 'shneider-bank' | 'altara-funds' | 'altara-bank' | 'nova-bank'
 
 interface SheetMoneySourcePresentation {
   readonly id: SheetMoneySourceId
-  readonly label: 'CASH' | 'VOX BANK' | 'SHNEIDER' | 'ALTARA BANK'
+  readonly label: 'CASH' | 'VOX BANK' | 'SHNEIDER' | 'FUNDS' | 'ALTARA BANK' | 'NOVA BANK'
   readonly value: string
   readonly available: boolean
   readonly status: 'ready' | 'loading' | 'error' | 'unavailable'
@@ -64,7 +64,13 @@ function readStoredMoneySource(storageKey: string): SheetMoneySourceId {
   if (!storageKey || typeof window === 'undefined') return 'vlt'
   try {
     const stored = window.localStorage.getItem(storageKey)
-    return stored === 'vox-bank' || stored === 'shneider-bank' ? stored : 'vlt'
+    return stored === 'vox-bank'
+      || stored === 'shneider-bank'
+      || stored === 'altara-funds'
+      || stored === 'altara-bank'
+      || stored === 'nova-bank'
+      ? stored
+      : 'vlt'
   } catch {
     return 'vlt'
   }
@@ -1464,14 +1470,14 @@ function TemplatePdfPage({
               moneySource.status === 'error' ? 'text-rose-200' : 'text-white/70'
             }`}
             style={{
-              fontSize: moneySource.id === 'vlt' || moneySource.id === 'altara-bank'
+              fontSize: moneySource.id === 'vlt' || moneySource.id === 'altara-funds'
                 ? 'calc(18px * var(--sheet-scale, 1))'
                 : moneySource.id === 'vox-bank'
                   ? 'calc(12px * var(--sheet-scale, 1))'
                   : 'calc(9px * var(--sheet-scale, 1))',
             }}
           >
-            {moneySource.label}{moneySource.id === 'altara-bank' ? '' : ':'}
+            {moneySource.label}{moneySource.id === 'altara-bank' || moneySource.id === 'altara-funds' ? '' : ':'}
           </span>
           <span
             className="pointer-events-none absolute inset-y-0 left-[55%] z-10 w-px bg-white/70"
@@ -1983,22 +1989,57 @@ export function PdfSheetEditor({
 
     if (sheetEconomy.payload?.primaryOsId === 'altara') {
       const altaraAccount = sheetEconomy.payload.altaraBank
+      const novaAccount = sheetEconomy.payload.novaBank
       const currency = sheetEconomy.payload.homeCurrency
-      const currencyLabel = currency
-        ? (altaraAccount?.balanceAmount === 1 ? currency.singularLabel : currency.pluralLabel)
+      const total = sheetEconomy.payload.altaraFundsTotal
+      const activeAccounts = [altaraAccount, novaAccount].filter(Boolean)
+      const currencyLabel = currency && total !== null
+        ? (total === 1 ? currency.singularLabel : currency.pluralLabel)
         : ''
-      return [{
-        id: 'altara-bank',
-        label: 'ALTARA BANK',
-        value: altaraAccount ? `${altaraAccount.balanceAmount} ${currencyLabel}` : '—',
-        available: Boolean(altaraAccount),
-        status: altaraAccount ? 'ready' : 'unavailable',
-        title: altaraAccount
-          ? `Read-only ${currency?.displayName ?? 'home-currency'} balance from ALTARA BANK. New Vega VG remains separate.`
+      const accountLabel = (balance: number) => balance === 1
+        ? currency?.singularLabel ?? ''
+        : currency?.pluralLabel ?? ''
+      const breakdown = [
+        altaraAccount
+          ? `ALTARA BANK — ${altaraAccount.balanceAmount} ${accountLabel(altaraAccount.balanceAmount)}`
+          : null,
+        novaAccount
+          ? `NOVA BANK — ${novaAccount.balanceAmount} ${accountLabel(novaAccount.balanceAmount)}`
+          : null,
+      ].filter((value): value is string => Boolean(value)).join(' · ')
+      const sources: SheetMoneySourcePresentation[] = [{
+        id: 'altara-funds',
+        label: 'FUNDS',
+        value: currency && total !== null && activeAccounts.length ? `${total} ${currencyLabel}` : '—',
+        available: Boolean(currency && activeAccounts.length),
+        status: currency && activeAccounts.length ? 'ready' : 'unavailable',
+        title: breakdown
+          ? `Read-only active ${currency?.displayName ?? 'home-currency'} funds. ${breakdown}. Use GM Finance Control for explicit institution adjustments.`
           : currency
-            ? `No active ALTARA BANK ${currency.currencyCode} account is available.`
+            ? `No active ALTARA financial account exists in ${currency.displayName}.`
             : 'Currency assignment required. Silver must set a home currency.',
       }]
+      if (altaraAccount) {
+        sources.push({
+          id: 'altara-bank',
+          label: 'ALTARA BANK',
+          value: `${altaraAccount.balanceAmount} ${accountLabel(altaraAccount.balanceAmount)}`,
+          available: true,
+          status: 'ready',
+          title: 'ALTARA BANK component of FUNDS. Use Finance Control to adjust this exact account.',
+        })
+      }
+      if (novaAccount) {
+        sources.push({
+          id: 'nova-bank',
+          label: 'NOVA BANK',
+          value: `${novaAccount.balanceAmount} ${accountLabel(novaAccount.balanceAmount)}`,
+          available: true,
+          status: 'ready',
+          title: 'NOVA BANK component of FUNDS. Use Finance Control to adjust this exact account.',
+        })
+      }
+      return sources
     }
 
     const voxAccount = sheetEconomy.payload?.voxBank ?? null

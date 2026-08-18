@@ -11,6 +11,7 @@ import { getNetOsLabel, netOsOptions, type NetOsId } from '../../../lib/netOsTyp
 import { getNetIdentitySubjectId } from './netIdentitySelectors'
 import type { NetPlayableIdentityCandidate } from './netIdentityTypes'
 import type { NetGmPersonaController } from './useNetGmPersona'
+import { NetGmFinanceControl } from './NetGmFinanceControl'
 import '../../../styles/netGmEnvironment.css'
 
 interface NetGmSystemEnvironmentControlProps {
@@ -117,7 +118,8 @@ export function NetGmSystemEnvironmentControl({
   }
 
   return (
-    <section className="net-gm-environment" aria-labelledby="net-gm-environment-title">
+    <>
+      <section className="net-gm-environment" aria-labelledby="net-gm-environment-title">
       <header>
         <span><Laptop size={16} aria-hidden="true" /></span>
         <div>
@@ -207,7 +209,9 @@ export function NetGmSystemEnvironmentControl({
         </div>
       ) : null}
 
-      {error || controller.error ? <p className="net-gm-environment__error" role="alert">{error ?? controller.error}</p> : null}
-    </section>
+        {error || controller.error ? <p className="net-gm-environment__error" role="alert">{error ?? controller.error}</p> : null}
+      </section>
+      {controller.state.status === 'none' ? <NetGmFinanceControl /> : null}
+    </>
   )
 }

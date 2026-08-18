@@ -5,6 +5,7 @@ import {
   ChevronRight,
   Globe2,
   LoaderCircle,
+  LogOut,
   MessageSquarePlus,
   MessagesSquare,
   Plus,
@@ -12,6 +13,7 @@ import {
   Search,
   Send,
   ShieldCheck,
+  Trash2,
   UserPlus,
   Users,
   X,
@@ -93,10 +95,9 @@ function RecipientSearch({
   const [error, setError] = useState<string | null>(null)
   const requestRef = useRef(0)
 
-  const submit = async (event?: FormEvent) => {
-    event?.preventDefault()
+  const submit = async () => {
     const trimmed = query.trim()
-    if (trimmed.length < 2 || pending) return
+    if (trimmed.length < 2 || pending || status === 'loading') return
     requestRef.current += 1
     const request = requestRef.current
     setStatus('loading')
@@ -115,20 +116,30 @@ function RecipientSearch({
 
   return (
     <div className="altara-messenger-directory">
-      <form onSubmit={(event) => { void submit(event) }} role="search">
+      {/* A plain, non-<form> search bar: this component is mounted inside the
+          CREATE GROUP <form>, and a nested <form> there let Enter/SEARCH
+          bubble into and trigger the outer form's native submission (full
+          page reload). Click and Enter both route through the same submit()
+          call instead of relying on form-submit semantics. */}
+      <div className="altara-messenger-search-bar" role="search">
         <Search size={15} aria-hidden="true" />
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
+            if (event.key !== 'Enter') return
+            event.preventDefault()
+            void submit()
+          }}
           placeholder="Search ALTARA identities"
           aria-label="Search ALTARA Messenger identities"
           minLength={2}
           maxLength={80}
         />
-        <button type="submit" disabled={pending || status === 'loading' || query.trim().length < 2}>
+        <button type="button" disabled={pending || status === 'loading' || query.trim().length < 2} onClick={() => { void submit() }}>
           {status === 'loading' ? <LoaderCircle className="altara-messenger-spin" size={15} aria-hidden="true" /> : 'SEARCH'}
         </button>
-      </form>
+      </div>
       {error ? <p className="altara-messenger-inline-error" role="alert">{error}</p> : null}
       {status === 'ready' && results.length === 0 ? <p className="altara-messenger-directory__empty">No eligible ALTARA identity found.</p> : null}
       <div className="altara-messenger-directory__results">
@@ -218,6 +229,8 @@ export function AltaraMessengerApp({
   const [manageGroup, setManageGroup] = useState(false)
   const [showConversationInfo, setShowConversationInfo] = useState(false)
   const [renameDraft, setRenameDraft] = useState('')
+  const [confirmLeave, setConfirmLeave] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const timelineRef = useRef<HTMLDivElement>(null)
   const stayAtBottomRef = useRef(true)
 
@@ -270,6 +283,7 @@ export function AltaraMessengerApp({
   const identity = messenger.session.identity
   const currentConversation = readyConversation?.conversation
   const groupOwner = currentConversation?.kind === 'group' && currentConversation.role === 'owner'
+  const groupNonOwnerMember = currentConversation?.kind === 'group' && currentConversation.role !== 'owner'
   const existingMemberIds = currentConversation?.members.map((member) => member.identity.identityLinkId) ?? []
 
   const chooseDirect = async (recipient: NetAltaraMessengerIdentity) => {
@@ -291,6 +305,27 @@ export function AltaraMessengerApp({
       setGroupMembers([])
     } catch {
       // The hook exposes the authoritative failure.
+    }
+  }
+
+  const confirmLeaveGroup = async () => {
+    if (!currentConversation) return
+    try {
+      await messenger.leaveGroup(currentConversation.conversationId)
+      setConfirmLeave(false)
+    } catch {
+      // The hook exposes the authoritative failure via messenger.actionError.
+    }
+  }
+
+  const confirmDeleteGroup = async () => {
+    if (!currentConversation) return
+    try {
+      await messenger.deleteGroup(currentConversation.conversationId)
+      setConfirmDelete(false)
+      setManageGroup(false)
+    } catch {
+      // The hook exposes the authoritative failure via messenger.actionError.
     }
   }
 
@@ -341,6 +376,8 @@ export function AltaraMessengerApp({
                 setFlow(null)
                 setManageGroup(false)
                 setShowConversationInfo(false)
+                setConfirmLeave(false)
+                setConfirmDelete(false)
                 messenger.selectConversation(conversation.conversationId)
               }}
             />
@@ -503,8 +540,44 @@ export function AltaraMessengerApp({
                     mode="direct"
                     onChoose={(recipient) => { void messenger.addGroupMembers(currentConversation.conversationId, [recipient.identityLinkId]).catch(() => {}) }}
                   />
+                  <div className="altara-messenger-danger-zone">
+                    {!confirmDelete ? (
+                      <button type="button" className="altara-messenger-danger" disabled={messenger.actionPending} onClick={() => setConfirmDelete(true)}>
+                        <Trash2 size={14} aria-hidden="true" /> DELETE GROUP
+                      </button>
+                    ) : (
+                      <div className="altara-messenger-confirm" role="alertdialog" aria-label="Confirm group deletion">
+                        <p>Permanently delete <strong>{currentConversation.title}</strong> and its conversation history for everyone? This cannot be undone.</p>
+                        <div>
+                          <button type="button" disabled={messenger.actionPending} onClick={() => setConfirmDelete(false)}>CANCEL</button>
+                          <button type="button" className="altara-messenger-danger" disabled={messenger.actionPending} onClick={() => { void confirmDeleteGroup() }}>
+                            {messenger.actionPending ? 'DELETING…' : 'CONFIRM DELETE'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ) : null}
+            </section>
+          ) : null}
+          {groupNonOwnerMember ? (
+            <section className="altara-messenger-manage altara-messenger-danger-zone">
+              {!confirmLeave ? (
+                <button type="button" className="altara-messenger-danger" disabled={messenger.actionPending} onClick={() => setConfirmLeave(true)}>
+                  <LogOut size={14} aria-hidden="true" /> LEAVE GROUP
+                </button>
+              ) : (
+                <div className="altara-messenger-confirm" role="alertdialog" aria-label="Confirm leaving group">
+                  <p>Leave <strong>{currentConversation.title}</strong>? You will no longer see its messages or membership.</p>
+                  <div>
+                    <button type="button" disabled={messenger.actionPending} onClick={() => setConfirmLeave(false)}>CANCEL</button>
+                    <button type="button" className="altara-messenger-danger" disabled={messenger.actionPending} onClick={() => { void confirmLeaveGroup() }}>
+                      {messenger.actionPending ? 'LEAVING…' : 'CONFIRM LEAVE'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </section>
           ) : null}
           <footer><ShieldCheck size={14} aria-hidden="true" /><span>ALTARA NETWORK<br /><small>SERVER VERIFIED</small></span></footer>

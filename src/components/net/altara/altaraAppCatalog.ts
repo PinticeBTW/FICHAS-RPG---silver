@@ -11,8 +11,10 @@ export type AltaraAppId =
   | 'altara-messenger'
   | 'altara-store'
   | 'altara-bank'
+  | 'nova-bank'
   | 'altara-news'
   | 'altara-music'
+  | 'altara-wave'
   | 'altara-settings'
 
 export type AltaraAppStatus = 'functional' | 'placeholder' | 'system'
@@ -39,8 +41,10 @@ const altaraAppIds = [
   'altara-messenger',
   'altara-store',
   'altara-bank',
+  'nova-bank',
   'altara-news',
   'altara-music',
+  'altara-wave',
   'altara-settings',
 ] as const satisfies readonly AltaraAppId[]
 

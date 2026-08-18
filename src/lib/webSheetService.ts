@@ -608,11 +608,9 @@ export async function listSheetProfiles(viewer: Profile) {
       logSupabaseFetch({ functionName: 'listSheetProfiles', table: 'profiles' })
 
       const [profilesResult, npcsResult] = await Promise.all([
-        client
-          .from('profiles')
-          .select('id, email, display_name, handle, role, avatar_url')
-          .order('display_name', { ascending: true })
-          .limit(500),
+        client.rpc(viewer.role === 'gm'
+          ? 'fetch_net_gm_sheet_profile_directory'
+          : 'fetch_net_player_sheet_profile_directory'),
         listNpcCards(client),
       ])
 
