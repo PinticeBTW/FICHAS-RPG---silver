@@ -310,7 +310,9 @@ function MusicReader({
         </header>
         {detail.kind === 'artist' && detail.value.releases.length ? (
           <CollectionRail title="RELEASES">
-            {detail.value.releases.map((release) => <button type="button" key={release.id} className="altara-music-cover-card" onClick={() => { void music.openRelease(release.id) }}><Artwork source={release.coverRef} label={release.title} /><strong>{release.title}</strong><small>{release.releaseType.toUpperCase()}</small></button>)}
+            <div className="altara-music-cover-grid altara-music-cover-grid--releases">
+              {detail.value.releases.map((release) => <button type="button" key={release.id} className="altara-music-cover-card" onClick={() => { void music.openRelease(release.id) }}><Artwork source={release.coverRef} label={release.title} /><strong>{release.title}</strong><small>{release.releaseType.toUpperCase()}{release.releaseDate ? ` · ${release.releaseDate}` : ''}</small></button>)}
+            </div>
           </CollectionRail>
         ) : null}
         <TrackList

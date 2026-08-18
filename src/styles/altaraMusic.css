@@ -83,6 +83,7 @@
 .altara-music-cover-card strong { overflow: hidden; font-size: 0.7rem; text-overflow: ellipsis; white-space: nowrap; transition: color 140ms ease; }
 .altara-music-cover-card small { overflow: hidden; color: var(--music-muted); font-size: 0.52rem; text-overflow: ellipsis; white-space: nowrap; }
 .altara-music-cover-grid--artists .altara-music-cover-card { text-align: center; }
+.altara-music-cover-grid--releases { grid-template-columns: repeat(auto-fill, minmax(180px, 230px)); }
 
 .altara-music-track-list { border-top: 1px solid var(--music-line-soft); }
 .altara-music-track-list article { display: grid; min-width: 0; min-height: 56px; grid-template-columns: 30px 42px minmax(120px, 1.4fr) minmax(90px, 0.9fr) 28px minmax(86px, auto) 42px; align-items: center; gap: 10px; padding: 7px 3px; border-bottom: 1px solid var(--music-line-soft); }
