@@ -30,7 +30,7 @@ export const netEvents: readonly NetEvent[] = [
     participantOrganisationIds: ['org-lucid'],
     status: 'reported',
     aliases: ['Unexplained resonance spike'],
-    topicTags: ['ECHO', 'Resonance'],
+    topicTags: ['Resonance'],
   },
   {
     id: 'event-nvps-drone-patrol-expansion',

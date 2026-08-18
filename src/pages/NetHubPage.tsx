@@ -2,12 +2,10 @@ import {
   Activity,
   Bell,
   CircleUserRound,
-  Fingerprint,
   Grid2X2,
   Landmark,
   HeartPulse,
   LockKeyhole,
-  MapPin,
   Network,
   Newspaper,
   Radio,
@@ -15,7 +13,6 @@ import {
   Settings,
   ShieldCheck,
   WalletCards,
-  Waves,
   Wifi,
 } from 'lucide-react'
 
@@ -37,7 +34,9 @@ import { useNetCompromisedPulseSession } from '../components/net/useNetCompromis
 import { useNetUniversalProfile } from '../components/net/profile/useNetUniversalProfile'
 import { useNetIdentitySystem } from '../components/net/system/useNetIdentitySystem'
 import { useNetCompromisedIdentitySystem } from '../components/net/system/useNetCompromisedIdentitySystem'
+import { useNetSystemHackingRuntime } from '../components/net/system/useNetSystemHackingRuntime'
 import { NetGmSystemEnvironmentControl } from '../components/net/identity/NetGmSystemEnvironmentControl'
+import { NetSystemHackingBanner } from '../components/net/identity/NetSystemHackingBanner'
 import { applyUniversalNetProfilePresentation } from '../components/net/profile/netUniversalProfileResolver'
 import { useNetServerAppAccounts } from '../components/net/accounts/useNetServerAppAccounts'
 import { resolveNetAppAccount } from '../components/net/accounts/netAppAccountResolver'
@@ -46,19 +45,19 @@ import {
   getNetAppAccountOwnerKey,
 } from '../components/net/accounts/netAppAccountSelectors'
 import type { PulseProfileDraft } from '../components/net/pulseCurrentIdentity'
-import { isNetEchoContextChangedError } from '../lib/netEchoTypes'
 
 import { NetAppWindow } from '../components/net/NetAppWindow'
 import { SharedMediaImage } from '../components/shared/SharedMediaImage'
 import { NetLauncher, type NetLauncherApp } from '../components/net/NetLauncher'
-import { EchoApp } from '../components/net/EchoApp'
 import { PulseApp } from '../components/net/PulseApp'
-import { IdenApp } from '../components/net/IdenApp'
 import { VltApp } from '../components/net/VltApp'
 import { VoxBankApp } from '../components/net/VoxBankApp'
 import { ShneiderBankApp } from '../components/net/ShneiderBankApp'
 import { NvnApp } from '../components/net/NvnApp'
 import { NetStoreApp } from '../components/net/NetStoreApp'
+import { VoxAudioApp } from '../components/net/VoxAudioApp'
+import { VoxAudioAudioEngine } from '../components/net/VoxAudioAudioEngine'
+import { useVoxAudioPlayer } from '../components/net/useVoxAudioPlayer'
 import {
   getNetAppDefinition,
   isNetOptionalAppId,
@@ -134,13 +133,12 @@ const WALLPAPER_WINDOW: DefaultWindow = {
 }
 
 const WINDOW_IDS: readonly NetWindowId[] = [
-  'echo',
   'pulse',
-  'iden',
   'vlt',
   'vox-bank',
   'shneider-bank',
   'nvn',
+  'vox-audio',
   'net-store',
   'wallpaper',
 ]
@@ -169,13 +167,6 @@ function createDefaultRect(id: NetWindowId, bounds: NetDesktopBounds): NetWindow
 }
 
 const liveEvents = [
-  {
-    source: 'ECHO',
-    text: 'Resonance spike detected in Neon Row.',
-    time: 'NOW',
-    accentRgb: '178, 111, 255',
-  },
-
   {
     source: 'PULSE',
     text: '#District04 entered the citywide trend grid.',
@@ -215,10 +206,6 @@ export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSes
   )
   const refreshActiveIdentity = activeIdentitySession.refresh
   const refreshGmPersona = gmPersona.refresh
-  const handleEchoContextMismatch = useCallback(() => {
-    void refreshActiveIdentity()
-    void refreshGmPersona()
-  }, [refreshActiveIdentity, refreshGmPersona])
   const handlePulseContextMismatch = useCallback(() => {
     void refreshActiveIdentity()
     void refreshGmPersona()
@@ -230,13 +217,30 @@ export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSes
   const isCompromisedSystemMount = gmPersona.state.status === 'compromised'
   const isControlledSystemMount = osSession.controlMode === 'take-control'
   const isGmSystemMount = profile?.role === 'gm' && osSession.controlMode === 'system'
+  const hacking = useNetSystemHackingRuntime(profile?.id)
+  // Full runtime-takeover parity: a player (never GM/TAKE CONTROL/GM
+  // compromised-session -- those already have their own, higher-precedence
+  // identity source) whose own hacking session is both active and
+  // "entered" (ENTER SYSTEM clicked, not just credentialed) projects this
+  // whole OS onto the hacking target, exactly like TAKE CONTROL already
+  // projects it onto a GM's controlled identity.
+  const hackingSession = hacking.session
+  const hackedTarget = useMemo(
+    () => !isGmSystemMount && !isControlledSystemMount && !isCompromisedSystemMount
+      && hacking.mounted && hackingSession?.active
+      ? { identityLinkId: hackingSession.targetIdentityLinkId, osId: hackingSession.targetOsId }
+      : undefined,
+    [hacking.mounted, hackingSession, isCompromisedSystemMount, isControlledSystemMount, isGmSystemMount],
+  )
   const mountedSystemIdentityLinkId = isGmSystemMount
     ? undefined
     : isControlledSystemMount
     ? serverControlledIdentityLinkId
     : isCompromisedSystemMount
       ? gmPersona.state.identity.identityLinkId
-      : activeIdentitySession.activeIdentityLink?.id
+      : hackedTarget
+        ? hackedTarget.identityLinkId
+        : activeIdentitySession.activeIdentityLink?.id
   const identitySystem = useNetIdentitySystem(
     isCompromisedSystemMount ? undefined : mountedSystemIdentityLinkId,
   )
@@ -257,14 +261,16 @@ export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSes
   const controlledIdentityMatchesSession = isControlledSystemMount
     && gmPersona.state.status === 'controlled'
     && gmPersona.state.identity.identityLinkId === serverControlledIdentityLinkId
-  const isRemoteSystemMount = isCompromisedSystemMount || isControlledSystemMount
+  const isRemoteSystemMount = isCompromisedSystemMount || isControlledSystemMount || Boolean(hackedTarget)
   const runtimeSystemState = isCompromisedSystemMount
     ? gmTargetIdentitySystem.state
     : identitySystem.state
   const runtimeSystemIdentityName = isRemoteSystemMount
-    ? gmPersona.state.status === 'controlled' || gmPersona.state.status === 'compromised'
-      ? gmPersona.state.identity.displayName
-      : undefined
+    ? hackedTarget && hacking.targetIdentity?.status === 'ready'
+      ? hacking.targetIdentity.identity.displayName
+      : gmPersona.state.status === 'controlled' || gmPersona.state.status === 'compromised'
+        ? gmPersona.state.identity.displayName
+        : undefined
     : activeIdentity.status === 'ready'
       ? activeIdentity.identity.displayName
       : undefined
@@ -280,6 +286,20 @@ export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSes
   const mountedRuntimeAppIdentity = useMemo<NetActiveIdentityState>(() => {
     if (isGmSystemMount) {
       return { status: 'gm-no-persona', authenticatedProfileId: profile?.id ?? '' }
+    }
+    if (hackedTarget) {
+      if (hacking.targetIdentity?.status === 'ready') {
+        return {
+          status: 'ready',
+          authenticatedProfileId: profile?.id ?? '',
+          identity: hacking.targetIdentity.identity,
+          source: 'explicit',
+        }
+      }
+      if (hacking.targetIdentity?.status === 'error') {
+        return { status: 'error', reason: hacking.targetIdentity.reason }
+      }
+      return { status: 'loading' }
     }
     if (!isControlledSystemMount) {
       if (
@@ -332,6 +352,8 @@ export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSes
     controlledIdentityMatchesSession,
     controlledRuntimeIdentityLink,
     gmPersona.state,
+    hackedTarget,
+    hacking.targetIdentity,
     isGmSystemMount,
     isControlledSystemMount,
     osSession.actorMode,
@@ -361,6 +383,25 @@ export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSes
       || !mountedRuntimeAppIdentity.identity.identityLinkId
     ) return undefined
 
+    // Full-control parity for an active hacking session: the effective
+    // financial/app-account identity becomes the hacking TARGET's, sourced
+    // from the same server-confirmed resolution mountedRuntimeAppIdentity
+    // already used (see hackedTarget above), never the source hacker's own
+    // activeIdentitySession link.
+    if (hackedTarget) {
+      if (
+        hacking.targetIdentity?.status !== 'ready'
+        || hacking.targetIdentity.identity.identityLinkId !== mountedRuntimeAppIdentity.identity.identityLinkId
+      ) return undefined
+
+      return {
+        identityLinkId: mountedRuntimeAppIdentity.identity.identityLinkId,
+        ...(hacking.targetIdentity.identity.worldEntityId
+          ? { entityId: hacking.targetIdentity.identity.worldEntityId }
+          : {}),
+      }
+    }
+
     const exactLink = isControlledSystemMount
       ? controlledRuntimeIdentityLink
       : activeIdentitySession.activeIdentityLink
@@ -375,6 +416,8 @@ export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSes
   }, [
     activeIdentitySession.activeIdentityLink,
     controlledRuntimeIdentityLink,
+    hackedTarget,
+    hacking.targetIdentity,
     isControlledSystemMount,
     mountedRuntimeAppIdentity,
   ])
@@ -457,7 +500,6 @@ export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSes
   const serverAppAccounts = useNetServerAppAccounts(
     profile?.id,
     appAccountIdentityContext,
-    { ensureAutomaticIden: !isCompromisedSystemMount },
   )
   const accountResolverAccounts = useMemo(
     () => [...serverAppAccounts.accounts],
@@ -476,36 +518,6 @@ export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSes
       )
     ))
   }, [accountResolverAccounts, pulseActiveIdentity])
-  const idenAccountResolution = useMemo(
-    () => resolveNetAppAccount({
-      appId: 'iden',
-      ...(mountedRuntimeAppIdentity.status === 'ready'
-        ? { identity: mountedRuntimeAppIdentity.identity }
-        : {}),
-      accounts: accountResolverAccounts,
-      loading: serverAppAccounts.loading,
-      ...(serverAppAccounts.error ? { error: serverAppAccounts.error } : {}),
-    }),
-    [
-      accountResolverAccounts,
-      mountedRuntimeAppIdentity,
-      serverAppAccounts.error,
-      serverAppAccounts.loading,
-    ],
-  )
-  const echoAccountResolution = useMemo(
-    () => resolveNetAppAccount({
-      appId: 'echo',
-      ...(mountedRuntimeAppIdentity.status === 'ready'
-        ? { identity: mountedRuntimeAppIdentity.identity }
-        : {}),
-      accounts: accountResolverAccounts.filter((account) =>
-        account.appId !== 'echo' || account.owner.type === 'identity-link'),
-      loading: serverAppAccounts.loading,
-      ...(serverAppAccounts.error ? { error: serverAppAccounts.error } : {}),
-    }),
-    [accountResolverAccounts, mountedRuntimeAppIdentity, serverAppAccounts.error, serverAppAccounts.loading],
-  )
   const pulseAccountResolution = useMemo(
     () => resolveNetAppAccount({
       appId: 'pulse',
@@ -523,9 +535,6 @@ export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSes
       serverAppAccounts.loading,
     ],
   )
-  const echoAccountSessionKey = mountedRuntimeAppIdentity.status === 'ready'
-    ? getNetAppAccountOwnerKey(getNetAppAccountOwnerForIdentity(mountedRuntimeAppIdentity.identity))
-    : null
   const pulseAccountSessionKey = pulseActiveIdentity.status === 'ready'
     ? getNetAppAccountOwnerKey(getNetAppAccountOwnerForIdentity(pulseActiveIdentity.identity))
     : null
@@ -621,6 +630,38 @@ export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSes
   const shellApps = useMemo(
     () => netAppCatalog.filter((app) => shellAppIdSet.has(app.id) && app.available),
     [shellAppIdSet],
+  )
+
+  const voxAudioMode = shellAppAccessModes.get('vox-audio')
+  const voxAudioAccessIdentityLinkId = voxAudioMode === 'player'
+    ? appAccountIdentityContext?.identityLinkId
+    : undefined
+  const voxAudioSessionState = voxAudioMode === 'player'
+    ? 'installed'
+    : voxAudioMode === 'gm-system'
+      ? 'gm-system'
+      : 'uninstalled'
+  const voxAudioIdentitySessionKey = voxAudioAccessIdentityLinkId
+    ? [
+        'vox-audio',
+        voxAudioSessionState,
+        profile?.id ?? 'anonymous',
+        osSession.controlMode,
+        voxAudioAccessIdentityLinkId,
+        gmPersona.session?.sessionGeneration ?? 'none',
+      ].join(':')
+    : voxAudioMode === 'gm-system'
+      ? [
+          'vox-audio',
+          voxAudioSessionState,
+          profile?.id ?? 'anonymous',
+          osSession.controlMode,
+          gmPersona.session?.sessionGeneration ?? 'none',
+        ].join(':')
+      : `vox-audio:${voxAudioSessionState}:${profile?.id ?? 'anonymous'}:${osSession.controlMode}`
+  const voxAudioPlayer = useVoxAudioPlayer(
+    voxAudioIdentitySessionKey,
+    voxAudioAccessIdentityLinkId,
   )
 
   const bumpZIndex = () => {
@@ -1008,7 +1049,7 @@ export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSes
     setWindows((previous) => {
       let changed = false
       const next = { ...previous }
-      for (const appId of ['echo', 'pulse', 'nvn'] as const) {
+      for (const appId of ['pulse', 'nvn', 'vox-audio'] as const) {
         if (gmSystemAccessAppIdSet.has(appId)) continue
         const current = next[appId]
         if (!current?.open) continue
@@ -1034,7 +1075,7 @@ export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSes
     setWindows((previous) => {
       let changed = false
       const next = { ...previous }
-      for (const appId of ['echo', 'pulse', 'nvn'] as const) {
+      for (const appId of ['pulse', 'nvn', 'vox-audio'] as const) {
         const current = next[appId]
         if (!current?.open || installed.has(appId)) continue
         next[appId] = { ...current, open: false, minimized: false }
@@ -1135,6 +1176,14 @@ export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSes
   const displayName =
     profile?.displayName || 'OPERATIVE'
 
+  // The OS taskbar chip and launcher pair displayName with the authenticated
+  // account's own handle/avatar, so those stay on the real account. The
+  // ACTIVE SESSION widget below is the exact spot the bug report identifies:
+  // it must reflect the effective fictional identity (TAKE CONTROL/ACT AS),
+  // never silently claim auth.uid() changed.
+  const welcomeIdentityName =
+    runtimeSystemIdentityName || profile?.displayName || 'OPERATIVE'
+
   const handle = profile?.handle
     ? profile.handle.startsWith('@')
       ? profile.handle
@@ -1194,36 +1243,13 @@ export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSes
     openApp(app)
   }
 
-  const handleActivateEchoAccount = useCallback(async (input: {
-    readonly handle: string
-  }): Promise<string | null> => {
-    if (
-      mountedRuntimeAppIdentity.status !== 'ready'
-      || echoAccountResolution.status !== 'needs-onboarding'
-      || mountedRuntimeAppIdentity.identity.identityLinkId !== appAccountIdentityContext?.identityLinkId
-    ) {
-      return null
+  const toggleTaskbarApp = (app: NetAppDefinition) => {
+    if (getWindowState(app.id as NetWindowId).open) {
+      closeWindow(app.id as NetWindowId)
+      return
     }
-
-    try {
-      const account = await serverAppAccounts.createEchoAccount(input)
-      return account.id
-    } catch (error) {
-      if (isNetEchoContextChangedError(error)) {
-        void refreshActiveIdentity()
-      }
-      setNotice(error instanceof Error
-        ? `ECHO // ${error.message}`
-        : 'ECHO // PRESENCE ACTIVATION FAILED')
-      throw error
-    }
-  }, [
-    appAccountIdentityContext?.identityLinkId,
-    echoAccountResolution.status,
-    mountedRuntimeAppIdentity,
-    refreshActiveIdentity,
-    serverAppAccounts,
-  ])
+    openApp(app)
+  }
 
   const handleActivatePulseAccount = useCallback(async (input: {
     readonly handle: string
@@ -1394,6 +1420,19 @@ export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSes
 
   return (
     <main className="net-os">
+      {hackedTarget ? (
+        <NetSystemHackingBanner
+          targetDisplayName={hacking.targetIdentity?.status === 'ready'
+            ? hacking.targetIdentity.identity.displayName
+            : 'TARGET SYSTEM'}
+          sourceDisplayName={activeIdentity.status === 'ready' ? activeIdentity.identity.displayName : 'OPERATIVE'}
+          sourceOsId="veil"
+          onDisconnect={() => { void hacking.disconnect() }}
+          disconnecting={hacking.disconnecting}
+          disconnectError={hacking.disconnectError}
+        />
+      ) : null}
+      <VoxAudioAudioEngine {...voxAudioPlayer} />
       {/* WALLPAPER */}
       <div
         className="net-os__wallpaper"
@@ -1646,7 +1685,7 @@ export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSes
                 </span>
 
                 <strong>
-                  {displayName}
+                  {welcomeIdentityName}
                 </strong>
               </div>
 
@@ -1659,48 +1698,6 @@ export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSes
             </p>
           </section>
 
-          {/* ECHO WIDGET */}
-          <section className="net-widget net-widget--echo">
-            <div className="net-widget__head">
-              <span>
-                <Waves size={14} />
-
-                ECHO SIGNAL GRAPH
-              </span>
-
-              <b>SYNC ON OPEN</b>
-            </div>
-
-            <div
-              className="net-resonance-map"
-              aria-hidden="true"
-            >
-              <span className="net-resonance-map__ring net-resonance-map__ring--1" />
-
-              <span className="net-resonance-map__ring net-resonance-map__ring--2" />
-
-              <span className="net-resonance-map__ring net-resonance-map__ring--3" />
-
-              <span className="net-resonance-map__core">
-                <MapPin size={17} />
-              </span>
-            </div>
-
-            <div className="net-echo-snippet">
-              <span>
-                SERVER-BACKED INTELLIGENCE
-              </span>
-
-              <p>
-                Open ECHO to synchronize the active character’s discovered signal graph.
-              </p>
-
-              <small>
-                IDENTITY-BOUND // AUTHORIZED SIGNALS
-              </small>
-            </div>
-          </section>
-
           {/* LIVE GRID */}
           <section className="net-widget net-widget--feed">
             <div className="net-widget__head">
@@ -1710,7 +1707,7 @@ export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSes
                 LIVE GRID
               </span>
 
-              <b>03 EVENTS</b>
+              <b>02 EVENTS</b>
             </div>
 
             <div className="net-live-feed">
@@ -1852,9 +1849,9 @@ export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSes
                   }
                   style={style}
                   onClick={() =>
-                    openApp(app)
+                    toggleTaskbarApp(app)
                   }
-                  aria-label={app.name}
+                  aria-label={`${windowState.open ? 'Close' : 'Open'} ${app.name}`}
                   title={app.name}
                 >
                   <Icon size={18} />
@@ -1868,6 +1865,27 @@ export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSes
                 </button>
               )
             })}
+
+          <button
+            type="button"
+            className="net-taskbar-app net-taskbar-app--settings"
+            data-running={
+              getWindowState('wallpaper').open
+                ? 'true'
+                : 'false'
+            }
+            onClick={() => {
+              if (getWindowState('wallpaper').open) {
+                closeWindow('wallpaper')
+                return
+              }
+              openWallpaperSettings()
+            }}
+            aria-label={`${getWindowState('wallpaper').open ? 'Close' : 'Open'} Settings`}
+            title="Settings"
+          >
+            <Settings size={18} />
+          </button>
         </div>
 
         <div className="net-taskbar__tray">
@@ -1899,26 +1917,6 @@ export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSes
 
       {/* APPLICATION WINDOWS */}
       <NetAppWindow
-        title="ECHO"
-        subtitle="LUCID // RESONANCE LAYER"
-        icon={Waves}
-        accentRgb="178, 111, 255"
-        {...getManagedWindowProps('echo')}
-      >
-        <EchoApp
-          onNotice={setNotice}
-          activeIdentity={mountedRuntimeAppIdentity}
-          accountResolution={echoAccountResolution}
-          accounts={accountResolverAccounts}
-          accountSessionKey={echoAccountSessionKey}
-          isWindowOpen={shellAppIdSet.has('echo') && getWindowState('echo').open}
-          accessMode={shellAppAccessModes.get('echo') ?? 'player'}
-          onContextChanged={handleEchoContextMismatch}
-          onActivateAccount={handleActivateEchoAccount}
-        />
-      </NetAppWindow>
-
-      <NetAppWindow
         title="PULSE"
         subtitle="VOX NET // PUBLIC NETWORK"
         icon={Activity}
@@ -1935,20 +1933,6 @@ export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSes
           compromisedSession={compromisedPulseSession}
           onContextMismatch={handlePulseContextMismatch}
           onActivateAccount={handleActivatePulseAccount}
-        />
-      </NetAppWindow>
-
-      <NetAppWindow
-        title="IDEN"
-        subtitle="NETWATCH // IDENTITY SYSTEM"
-        icon={Fingerprint}
-        accentRgb="78, 169, 255"
-        {...getManagedWindowProps('iden')}
-      >
-        <IdenApp
-          onNotice={setNotice}
-          activeIdentity={mountedRuntimeAppIdentity}
-          accountResolution={idenAccountResolution}
         />
       </NetAppWindow>
 
@@ -2022,6 +2006,30 @@ export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSes
       </NetAppWindow>
 
       <NetAppWindow
+        title="VOX AUDIO"
+        subtitle="VOX NET // NEW VEGA AUDIO"
+        icon={getNetAppDefinition('vox-audio')!.icon}
+        accentRgb="180, 128, 96"
+        {...getManagedWindowProps('vox-audio')}
+      >
+        <VoxAudioApp
+          key={`vox-audio:${voxAudioIdentitySessionKey}:${voxAudioMode ?? 'disabled'}`}
+          mode={voxAudioMode === 'gm-system' ? 'studio' : 'reader'}
+          enabled={Boolean(voxAudioMode && getWindowState('vox-audio').open)}
+          expectedIdentityLinkId={voxAudioAccessIdentityLinkId}
+          identityName={
+            voxAudioMode === 'gm-system'
+              ? 'GM SYSTEM'
+              : mountedRuntimeAppIdentity.status === 'ready'
+                ? mountedRuntimeAppIdentity.identity.displayName
+                : 'VOX AUDIO LISTENER'
+          }
+          player={voxAudioPlayer}
+          onNotice={setNotice}
+        />
+      </NetAppWindow>
+
+      <NetAppWindow
         title="NET STORE"
         subtitle="VEGA MESH // SOFTWARE CATALOGUE"
         icon={getNetAppDefinition('net-store')!.icon}
@@ -2074,6 +2082,7 @@ export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSes
           universalProfile={universalProfile}
           systemContext={{
             identityLinkId: mountedSystemIdentityLinkId,
+            profileId: profile?.id,
             identityName: runtimeSystemIdentityName,
             status: runtimeSystemState.status,
             saving: isCompromisedSystemMount ? false : identitySystem.mutating,

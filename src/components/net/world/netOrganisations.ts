@@ -1,6 +1,6 @@
 import type { NetOrganisation } from './netWorldTypes'
 
-// NVN is distinct from its newsroom, dispatch, and editorial accounts.
+// New Vega Network is the parent company behind the NVN newsroom and VLT.
 export const netOrganisations = [
   {
     id: 'org-netwatch',
@@ -25,7 +25,7 @@ export const netOrganisations = [
     id: 'org-nvn',
     displayName: 'New Vega Network',
     shortName: 'NVN',
-    type: 'publisher',
+    type: 'corporation',
     aliases: ['NVN', 'New Vega News'],
   },
   {

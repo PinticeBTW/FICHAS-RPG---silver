@@ -293,7 +293,12 @@ export function CharacterSheetView({ character }: CharacterSheetViewProps) {
 
                 <div className="rpg-sheet-box px-3 py-2.5 text-center">
                   <p className="rpg-sheet-section">Karma</p>
-                  <SheetInput defaultValue={resources.karma} className="mt-1.5 w-full bg-transparent text-center rpg-sheet-number" />
+                  <SheetInput
+                    defaultValue={resources.karma}
+                    className="mt-1.5 w-full bg-transparent text-center rpg-sheet-number"
+                    readOnly
+                    title="Managed by VLT New Vega Network Wallet"
+                  />
                 </div>
 
                 <div className="rpg-sheet-table">
@@ -454,13 +459,19 @@ export function CharacterSheetView({ character }: CharacterSheetViewProps) {
 function SheetInput({
   defaultValue,
   className,
+  readOnly = false,
+  title,
 }: {
   defaultValue: string
   className?: string
+  readOnly?: boolean
+  title?: string
 }) {
   return (
     <input
       defaultValue={defaultValue}
+      readOnly={readOnly}
+      title={title}
       className={`border-none outline-none ${className ?? ''}`}
     />
   )

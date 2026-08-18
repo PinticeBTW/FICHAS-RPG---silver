@@ -5,9 +5,7 @@ import type { NetAppAccountPolicy } from './netAppAccountTypes'
  * separate from install state, so accounts outlive uninstall and device state.
  */
 export const netAppAccountPolicies = [
-  { appId: 'echo', mode: 'explicit' },
   { appId: 'pulse', mode: 'explicit' },
-  { appId: 'iden', mode: 'system-identity' },
   { appId: 'vlt', mode: 'none' },
   { appId: 'vox-bank', mode: 'none' },
   { appId: 'shneider-bank', mode: 'none' },
@@ -16,8 +14,11 @@ export const netAppAccountPolicies = [
   { appId: 'loop', mode: 'explicit' },
   { appId: 'altara-messenger', mode: 'none' },
   { appId: 'altara-bank', mode: 'none' },
+  { appId: 'nova-bank', mode: 'none' },
   { appId: 'altara-news', mode: 'none' },
   { appId: 'altara-music', mode: 'none' },
+  { appId: 'vox-audio', mode: 'none' },
+  { appId: 'altara-wave', mode: 'none' },
   { appId: 'altara-store', mode: 'none' },
   { appId: 'altara-settings', mode: 'none' },
 ] as const satisfies readonly NetAppAccountPolicy[]

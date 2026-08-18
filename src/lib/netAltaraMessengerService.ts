@@ -3,7 +3,9 @@ import type {
   NetAltaraConversationMember,
   NetAltaraConversationMutationResult,
   NetAltaraConversationSummary,
+  NetAltaraDeleteGroupResult,
   NetAltaraLatestMessage,
+  NetAltaraLeaveGroupResult,
   NetAltaraMessage,
   NetAltaraMessageCursor,
   NetAltaraMessagePage,
@@ -320,6 +322,34 @@ export function removeNetAltaraGroupMember(expectedIdentityLinkId: string, conve
     requested_conversation_id: conversationId,
     requested_member_identity_link_id: memberIdentityLinkId,
   }, parseMutation)
+}
+
+export function leaveNetAltaraGroup(expectedIdentityLinkId: string, conversationId: string): Promise<NetAltaraLeaveGroupResult> {
+  return rpc('leave_net_altara_group', {
+    requested_expected_identity_link_id: expectedIdentityLinkId,
+    requested_conversation_id: conversationId,
+  }, (value) => {
+    const row = record(value, 'leave result')
+    if (typeof row.left !== 'boolean') throw new Error('ALTARA Messenger returned an invalid leave state.')
+    return {
+      conversationId: requiredString(row, 'conversation_id', 'conversation id'),
+      left: row.left,
+    }
+  })
+}
+
+export function deleteNetAltaraGroup(expectedIdentityLinkId: string, conversationId: string): Promise<NetAltaraDeleteGroupResult> {
+  return rpc('delete_net_altara_group', {
+    requested_expected_identity_link_id: expectedIdentityLinkId,
+    requested_conversation_id: conversationId,
+  }, (value) => {
+    const row = record(value, 'delete result')
+    if (typeof row.deleted !== 'boolean') throw new Error('ALTARA Messenger returned an invalid delete state.')
+    return {
+      conversationId: requiredString(row, 'conversation_id', 'conversation id'),
+      deleted: row.deleted,
+    }
+  })
 }
 
 export function fetchNetAltaraMessagePage(

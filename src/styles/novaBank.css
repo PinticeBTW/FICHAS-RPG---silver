@@ -1,0 +1,317 @@
+.nova-bank {
+  --bank-ink: #101111;
+  --bank-panel: #191a19;
+  --bank-panel-2: #242520;
+  --bank-paper: #f3efe4;
+  --bank-muted: #aaa79c;
+  --bank-line: rgba(239, 224, 190, 0.14);
+  --bank-accent: #e6d6ae;
+  --bank-accent-bright: #f4e8c9;
+  --bank-primary-ink: #171812;
+  --bank-danger: #b86856;
+  --bank-danger-text: #f0b8aa;
+  --bank-display: var(--font-display, Inter);
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  color: var(--bank-paper);
+  background: #101111;
+  container-type: inline-size;
+}
+
+.nova-bank button,
+.nova-bank input,
+.nova-bank textarea { font: inherit; }
+.nova-bank button { cursor: pointer; }
+.nova-bank button:disabled { cursor: not-allowed; opacity: 0.48; }
+.nova-bank button:focus-visible,
+.nova-bank input:focus-visible,
+.nova-bank textarea:focus-visible { outline: 2px solid #e6d6ae; outline-offset: 2px; }
+
+.nova-bank-sidebar {
+  display: flex;
+  width: 190px;
+  flex: 0 0 auto;
+  flex-direction: column;
+  border-right: 1px solid var(--bank-line);
+  background: #151615;
+}
+
+.nova-bank-sidebar > header {
+  display: flex;
+  min-height: 78px;
+  align-items: center;
+  gap: 11px;
+  padding: 17px 19px;
+  border-bottom: 1px solid var(--bank-line);
+}
+
+.nova-bank-sidebar > header > span {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 13px;
+  color: #191a16;
+  background: var(--bank-accent);
+}
+
+.nova-bank-sidebar > header > div { display: grid; gap: 1px; }
+.nova-bank-sidebar > header strong { font-size: 0.92rem; font-weight: 760; letter-spacing: 0.12em; }
+.nova-bank-sidebar > header small { color: var(--bank-muted); font-size: 0.56rem; letter-spacing: 0.2em; }
+
+.nova-bank-sidebar nav { display: grid; gap: 4px; padding: 18px 11px; }
+.nova-bank-sidebar nav button {
+  display: flex;
+  min-height: 43px;
+  align-items: center;
+  gap: 11px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 12px;
+  color: #b7b5ac;
+  background: transparent;
+  text-align: left;
+  transition: color 150ms ease, background 150ms ease;
+}
+.nova-bank-sidebar nav button:hover { color: var(--bank-paper); background: rgba(255, 255, 255, 0.04); }
+.nova-bank-sidebar nav button[aria-current='page'] { color: #171812; background: var(--bank-accent); }
+.nova-bank-sidebar nav button span { font-size: 0.74rem; font-weight: 640; }
+
+.nova-bank-sidebar > footer {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: auto;
+  padding: 16px 18px;
+  border-top: 1px solid var(--bank-line);
+}
+.nova-bank-sidebar > footer > span { width: 8px; height: 8px; border-radius: 50%; background: #83b695; }
+.nova-bank-sidebar > footer > span[data-status='connecting'] { background: var(--bank-accent); }
+.nova-bank-sidebar > footer > span[data-status='disconnected'] { background: #c16d5a; }
+.nova-bank-sidebar > footer div { display: grid; gap: 2px; }
+.nova-bank-sidebar > footer strong { font-size: 0.65rem; font-weight: 650; }
+.nova-bank-sidebar > footer small { color: var(--bank-muted); font-size: 0.55rem; }
+
+.nova-bank-workspace { display: flex; min-width: 0; min-height: 0; flex: 1; flex-direction: column; }
+.nova-bank-topbar {
+  display: flex;
+  min-height: 66px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 clamp(20px, 3cqw, 34px);
+  border-bottom: 1px solid var(--bank-line);
+  background: #121313;
+}
+.nova-bank-topbar > div { display: grid; gap: 3px; }
+.nova-bank-topbar strong { font-size: 0.72rem; font-weight: 720; text-transform: capitalize; }
+.nova-bank-topbar span,
+.nova-bank-topbar small { color: var(--bank-muted); font-size: 0.61rem; }
+.nova-bank-topbar > small { padding: 5px 8px; border-radius: 999px; color: var(--bank-accent-bright); background: rgba(230, 214, 174, 0.08); }
+
+.nova-bank-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 18px 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(184, 104, 86, 0.4);
+  border-radius: 12px;
+  color: var(--bank-danger-text);
+  background: rgba(93, 42, 31, 0.28);
+  font-size: 0.69rem;
+}
+.nova-bank-error button { margin-left: auto; border: 0; color: inherit; background: transparent; text-decoration: underline; }
+
+.nova-bank-overview {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  grid-template-columns: minmax(300px, 1.25fr) minmax(220px, 0.75fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: clamp(16px, 2.8cqw, 28px);
+  overflow: auto;
+  padding: clamp(20px, 3.5cqw, 38px);
+}
+
+.nova-bank-balance-card {
+  position: relative;
+  min-height: 260px;
+  overflow: hidden;
+  padding: clamp(24px, 4cqw, 40px);
+  border-radius: 30px 30px 30px 8px;
+  color: #171812;
+  background: var(--bank-accent);
+  box-shadow: 0 20px 42px rgba(0, 0, 0, 0.28);
+}
+.nova-bank-balance-card::after {
+  content: '';
+  position: absolute;
+  width: 230px;
+  height: 230px;
+  right: -82px;
+  bottom: -108px;
+  border: 50px solid rgba(23, 24, 18, 0.08);
+  border-radius: 50%;
+}
+.nova-bank-balance-card__brand { display: flex; align-items: center; gap: 8px; }
+.nova-bank-balance-card__brand > span { display: grid; width: 27px; height: 27px; place-items: center; border-radius: 9px; color: var(--bank-accent); background: #171812; font-size: 0.72rem; font-weight: 800; }
+.nova-bank-balance-card__brand small { font-size: 0.63rem; font-weight: 760; letter-spacing: 0.1em; }
+.nova-bank-balance-card > p { margin: 35px 0 8px; font-size: 0.68rem; font-weight: 620; }
+.nova-bank-balance-card > strong { display: block; max-width: 14ch; font-size: clamp(2.5rem, 6cqw, 4.8rem); font-weight: 520; line-height: 0.96; letter-spacing: -0.035em; }
+.nova-bank-balance-card > div:not(.nova-bank-balance-card__brand) { display: flex; justify-content: space-between; gap: 12px; margin-top: 19px; padding-right: 42px; font-size: 0.64rem; font-weight: 630; }
+.nova-bank-balance-card > button {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  min-height: 39px;
+  align-items: center;
+  gap: 7px;
+  margin-top: 22px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 12px;
+  color: var(--bank-accent);
+  background: #171812;
+  font-size: 0.67rem;
+  font-weight: 700;
+}
+
+.nova-bank-overview__account {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(22px, 3.3cqw, 34px);
+  border-radius: 16px;
+  background: #1a1b1a;
+}
+.nova-bank-overview__account > span { color: var(--bank-muted); font-size: 0.64rem; }
+.nova-bank-overview__account > strong { margin-top: 13px; overflow: hidden; color: var(--bank-accent-bright); font-size: clamp(0.82rem, 2cqw, 1.05rem); text-overflow: ellipsis; white-space: nowrap; }
+.nova-bank-overview__account > small { margin-top: 7px; color: var(--bank-muted); font-size: 0.61rem; }
+.nova-bank-overview__account > button,
+.nova-bank-account dd button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  margin-top: 22px;
+  padding: 0;
+  border: 0;
+  color: var(--bank-paper);
+  background: transparent;
+  font-size: 0.65rem;
+}
+
+.nova-bank-overview__recent { grid-column: 1 / -1; min-height: 260px; overflow: auto; border-radius: 16px; background: #171817; }
+.nova-bank-overview__recent > header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 20px; border-bottom: 1px solid var(--bank-line); }
+.nova-bank-overview__recent h2 { margin: 0; font-size: 1rem; font-weight: 650; }
+.nova-bank-overview__recent p { margin: 4px 0 0; color: var(--bank-muted); font-size: 0.64rem; }
+.nova-bank-overview__recent header button { display: flex; align-items: center; gap: 4px; border: 0; color: var(--bank-accent-bright); background: transparent; font-size: 0.65rem; }
+
+.nova-bank-activity-list { display: flex; flex-direction: column; }
+.nova-bank-activity { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 66px; padding: 10px 18px; border-bottom: 1px solid rgba(239, 224, 190, 0.07); }
+.nova-bank-activity > span { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 12px; color: #89b59b; background: rgba(83, 128, 101, 0.14); }
+.nova-bank-activity > span[data-direction='outgoing'] { color: var(--bank-accent-bright); background: rgba(230, 214, 174, 0.09); }
+.nova-bank-activity > div:nth-child(2) { display: grid; min-width: 0; gap: 4px; }
+.nova-bank-activity strong,
+.nova-bank-activity small,
+.nova-bank-activity time { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nova-bank-activity strong { font-size: 0.71rem; font-weight: 620; }
+.nova-bank-activity small,
+.nova-bank-activity time { color: var(--bank-muted); font-size: 0.58rem; }
+.nova-bank-activity__amount { display: grid; justify-items: end; gap: 4px; }
+.nova-bank-activity__amount b { color: #94c0a5; font-size: 0.72rem; font-weight: 700; white-space: nowrap; }
+.nova-bank-activity__amount b[data-direction='outgoing'] { color: var(--bank-accent-bright); }
+
+.nova-bank-empty { display: grid; min-height: 180px; place-content: center; justify-items: center; color: var(--bank-muted); text-align: center; }
+.nova-bank-empty strong { margin-top: 10px; color: var(--bank-paper); font-size: 0.76rem; }
+.nova-bank-empty span { margin-top: 5px; font-size: 0.63rem; }
+
+.nova-bank-ledger,
+.nova-bank-account { flex: 1; min-height: 0; overflow: auto; padding: clamp(22px, 4cqw, 42px); }
+.nova-bank-ledger > header,
+.nova-bank-account > header { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
+.nova-bank-ledger h1,
+.nova-bank-account h1 { margin: 0; font-size: clamp(1.65rem, 4cqw, 2.5rem); font-weight: 580; letter-spacing: -0.025em; }
+.nova-bank-ledger header p,
+.nova-bank-account header p { max-width: 62ch; margin: 7px 0 0; color: var(--bank-muted); font-size: 0.68rem; line-height: 1.5; }
+.nova-bank-ledger header > span { display: flex; align-items: center; gap: 6px; color: var(--bank-muted); font-size: 0.62rem; }
+.nova-bank-ledger > .nova-bank-activity-list { overflow: hidden; border-radius: 16px; background: #171817; }
+.nova-bank-load-more,
+.nova-bank-state button,
+.nova-bank-primary { display: inline-flex; min-height: 39px; align-items: center; justify-content: center; gap: 7px; padding: 0 15px; border: 0; border-radius: 12px; color: #171812; background: var(--bank-accent); font-size: 0.67rem; font-weight: 720; }
+.nova-bank-load-more { margin: 18px auto 0; }
+
+.nova-bank-account dl { width: min(100%, 700px); margin: 0; overflow: hidden; border-radius: 16px; background: #191a19; }
+.nova-bank-account dl > div { display: grid; grid-template-columns: minmax(120px, 0.42fr) minmax(0, 1fr); gap: 18px; padding: 17px 20px; border-bottom: 1px solid var(--bank-line); }
+.nova-bank-account dt { color: var(--bank-muted); font-size: 0.64rem; }
+.nova-bank-account dd { display: flex; min-width: 0; align-items: center; gap: 12px; margin: 0; overflow: hidden; color: var(--bank-paper); font-size: 0.7rem; text-overflow: ellipsis; }
+.nova-bank-account dd button { margin: 0 0 0 auto; }
+.nova-bank-account dd i { width: 7px; height: 7px; border-radius: 50%; background: #83b695; }
+
+.nova-bank-state { display: grid; place-content: center; justify-items: center; gap: 9px; color: var(--bank-muted); text-align: center; }
+.nova-bank-state > strong { color: var(--bank-paper); font-size: 1rem; }
+.nova-bank-state > span { max-width: 450px; font-size: 0.7rem; line-height: 1.55; }
+.nova-bank-state > button { margin-top: 8px; }
+.nova-bank-state[data-tone='error'] > svg { color: var(--bank-danger-text); }
+
+.nova-bank-onboarding { display: grid; grid-template-columns: minmax(180px, 0.58fr) minmax(340px, 1.42fr); background: #101111; }
+.nova-bank-onboarding__mark { position: relative; display: grid; overflow: hidden; place-items: center; color: #171812; background: var(--bank-accent); }
+.nova-bank-onboarding__mark::before { content: 'N'; position: absolute; color: rgba(23, 24, 18, 0.08); font-size: min(32cqw, 16rem); font-weight: 800; }
+.nova-bank-onboarding__mark svg { position: relative; z-index: 1; }
+.nova-bank-onboarding main { align-self: center; width: min(100%, 680px); padding: clamp(28px, 5cqw, 64px); }
+.nova-bank-onboarding main > div > span { color: var(--bank-accent-bright); font-size: 0.62rem; font-weight: 720; letter-spacing: 0.14em; }
+.nova-bank-onboarding h1 { max-width: 15ch; margin: 14px 0 0; font-size: clamp(2.2rem, 6cqw, 4.6rem); font-weight: 540; line-height: 0.96; letter-spacing: -0.035em; }
+.nova-bank-onboarding main > div > p { max-width: 58ch; margin: 16px 0 0; color: var(--bank-muted); font-size: 0.74rem; line-height: 1.6; }
+.nova-bank-onboarding dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 30px 0 0; border-top: 1px solid var(--bank-line); border-bottom: 1px solid var(--bank-line); }
+.nova-bank-onboarding dl > div { display: grid; gap: 7px; padding: 14px 12px; border-right: 1px solid var(--bank-line); }
+.nova-bank-onboarding dl > div:last-child { border-right: 0; }
+.nova-bank-onboarding dt { color: var(--bank-muted); font-size: 0.58rem; }
+.nova-bank-onboarding dd { margin: 0; font-size: 0.67rem; }
+.nova-bank-onboarding__disclosure { display: flex; align-items: center; gap: 7px; margin: 16px 0 0; color: var(--bank-muted); font-size: 0.62rem; line-height: 1.45; }
+.nova-bank-onboarding .nova-bank-primary { margin-top: 24px; }
+
+.nova-bank-spin { animation: nova-bank-spin 850ms linear infinite; }
+@keyframes nova-bank-spin { to { transform: rotate(360deg); } }
+
+@container (max-width: 700px) {
+  .nova-bank-sidebar { width: 72px; }
+  .nova-bank-sidebar > header { justify-content: center; padding: 14px 8px; }
+  .nova-bank-sidebar > header > div,
+  .nova-bank-sidebar nav button span,
+  .nova-bank-sidebar > footer div { display: none; }
+  .nova-bank-sidebar nav { padding: 16px 9px; }
+  .nova-bank-sidebar nav button { justify-content: center; padding: 0; }
+  .nova-bank-sidebar > footer { justify-content: center; padding: 16px 8px; }
+  .nova-bank-overview { grid-template-columns: 1fr; }
+  .nova-bank-overview__recent { grid-column: 1; }
+  .nova-bank-onboarding { grid-template-columns: 120px minmax(0, 1fr); }
+}
+
+@container (max-width: 470px) {
+  .nova-bank { flex-direction: column; }
+  .nova-bank-sidebar { width: 100%; height: auto; border-right: 0; border-bottom: 1px solid var(--bank-line); }
+  .nova-bank-sidebar > header,
+  .nova-bank-sidebar > footer { display: none; }
+  .nova-bank-sidebar nav { display: grid; grid-template-columns: repeat(4, 1fr); padding: 7px; }
+  .nova-bank-sidebar nav button { min-height: 42px; }
+  .nova-bank-sidebar nav button span { display: none; }
+  .nova-bank-topbar { min-height: 56px; }
+  .nova-bank-onboarding { display: block; overflow: auto; }
+  .nova-bank-onboarding__mark { min-height: 100px; }
+  .nova-bank-onboarding dl { grid-template-columns: 1fr; }
+  .nova-bank-onboarding dl > div { border-right: 0; border-bottom: 1px solid var(--bank-line); }
+  .nova-bank-activity { grid-template-columns: auto minmax(0, 1fr); }
+  .nova-bank-activity__amount { grid-column: 2; justify-items: start; }
+  .nova-bank-ledger > header,
+  .nova-bank-account > header { align-items: flex-start; flex-direction: column; }
+  .nova-bank-account dl > div { grid-template-columns: 1fr; gap: 7px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nova-bank-spin { animation: none; }
+  .nova-bank-sidebar nav button { transition: none; }
+}

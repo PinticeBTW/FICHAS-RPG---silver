@@ -3,9 +3,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   addNetAltaraGroupMembers,
   createNetAltaraGroup,
+  deleteNetAltaraGroup,
   ensureNetAltaraDirectConversation,
   fetchNetAltaraMessagePage,
   fetchNetAltaraMessengerSidebar,
+  leaveNetAltaraGroup,
   markNetAltaraConversationRead,
   removeNetAltaraGroupMember,
   renameNetAltaraGroup,
@@ -239,6 +241,7 @@ export function useAltaraMessenger({
     }
 
     void loadSidebar(generation, true)
+    let lastRealtimeStatus: NetAltaraMessengerRealtimeStatus = 'idle'
     const unsubscribe = subscribeToNetAltaraMessenger(
       (identityLinkId) => {
         if (identityLinkId !== expectedIdentityLinkId || generationRef.current !== generation) return
@@ -249,7 +252,14 @@ export function useAltaraMessenger({
         }, 180)
       },
       (status) => {
-        if (generationRef.current === generation) setRealtimeStatus(status)
+        if (generationRef.current !== generation) return
+        setRealtimeStatus(status)
+        // A membership change delivered while disconnected is never
+        // replayed. Force a reconciliation on every reconnect so a former
+        // group member's already-open view cannot outlive a missed
+        // revision bump.
+        if (status === 'subscribed' && lastRealtimeStatus !== 'subscribed') reconcile(false)
+        lastRealtimeStatus = status
       },
     )
     const onFocus = () => {
@@ -310,6 +320,40 @@ export function useAltaraMessenger({
       if (generationRef.current === generation) setActionPending(false)
     }
   }, [expectedIdentityLinkId, loadConversation, loadSidebar, selectConversation])
+
+  // Leaving or deleting a group never re-selects or reloads that
+  // conversation the way runConversationMutation does for create/rename/add
+  // -- if it was open, it must be cleared instead so no stale content can
+  // flash before the sidebar reconciles.
+  const runDepartureMutation = useCallback(async (
+    conversationId: string,
+    operation: () => Promise<void>,
+  ) => {
+    if (!expectedIdentityLinkId) throw new Error('No controlled ALTARA communications identity is active.')
+    if (mutationInFlightRef.current) throw new Error('An ALTARA Messenger request is already in progress.')
+    const generation = generationRef.current
+    mutationInFlightRef.current = true
+    setActionPending(true)
+    setActionError(null)
+    try {
+      await operation()
+      if (generationRef.current !== generation) return
+      if (selectedConversationIdRef.current === conversationId) {
+        setSelectedConversationId(null)
+        selectedConversationIdRef.current = null
+        setConversation({ status: 'idle' })
+        setReadObservation(null)
+      }
+      await loadSidebar(generation, false)
+    } catch (error) {
+      const message = errorMessage(error, 'ALTARA Messenger could not complete that request.')
+      if (generationRef.current === generation) setActionError(message)
+      throw error
+    } finally {
+      mutationInFlightRef.current = false
+      if (generationRef.current === generation) setActionPending(false)
+    }
+  }, [expectedIdentityLinkId, loadSidebar])
 
   const loadEarlier = useCallback(async () => {
     if (!expectedIdentityLinkId || conversation.status !== 'ready' || !conversation.nextCursor) return
@@ -406,6 +450,14 @@ export function useAltaraMessenger({
     ),
     removeGroupMember: (conversationId: string, memberIdentityLinkId: string) => runConversationMutation(
       () => removeNetAltaraGroupMember(expectedIdentityLinkId!, conversationId, memberIdentityLinkId),
+    ),
+    leaveGroup: (conversationId: string) => runDepartureMutation(
+      conversationId,
+      () => leaveNetAltaraGroup(expectedIdentityLinkId!, conversationId).then(() => undefined),
+    ),
+    deleteGroup: (conversationId: string) => runDepartureMutation(
+      conversationId,
+      () => deleteNetAltaraGroup(expectedIdentityLinkId!, conversationId).then(() => undefined),
     ),
   }
 }

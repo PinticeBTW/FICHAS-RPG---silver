@@ -1,7 +1,8 @@
 import {
   Activity,
+  Aperture,
+  BadgeDollarSign,
   Building2,
-  Fingerprint,
   Landmark,
   MessagesSquare,
   Newspaper,
@@ -11,7 +12,6 @@ import {
   Video,
   WalletCards,
   HeartPulse,
-  Waves,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -24,9 +24,7 @@ import {
 import { ALTARA_NEWS_PRODUCT_NAME } from '../../lib/netAltaraNewsTypes'
 
 export type NetAppId =
-  | 'echo'
   | 'pulse'
-  | 'iden'
   | 'vlt'
   | 'vox-bank'
   | 'shneider-bank'
@@ -35,24 +33,34 @@ export type NetAppId =
   | 'loop'
   | 'altara-messenger'
   | 'altara-bank'
+  | 'nova-bank'
   | 'altara-news'
   | 'altara-music'
+  | 'vox-audio'
+  | 'altara-wave'
   | 'altara-store'
   | 'altara-settings'
 
 export type NetRunnableAppId = Exclude<NetAppId, 'loop'>
 export type NetOptionalAppId =
-  | 'echo'
   | 'pulse'
   | 'nvn'
   | 'vox-bank'
   | 'shneider-bank'
   | 'altara-bank'
+  | 'nova-bank'
   | 'altara-news'
   | 'altara-music'
+  | 'vox-audio'
+  | 'altara-wave'
 export type NetCatalogueStatus = 'available' | 'coming-soon'
 export type NetAppAccessMode = 'player' | 'gm-system'
-export type NetGmSystemEntryPoint = 'signal-control' | 'newsroom-control' | 'music-studio' | 'economy-control' | 'reader'
+export type NetGmSystemEntryPoint =
+  | 'newsroom-control'
+  | 'music-studio'
+  | 'vox-audio-studio'
+  | 'economy-control'
+  | 'reader'
 
 export interface NetGmSystemAccessDefinition {
   readonly entryPoint: NetGmSystemEntryPoint
@@ -96,36 +104,6 @@ export interface NetAppDefinition {
 
 export const netAppCatalog: readonly NetAppDefinition[] = [
   {
-    id: 'echo',
-    scope: 'veil-only',
-    name: 'ECHO',
-    owner: 'LUCID INTERACTIVE',
-    category: 'SOCIAL',
-    description: 'A contextual social layer for nearby signals, public moments, and Resonance across New Vega.',
-    shortDescription: 'Contextual social network',
-    searchAliases: ['social', 'resonance', 'nearby', 'lucid'],
-    accentRgb: '178, 111, 255',
-    icon: Waves,
-    systemApp: false,
-    removable: true,
-    available: true,
-    catalogueStatus: 'available',
-    version: '4.8.1',
-    installSize: '248 MB',
-    features: ['Nearby Resonance', 'Public echoes', 'Spatial context'],
-    defaultWindow: { width: 1040, height: 680, minWidth: 560, minHeight: 420 },
-    featured: true,
-    subtitle: 'LUCID // RESONANCE LAYER',
-    onlineNotice: 'ECHO // RESONANCE LAYER ONLINE',
-    gmSystemAccess: {
-      entryPoint: 'signal-control',
-      statusLabel: 'GM Control',
-      actionLabel: 'Open Signal Control',
-      description: 'GM system access opens Signal Control without creating a character installation or ECHO player account.',
-      onlineNotice: 'ECHO // SIGNAL CONTROL ONLINE',
-    },
-  },
-  {
     id: 'pulse',
     scope: 'veil-only',
     name: 'PULSE',
@@ -146,28 +124,6 @@ export const netAppCatalog: readonly NetAppDefinition[] = [
     defaultWindow: { width: 1120, height: 700, minWidth: 620, minHeight: 440 },
     subtitle: 'VOX NET // PUBLIC NETWORK',
     onlineNotice: 'PULSE // PUBLIC NETWORK ONLINE',
-  },
-  {
-    id: 'iden',
-    scope: 'veil-only',
-    name: 'IDEN',
-    owner: 'NETWATCH',
-    category: 'IDENTITY',
-    description: 'The public-grid identity, credential, and trust record interface maintained by NetWatch.',
-    shortDescription: 'Identity system',
-    searchAliases: ['identity', 'verification', 'credentials', 'netwatch', 'trust'],
-    accentRgb: '78, 169, 255',
-    icon: Fingerprint,
-    systemApp: true,
-    removable: false,
-    available: true,
-    catalogueStatus: 'available',
-    version: '8.4.7',
-    installSize: 'System image',
-    features: ['Credential review', 'Trust records', 'Identity verification'],
-    defaultWindow: { width: 1060, height: 680, minWidth: 600, minHeight: 430 },
-    subtitle: 'NETWATCH // IDENTITY SYSTEM',
-    onlineNotice: 'IDEN // IDENTITY SYSTEM ONLINE',
   },
   {
     id: 'vlt',
@@ -359,6 +315,28 @@ export const netAppCatalog: readonly NetAppDefinition[] = [
     onlineNotice: 'ALTARA BANK // SECURE BANKING ONLINE',
   },
   {
+    id: 'nova-bank',
+    scope: 'altara-only',
+    name: 'NOVA BANK',
+    owner: 'NOVA FINANCIAL',
+    category: 'FINANCE',
+    description: 'An independent digital ALTARA bank with FINIT and SECTUS accounts, direct NOVA payments, and private ledger history.',
+    shortDescription: 'Independent digital banking',
+    searchAliases: ['nova', 'bank', 'finance', 'payments', 'fintech'],
+    accentRgb: '230, 214, 174',
+    icon: BadgeDollarSign,
+    systemApp: false,
+    removable: true,
+    available: true,
+    catalogueStatus: 'available',
+    version: '1.0',
+    installSize: 'System service',
+    features: ['Independent personal account', 'FINIT and SECTUS payments', 'Realtime private activity'],
+    defaultWindow: { width: 1050, height: 710, minWidth: 520, minHeight: 420 },
+    subtitle: 'NOVA // DIGITAL BANKING',
+    onlineNotice: 'NOVA BANK // PRIVATE SESSION READY',
+  },
+  {
     id: 'altara-news',
     scope: 'altara-only',
     name: ALTARA_NEWS_PRODUCT_NAME,
@@ -417,6 +395,57 @@ export const netAppCatalog: readonly NetAppDefinition[] = [
     },
   },
   {
+    id: 'vox-audio',
+    scope: 'veil-only',
+    name: 'VOX AUDIO',
+    owner: 'VOX NET',
+    category: 'MUSIC',
+    description: 'VOX NET audio catalogue for approved artists, releases, playlists, and private listening across New Vega.',
+    shortDescription: 'New Vega audio platform',
+    searchAliases: ['new vega', 'music', 'artists', 'releases', 'playlists', 'audio'],
+    accentRgb: '180, 128, 96',
+    icon: Music2,
+    systemApp: false,
+    removable: true,
+    available: true,
+    catalogueStatus: 'available',
+    version: '1.0',
+    installSize: 'System service',
+    features: ['Native approved artists and releases', 'Curated New Vega collections', 'Private playlists and likes'],
+    defaultWindow: { width: 1180, height: 760, minWidth: 580, minHeight: 450 },
+    subtitle: 'VOX NET // NEW VEGA CATALOGUE',
+    onlineNotice: 'VOX AUDIO // LISTENING SESSION READY',
+    gmSystemAccess: {
+      entryPoint: 'vox-audio-studio',
+      statusLabel: 'VOX AUDIO STUDIO',
+      actionLabel: 'Open VOX AUDIO STUDIO',
+      description: 'GM System opens the authoritative VOX NET catalogue control without creating a fictional listener identity.',
+      onlineNotice: 'VOX AUDIO // STUDIO CONTROL ONLINE',
+    },
+  },
+  {
+    id: 'altara-wave',
+    scope: 'altara-only',
+    name: 'WAVE',
+    owner: 'ALTARA',
+    category: 'SOCIAL',
+    description: 'The identity-backed social network shared across the ALTARA world, with posts, conversations, and private personal collections.',
+    shortDescription: 'ALTARA social network',
+    searchAliases: ['wave', 'social', 'posts', 'people', 'network'],
+    accentRgb: '218, 187, 132',
+    icon: Aperture,
+    systemApp: false,
+    removable: true,
+    available: true,
+    catalogueStatus: 'available',
+    version: '1.0',
+    installSize: 'System service',
+    features: ['Identity-backed profiles', 'Posts and conversations', 'Private bookmarks and notifications'],
+    defaultWindow: { width: 1120, height: 740, minWidth: 540, minHeight: 430 },
+    subtitle: 'ALTARA // SOCIAL NETWORK',
+    onlineNotice: 'WAVE // SOCIAL SESSION READY',
+  },
+  {
     id: 'altara-store',
     scope: 'altara-only',
     name: 'ALTARA STORE',
@@ -467,14 +496,16 @@ export const systemNetAppIds = netAppCatalog
   .map((app) => app.id) as readonly NetAppId[]
 
 export const optionalNetAppIds = [
-  'echo',
   'pulse',
   'nvn',
   'vox-bank',
   'shneider-bank',
   'altara-bank',
+  'nova-bank',
   'altara-news',
   'altara-music',
+  'vox-audio',
+  'altara-wave',
 ] as const satisfies readonly NetOptionalAppId[]
 
 export function getNetAppDefinition(id: string): NetAppDefinition | undefined {

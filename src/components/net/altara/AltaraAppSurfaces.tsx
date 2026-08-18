@@ -14,6 +14,30 @@ import {
   type WallpaperPosition,
 } from '../../../lib/netWallpaperStore'
 import type { NetIdentitySystemWallpaper } from '../../../lib/netIdentitySystemService'
+import { NetSystemSecurityControl } from '../identity/NetSystemSecurityControl'
+import { AltaraFxAdmin } from './AltaraBankApp'
+
+/**
+ * Global currency/exchange-rate administration. Reuses AltaraFxAdmin exactly
+ * as ALTARA BANK's own GM admin view previously did -- no second editor.
+ * Only ever rendered by AltaraOsGateway when gmSystemMode is true (true GM
+ * SYSTEM authority, not TAKE CONTROL/ACT AS/a hacked identity), matching how
+ * every other Settings/Persona Control authority-gated control is exposed.
+ */
+export function AltaraEconomySettings() {
+  return (
+    <section aria-labelledby="altara-economy-title">
+      <div className="altara-settings__section-heading">
+        <div>
+          <p>ECONOMY</p>
+          <h3 id="altara-economy-title">Currency &amp; exchange rates</h3>
+        </div>
+        <small>GM SYSTEM ONLY</small>
+      </div>
+      <AltaraFxAdmin enabled />
+    </section>
+  )
+}
 
 export function AltaraSettingsApp({
   identityName,
@@ -27,7 +51,10 @@ export function AltaraSettingsApp({
   onRetry,
   onChangeIdentity,
   workspaceControl,
+  economyControl,
   readOnly = false,
+  securityIdentityLinkId,
+  securityProfileId,
 }: {
   readonly identityName: string
   readonly baseWallpaperVisual: 'nocturne' | 'atlas' | 'silk'
@@ -40,7 +67,10 @@ export function AltaraSettingsApp({
   readonly onRetry: () => void
   readonly onChangeIdentity?: () => void
   readonly workspaceControl?: ReactNode
+  readonly economyControl?: ReactNode
   readonly readOnly?: boolean
+  readonly securityIdentityLinkId?: string
+  readonly securityProfileId?: string
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [fit, setFit] = useState<WallpaperFit>(customWallpaper?.fit ?? 'cover')
@@ -103,6 +133,7 @@ export function AltaraSettingsApp({
       </header>
 
       {workspaceControl}
+      {economyControl}
 
       <section aria-labelledby="altara-appearance-title">
         <div className="altara-settings__section-heading">
@@ -188,6 +219,22 @@ export function AltaraSettingsApp({
         <div className="altara-settings__identity-actions">
           {onChangeIdentity ? <button type="button" onClick={onChangeIdentity}>CHANGE ACTIVE CHARACTER</button> : null}
           <Link to="/app/sheets"><ArrowLeft size={14} aria-hidden="true" /> RETURN TO SHEETS</Link>
+        </div>
+      </section>
+
+      <section aria-labelledby="altara-security-title">
+        <div className="altara-settings__section-heading">
+          <div>
+            <p>SYSTEM</p>
+            <h3 id="altara-security-title">Security</h3>
+          </div>
+          <small>ALTARA NETWORK</small>
+        </div>
+        <div className="altara-persona-control">
+          <NetSystemSecurityControl
+            identityLinkId={securityIdentityLinkId}
+            profileId={securityProfileId}
+          />
         </div>
       </section>
     </div>

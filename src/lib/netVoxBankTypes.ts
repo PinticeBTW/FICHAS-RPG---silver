@@ -4,7 +4,7 @@ export const NET_VOX_BANK_MAX_TRANSFER_AMOUNT = 1_000_000_000
 
 export type NetVoxBankDirection = 'deposit' | 'withdraw'
 export type NetVoxBankMutation = 'open' | NetVoxBankDirection | 'yield' | 'payment'
-export type NetVoxBankActivityKind = 'bank-deposit' | 'bank-withdrawal' | 'bank-yield' | 'bank-transfer'
+export type NetVoxBankActivityKind = 'bank-deposit' | 'bank-withdrawal' | 'bank-yield' | 'bank-transfer' | 'gm-credit' | 'gm-debit'
 
 export interface NetVoxBankCursor {
   readonly at: string
@@ -45,6 +45,7 @@ export interface NetVoxBankActivity {
   readonly transactionKind: NetVoxBankActivityKind
   readonly counterpartyDisplayName?: string
   readonly counterpartyPaymentIdentifier?: string
+  readonly note?: string
   readonly createdAt: string
 }
 

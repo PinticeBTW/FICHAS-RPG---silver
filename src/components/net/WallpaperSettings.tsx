@@ -8,6 +8,7 @@ import {
   type WallpaperPosition,
 } from '../../lib/netWallpaperStore'
 import { NetIdentitySettings } from './identity/NetIdentitySettings'
+import { NetSystemSecurityControl } from './identity/NetSystemSecurityControl'
 import type { NetActiveIdentityState } from './identity/netActiveIdentity'
 import type { NetActiveIdentitySession } from './identity/useNetActiveIdentitySession'
 import type { NetGmPersonaController } from './identity/useNetGmPersona'
@@ -45,6 +46,7 @@ interface WallpaperSettingsProps {
   universalProfile: NetUniversalProfileController
   systemContext: {
     readonly identityLinkId?: string
+    readonly profileId?: string
     readonly identityName?: string
     readonly status: 'unavailable' | 'loading' | 'ready' | 'error'
     readonly saving: boolean
@@ -94,7 +96,9 @@ export function WallpaperSettings({
   const [localPreviewUrl, setLocalPreviewUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [applying, setApplying] = useState(false)
-  const [section, setSection] = useState<'appearance' | 'identity' | 'profile'>('appearance')
+  const [section, setSection] = useState<'appearance' | 'identity' | 'profile' | 'security'>(
+    () => (gmSystemEnvironmentControl ? 'identity' : 'appearance'),
+  )
 
   useEffect(() => {
     return () => {
@@ -231,6 +235,14 @@ export function WallpaperSettings({
         >
           Characters / Identity
         </button>
+        <button
+          type="button"
+          data-active={section === 'security' ? 'true' : 'false'}
+          aria-pressed={section === 'security'}
+          onClick={() => setSection('security')}
+        >
+          Security
+        </button>
       </nav>
 
       {section === 'profile' ? (
@@ -246,6 +258,11 @@ export function WallpaperSettings({
           gmPersona={gmPersona}
           accountProfile={accountProfile}
           gmSystemEnvironmentControl={gmSystemEnvironmentControl}
+        />
+      ) : section === 'security' ? (
+        <NetSystemSecurityControl
+          identityLinkId={systemContext.identityLinkId}
+          profileId={systemContext.profileId}
         />
       ) : <>
       <div className="net-wallpaper-settings__context" aria-live="polite">

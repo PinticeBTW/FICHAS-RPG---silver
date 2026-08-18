@@ -1,0 +1,405 @@
+.altara-wave {
+  --wave-bg: #0d0d0e;
+  --wave-panel: #131314;
+  --wave-raised: #1a1918;
+  --wave-line: rgba(225, 201, 156, 0.16);
+  --wave-line-strong: rgba(225, 201, 156, 0.3);
+  --wave-gold: #ddbe84;
+  --wave-gold-bright: #f0d6a3;
+  --wave-text: #f2eee7;
+  --wave-muted: #aaa399;
+  --wave-danger: #e19a88;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 220px minmax(360px, 660px) minmax(230px, 1fr);
+  overflow: hidden;
+  color: var(--wave-text);
+  background:
+    radial-gradient(circle at 52% -20%, rgba(221, 190, 132, 0.09), transparent 42%),
+    var(--wave-bg);
+  font-family: var(--font-body, Inter, ui-sans-serif, system-ui, sans-serif);
+}
+
+.altara-wave button,
+.altara-wave input,
+.altara-wave textarea {
+  font: inherit;
+}
+
+.altara-wave button { color: inherit; }
+
+.altara-wave-nav {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 25px 18px 18px;
+  border-right: 1px solid var(--wave-line);
+  background: rgba(10, 10, 11, 0.74);
+}
+
+.altara-wave-nav > header {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 0 8px;
+}
+
+.altara-wave-nav > header > span {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  color: #171513;
+  border-radius: 13px;
+  background: var(--wave-gold);
+  box-shadow: 0 8px 24px rgba(221, 190, 132, 0.16);
+}
+
+.altara-wave-nav > header div { display: grid; gap: 1px; }
+.altara-wave-nav > header strong { font-family: var(--font-display, Inter, ui-sans-serif, sans-serif); font-size: 20px; font-weight: 560; letter-spacing: 0.02em; }
+.altara-wave-nav > header small { color: var(--wave-muted); font-size: 9px; letter-spacing: 0.14em; }
+
+.altara-wave-nav nav { display: grid; gap: 4px; }
+.altara-wave-nav nav button,
+.altara-wave-nav__self,
+.altara-wave-nav__post {
+  border: 0;
+  cursor: pointer;
+}
+
+.altara-wave-nav nav button {
+  min-height: 43px;
+  display: grid;
+  grid-template-columns: 24px 1fr auto;
+  align-items: center;
+  gap: 7px;
+  padding: 0 11px;
+  border-radius: 12px;
+  color: #b8b1a7;
+  text-align: left;
+  background: transparent;
+  transition: color 140ms ease, background 140ms ease;
+}
+
+.altara-wave-nav nav button:hover,
+.altara-wave-nav nav button[data-active='true'] { color: var(--wave-text); background: rgba(221, 190, 132, 0.09); }
+.altara-wave-nav nav button[data-active='true'] svg { color: var(--wave-gold-bright); }
+.altara-wave-nav nav button span { font-size: 11px; font-weight: 700; letter-spacing: 0.07em; }
+.altara-wave-nav nav button b { min-width: 20px; padding: 3px 6px; border-radius: 999px; color: #171513; background: var(--wave-gold); font-size: 9px; text-align: center; }
+
+.altara-wave-nav__post {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border-radius: 12px;
+  color: #181512 !important;
+  background: var(--wave-gold);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.altara-wave-nav__post:hover { background: var(--wave-gold-bright); }
+.altara-wave-nav__self {
+  margin-top: auto;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  padding: 10px;
+  border-radius: 13px;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.025);
+}
+.altara-wave-nav__self:hover { background: rgba(221, 190, 132, 0.08); }
+.altara-wave-nav__self > span:last-child { min-width: 0; display: grid; gap: 2px; }
+.altara-wave-nav__self strong,
+.altara-wave-nav__self small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.altara-wave-nav__self strong { font-size: 11px; }
+.altara-wave-nav__self small { color: var(--wave-muted); font-size: 10px; }
+
+.altara-wave-main {
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+  overflow-y: auto;
+  scrollbar-color: rgba(221, 190, 132, 0.26) transparent;
+  border-right: 1px solid var(--wave-line);
+  background: rgba(15, 15, 16, 0.68);
+}
+
+.altara-wave-progress { position: sticky; z-index: 20; top: 0; height: 2px; overflow: hidden; background: rgba(221, 190, 132, 0.08); }
+.altara-wave-progress i { display: block; width: 38%; height: 100%; background: var(--wave-gold); animation: altara-wave-progress 900ms ease-in-out infinite alternate; }
+
+.altara-wave-view-head {
+  min-height: 76px;
+  position: sticky;
+  z-index: 10;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--wave-line);
+  background: rgba(14, 14, 15, 0.94);
+  backdrop-filter: blur(14px);
+}
+.altara-wave-view-head > div { flex: 1; min-width: 0; }
+.altara-wave-view-head h1 { margin: 0; font-family: var(--font-display, Inter, ui-sans-serif, sans-serif); font-size: clamp(21px, 2.4vw, 28px); font-weight: 560; letter-spacing: -0.015em; }
+.altara-wave-view-head p { margin: 3px 0 0; color: var(--wave-muted); font-size: 10px; letter-spacing: 0.05em; }
+.altara-wave-view-head > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--wave-line);
+  border-radius: 10px;
+  color: var(--wave-gold-bright);
+  background: transparent;
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+}
+
+.altara-wave-avatar {
+  flex: none;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(225, 201, 156, 0.24);
+  border-radius: 50%;
+  color: var(--wave-gold-bright);
+  background: #24211d;
+  font-family: var(--font-display, Inter, ui-sans-serif, sans-serif);
+  font-weight: 600;
+  font-size: 14px;
+}
+.altara-wave-avatar[data-size='small'] { width: 32px; height: 32px; font-size: 11px; }
+.altara-wave-avatar[data-size='large'] { width: 82px; height: 82px; border-width: 3px; border-color: var(--wave-bg); font-size: 24px; }
+.altara-wave-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+.altara-wave-composer {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  padding: 18px 20px 15px;
+  border-bottom: 1px solid var(--wave-line);
+}
+.altara-wave-composer > div:last-child { min-width: 0; }
+.altara-wave-composer textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 72px;
+  max-height: 220px;
+  padding: 3px 0 10px;
+  border: 0;
+  outline: 0;
+  color: var(--wave-text);
+  -webkit-text-fill-color: var(--wave-text);
+  background: transparent;
+  font-size: 15px;
+  line-height: 1.55;
+}
+.altara-wave-composer textarea::placeholder { color: #817b73; -webkit-text-fill-color: #817b73; }
+.altara-wave-composer footer { display: flex; align-items: center; gap: 10px; border-top: 1px solid rgba(225, 201, 156, 0.1); padding-top: 10px; }
+.altara-wave-composer footer > span { margin-left: auto; color: var(--wave-muted); font-size: 9px; }
+.altara-wave-composer__submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+}
+.altara-wave-composer__submit { min-width: 78px; padding: 0 13px; border: 0; color: #171513 !important; background: var(--wave-gold); }
+.altara-wave-composer button:disabled { cursor: not-allowed; opacity: 0.48; }
+.altara-wave-composer__reply { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; margin: -4px 0 0 54px; padding: 7px 10px; border-radius: 9px; color: var(--wave-muted); background: rgba(221, 190, 132, 0.07); font-size: 10px; }
+.altara-wave-composer__reply strong { color: var(--wave-gold-bright); }
+.altara-wave-composer__reply button { border: 0; background: transparent; cursor: pointer; }
+
+.altara-wave-stream { min-height: 100px; }
+.altara-wave-post { padding: 15px 20px 10px; border-bottom: 1px solid var(--wave-line); transition: background 150ms ease; }
+.altara-wave-post:hover { background: rgba(221, 190, 132, 0.025); }
+.altara-wave-post__layout { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 11px; }
+.altara-wave-post__avatar { align-self: start; padding: 0; border: 0; background: transparent; cursor: pointer; }
+.altara-wave-post__content { min-width: 0; }
+.altara-wave-post__content > header { display: flex; align-items: baseline; gap: 8px; }
+.altara-wave-post__content > header button { min-width: 0; padding: 0; border: 0; background: transparent; cursor: pointer; }
+.altara-wave-post__content > header button:first-child { display: flex; align-items: baseline; gap: 6px; overflow: hidden; text-align: left; }
+.altara-wave-post__content > header strong,
+.altara-wave-post__content > header span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.altara-wave-post__content > header strong { font-size: 12px; }
+.altara-wave-post__content > header span,
+.altara-wave-post__content > header time { color: var(--wave-muted); font-size: 10px; }
+.altara-wave-post__content > header button:last-child { margin-left: auto; }
+.altara-wave-post__open { width: 100%; padding: 7px 0 4px; color: inherit; text-align: left; }
+.altara-wave-post__body { margin: 0; color: #ded8d0; font-size: 13px; line-height: 1.58; white-space: pre-wrap; overflow-wrap: anywhere; }
+.altara-wave-post__body button { display: inline; padding: 0; border: 0; color: var(--wave-gold-bright); background: transparent; cursor: pointer; }
+.altara-wave-post__deleted { margin: 3px 0; color: #8f8880; font-size: 12px; font-style: italic; }
+.altara-wave-post__media { display: block; width: 100%; max-height: 430px; margin-top: 10px; object-fit: cover; border: 1px solid var(--wave-line); border-radius: 14px; }
+.altara-wave-post__media-fallback { min-height: 110px; display: grid; place-items: center; gap: 5px; margin-top: 9px; border: 1px solid var(--wave-line); border-radius: 14px; color: var(--wave-muted); background: #171717; font-size: 10px; }
+.altara-wave-post__content > footer { display: grid; grid-template-columns: repeat(4, minmax(42px, 1fr)) auto; gap: 4px; margin-top: 7px; }
+.altara-wave-post__content > footer button { min-height: 30px; display: flex; align-items: center; justify-content: center; gap: 5px; border: 0; border-radius: 9px; color: #8f8980; background: transparent; cursor: pointer; font-size: 9px; }
+.altara-wave-post__content > footer button:hover { color: var(--wave-gold-bright); background: rgba(221, 190, 132, 0.07); }
+.altara-wave-post__content > footer button[data-active='true'] { color: var(--wave-gold-bright); }
+.altara-wave-post__content > footer .altara-wave-post__delete:hover { color: var(--wave-danger); background: rgba(225, 154, 136, 0.08); }
+.altara-wave-post__boost-note { display: flex; align-items: center; gap: 6px; margin: 0 0 7px 53px; padding: 0; border: 0; color: var(--wave-muted); background: transparent; cursor: pointer; font-size: 9px; }
+
+.altara-wave-rail { min-width: 0; padding: 23px 18px; overflow-y: auto; background: rgba(11, 11, 12, 0.72); }
+.altara-wave-rail > section { border: 1px solid var(--wave-line); border-radius: 14px; overflow: hidden; background: rgba(255, 255, 255, 0.018); }
+.altara-wave-rail > section > header { padding: 15px; border-bottom: 1px solid var(--wave-line); }
+.altara-wave-rail h2 { margin: 0; font-family: var(--font-display, Inter, ui-sans-serif, sans-serif); font-size: 17px; font-weight: 560; letter-spacing: -0.01em; }
+.altara-wave-rail p { margin: 4px 0 0; color: var(--wave-muted); font-size: 9px; }
+.altara-wave-rail > footer { display: grid; gap: 5px; margin-top: 20px; padding: 0 5px; color: var(--wave-muted); }
+.altara-wave-rail > footer strong { color: var(--wave-gold); font-size: 9px; letter-spacing: 0.1em; }
+.altara-wave-rail > footer span { font-size: 9px; line-height: 1.5; }
+.altara-wave-rail__empty { padding: 14px !important; }
+
+.altara-wave-account-row { display: flex; align-items: center; gap: 8px; padding: 11px 13px; border-bottom: 1px solid rgba(225, 201, 156, 0.09); }
+.altara-wave-account-row:last-child { border-bottom: 0; }
+.altara-wave-account-row__identity { min-width: 0; flex: 1; display: flex; align-items: center; gap: 8px; padding: 0; border: 0; text-align: left; background: transparent; cursor: pointer; }
+.altara-wave-account-row__identity > span:last-child { min-width: 0; display: grid; gap: 2px; }
+.altara-wave-account-row__identity strong,
+.altara-wave-account-row__identity small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.altara-wave-account-row__identity strong { font-size: 10px; }
+.altara-wave-account-row__identity small { color: var(--wave-muted); font-size: 9px; }
+.altara-wave-follow { flex: none; display: inline-flex; align-items: center; gap: 5px; min-height: 29px; padding: 0 9px; border: 1px solid var(--wave-line-strong); border-radius: 9px; color: var(--wave-gold-bright); background: transparent; cursor: pointer; font-size: 8px; font-weight: 750; letter-spacing: 0.06em; }
+.altara-wave-follow[data-following='true'] { color: var(--wave-muted); border-color: var(--wave-line); }
+
+.altara-wave-search { display: flex; align-items: center; gap: 8px; margin: 16px 20px; padding: 0 12px; border: 1px solid var(--wave-line); border-radius: 12px; background: #171718; }
+.altara-wave-search svg { color: var(--wave-muted); }
+.altara-wave-search input { min-width: 0; flex: 1; height: 42px; border: 0; outline: 0; color: var(--wave-text); -webkit-text-fill-color: var(--wave-text); background: transparent; }
+.altara-wave-search input::placeholder { color: #817b73; -webkit-text-fill-color: #817b73; }
+.altara-wave-search button { padding: 6px 8px; border: 0; color: var(--wave-gold-bright); background: transparent; cursor: pointer; font-size: 9px; font-weight: 800; letter-spacing: 0.06em; }
+.altara-wave-people { margin: 0 20px 16px; border: 1px solid var(--wave-line); border-radius: 14px; overflow: hidden; }
+.altara-wave-people > header { padding: 11px 13px; border-bottom: 1px solid var(--wave-line); }
+.altara-wave-people h2 { margin: 0; color: var(--wave-muted); font-size: 9px; letter-spacing: 0.12em; }
+
+.altara-wave-profile { padding-bottom: 18px; border-bottom: 1px solid var(--wave-line); }
+.altara-wave-profile__banner { height: clamp(130px, 23vh, 220px); overflow: hidden; background: radial-gradient(circle at 28% 18%, rgba(221, 190, 132, 0.2), transparent 40%), radial-gradient(circle at 76% 72%, rgba(152, 123, 78, 0.1), transparent 34%), linear-gradient(135deg, #211f1b, #111112 68%); }
+.altara-wave-profile__identity { height: 46px; display: flex; align-items: flex-start; justify-content: space-between; padding: 0 20px; }
+.altara-wave-profile__identity .altara-wave-avatar { transform: translateY(-42px); }
+.altara-wave-profile__identity > button { margin-top: 10px; min-height: 31px; padding: 0 11px; border: 1px solid var(--wave-line-strong); border-radius: 10px; color: var(--wave-gold-bright); background: transparent; cursor: pointer; font-size: 9px; font-weight: 800; letter-spacing: 0.06em; }
+.altara-wave-profile > h1 { margin: 4px 20px 0; font-family: var(--font-display, Inter, ui-sans-serif, sans-serif); font-size: 25px; font-weight: 560; letter-spacing: -0.02em; }
+.altara-wave-profile__handle { margin: 2px 20px 0; color: var(--wave-muted); font-size: 11px; }
+.altara-wave-profile__bio { max-width: 70ch; margin: 15px 20px 0; color: #ded8d0; font-size: 12px; line-height: 1.6; }
+.altara-wave-profile__meta { display: flex; flex-wrap: wrap; gap: 12px; margin: 14px 20px 0; color: var(--wave-muted); font-size: 9px; }
+.altara-wave-profile__meta span,
+.altara-wave-profile__meta a { display: inline-flex; align-items: center; gap: 4px; color: inherit; text-decoration: none; }
+.altara-wave-profile__meta a { color: var(--wave-gold-bright); }
+.altara-wave-profile__counts { display: flex; flex-wrap: wrap; gap: 17px; margin: 15px 20px 0; }
+.altara-wave-profile__counts button,
+.altara-wave-profile__counts span { padding: 0; border: 0; color: var(--wave-muted); background: transparent; font-size: 9px; }
+.altara-wave-profile__counts button { cursor: pointer; }
+.altara-wave-profile__counts strong { color: var(--wave-text); font-size: 11px; }
+
+.altara-wave-profile-editor > header { min-height: 76px; display: flex; align-items: center; gap: 12px; padding: 13px 20px; border-bottom: 1px solid var(--wave-line); }
+.altara-wave-profile-editor > header > div { flex: 1; }
+.altara-wave-profile-editor > header h2 { margin: 0; font-family: var(--font-display, Inter, ui-sans-serif, sans-serif); font-size: 24px; font-weight: 560; letter-spacing: -0.015em; }
+.altara-wave-profile-editor > header p { margin: 3px 0 0; color: var(--wave-muted); font-size: 9px; }
+.altara-wave-profile-editor > header button { display: inline-flex; align-items: center; gap: 5px; min-height: 32px; padding: 0 10px; border: 1px solid var(--wave-line); border-radius: 9px; background: transparent; cursor: pointer; font-size: 9px; }
+.altara-wave-profile-editor > header button:last-child { border: 0; color: #171513; background: var(--wave-gold); font-weight: 800; }
+.altara-wave-profile-editor fieldset { display: grid; gap: 15px; margin: 0; padding: 22px 20px 30px; border: 0; }
+.altara-wave-profile-editor fieldset > div { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.altara-wave-profile-editor label { display: grid; gap: 6px; color: var(--wave-muted); font-size: 9px; font-weight: 750; letter-spacing: 0.07em; }
+.altara-wave-profile-editor input,
+.altara-wave-profile-editor textarea,
+.altara-wave-handle-input { width: 100%; box-sizing: border-box; border: 1px solid var(--wave-line); border-radius: 10px; color: var(--wave-text); -webkit-text-fill-color: var(--wave-text); background: #171718; }
+.altara-wave-profile-editor input { height: 39px; padding: 0 11px; }
+.altara-wave-profile-editor textarea { resize: vertical; padding: 10px 11px; line-height: 1.5; }
+.altara-wave-profile-editor label > small { justify-self: end; color: #847e75; font-size: 8px; }
+.altara-wave-handle-input { display: grid; grid-template-columns: auto 1fr; align-items: center; padding-left: 11px; }
+.altara-wave-handle-input b { color: var(--wave-gold); }
+.altara-wave-handle-input input { border: 0; background: transparent; }
+
+.altara-wave-notifications > button { width: 100%; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 11px; padding: 13px 20px; border: 0; border-bottom: 1px solid var(--wave-line); text-align: left; background: transparent; cursor: pointer; }
+.altara-wave-notifications > button[data-unread='true'] { background: rgba(221, 190, 132, 0.055); }
+.altara-wave-notifications > button > span { min-width: 0; color: #d7d1c8; font-size: 11px; line-height: 1.45; }
+.altara-wave-notifications > button small { display: block; overflow: hidden; margin-top: 3px; color: var(--wave-muted); text-overflow: ellipsis; white-space: nowrap; }
+.altara-wave-notifications time { color: var(--wave-muted); font-size: 9px; }
+.altara-wave-relationship-list { display: grid; }
+.altara-wave-load-more { min-height: 38px; display: flex; align-items: center; justify-content: center; gap: 7px; margin: 14px auto 20px; padding: 0 15px; border: 1px solid var(--wave-line-strong); border-radius: 999px; color: var(--wave-gold-bright); -webkit-text-fill-color: var(--wave-gold-bright); background: rgba(221, 190, 132, 0.045); cursor: pointer; font-size: 9px; font-weight: 800; letter-spacing: 0.08em; }
+.altara-wave-load-more:hover:not(:disabled) { border-color: rgba(221, 190, 132, 0.52); background: rgba(221, 190, 132, 0.09); }
+.altara-wave-load-more:disabled { opacity: 0.58; cursor: wait; }
+
+.altara-wave-feedback { min-height: 250px; display: grid; place-items: center; align-content: center; gap: 9px; padding: 35px; text-align: center; }
+.altara-wave-feedback > span { color: var(--wave-gold); }
+.altara-wave-feedback h2 { margin: 0; font-family: var(--font-display, Inter, ui-sans-serif, sans-serif); font-size: 22px; font-weight: 560; letter-spacing: -0.01em; }
+.altara-wave-feedback p { max-width: 52ch; margin: 0; color: var(--wave-muted); font-size: 11px; line-height: 1.55; }
+.altara-wave-feedback button { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; min-height: 34px; padding: 0 11px; border: 1px solid var(--wave-line-strong); border-radius: 9px; color: var(--wave-gold-bright); background: transparent; cursor: pointer; font-size: 9px; font-weight: 800; }
+.altara-wave-inline-error { margin: 8px 0 0; color: var(--wave-danger); font-size: 10px; }
+.altara-wave-error { position: sticky; z-index: 30; bottom: 13px; display: flex; align-items: center; gap: 10px; margin: 14px; padding: 10px 12px; border: 1px solid rgba(225, 154, 136, 0.35); border-radius: 11px; color: #f2c0b4; background: rgba(35, 20, 18, 0.95); font-size: 10px; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.25); }
+.altara-wave-error span { flex: 1; }
+.altara-wave-error button { border: 0; background: transparent; cursor: pointer; }
+
+.altara-wave-onboarding { grid-column: 1 / -1; grid-row: 1 / -1; width: min(780px, calc(100% - 40px)); margin: auto; align-self: center; justify-self: center; display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(310px, 1.1fr); overflow: hidden; border: 1px solid var(--wave-line); border-radius: 16px; background: rgba(17, 17, 18, 0.92); box-shadow: 0 28px 72px rgba(0, 0, 0, 0.34); }
+.altara-wave-onboarding__intro { min-width: 0; display: flex; flex-direction: column; justify-content: center; padding: 44px 40px; background: radial-gradient(circle at 10% 0%, rgba(221, 190, 132, 0.15), transparent 46%), #141414; }
+.altara-wave-onboarding__brand { display: flex; align-items: center; gap: 11px; }
+.altara-wave-onboarding__brand > span:last-child { display: grid; gap: 1px; }
+.altara-wave-onboarding__brand strong { font-family: var(--font-display, Inter, ui-sans-serif, sans-serif); font-size: 22px; font-weight: 600; letter-spacing: 0.025em; }
+.altara-wave-onboarding__brand small { color: var(--wave-muted); font-size: 8px; font-weight: 700; letter-spacing: 0.13em; }
+.altara-wave-onboarding__mark { width: 48px; height: 48px; display: grid; place-items: center; flex: none; border-radius: 15px; color: #181512; background: var(--wave-gold); box-shadow: 0 14px 34px rgba(221, 190, 132, 0.16); }
+.altara-wave-onboarding h1 { max-width: 10ch; margin: 42px 0 10px; font-family: var(--font-display, Inter, ui-sans-serif, sans-serif); font-size: clamp(34px, 5cqi, 52px); font-weight: 570; line-height: 0.98; letter-spacing: -0.03em; text-wrap: balance; }
+.altara-wave-onboarding__intro > p { max-width: 31ch; margin: 0; color: var(--wave-muted); font-size: 12px; line-height: 1.6; }
+.altara-wave-onboarding__setup { min-width: 0; display: flex; flex-direction: column; justify-content: center; padding: 44px 42px; border-left: 1px solid var(--wave-line); }
+.altara-wave-onboarding__identity { display: grid; gap: 6px; padding-bottom: 22px; border-bottom: 1px solid var(--wave-line); }
+.altara-wave-onboarding__identity small { color: var(--wave-gold); font-size: 8px; font-weight: 800; letter-spacing: 0.14em; }
+.altara-wave-onboarding__identity strong { overflow: hidden; font-family: var(--font-display, Inter, ui-sans-serif, sans-serif); font-size: 24px; font-weight: 560; letter-spacing: -0.015em; text-overflow: ellipsis; white-space: nowrap; }
+.altara-wave-onboarding form { width: 100%; display: grid; gap: 12px; margin-top: 24px; text-align: left; }
+.altara-wave-onboarding form label { display: grid; gap: 7px; color: var(--wave-muted); font-size: 9px; font-weight: 800; letter-spacing: 0.08em; }
+.altara-wave-onboarding form small { color: var(--wave-muted); font-size: 9px; line-height: 1.45; }
+.altara-wave-onboarding .altara-wave-handle-input { min-height: 54px; grid-template-columns: 22px minmax(0, 1fr); border-color: var(--wave-line-strong); border-radius: 12px; background: #0e0e0f; font-size: 16px; }
+.altara-wave-onboarding .altara-wave-handle-input:focus-within { border-color: rgba(240, 214, 163, 0.64); box-shadow: 0 0 0 1px rgba(240, 214, 163, 0.18); }
+.altara-wave-onboarding .altara-wave-handle-input input { min-width: 0; height: 52px; color: var(--wave-text); -webkit-text-fill-color: var(--wave-text); font-size: 16px; }
+.altara-wave-onboarding form > button { min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 4px; border: 0; border-radius: 11px; color: #181512; background: var(--wave-gold); cursor: pointer; font-size: 10px; font-weight: 850; letter-spacing: 0.07em; }
+.altara-wave-onboarding form > button:hover:not(:disabled) { background: var(--wave-gold-bright); }
+.altara-wave-onboarding form > button:disabled { opacity: 0.48; cursor: not-allowed; }
+.altara-wave-onboarding form > p { margin: 0; color: var(--wave-danger); font-size: 10px; }
+
+.altara-wave-spin { animation: altara-wave-spin 800ms linear infinite; }
+@keyframes altara-wave-spin { to { transform: rotate(360deg); } }
+@keyframes altara-wave-progress { from { transform: translateX(-20%); } to { transform: translateX(190%); } }
+
+@media (max-width: 940px) {
+  .altara-wave { grid-template-columns: 205px minmax(360px, 1fr); }
+  .altara-wave-rail { display: none; }
+}
+
+@media (max-width: 680px) {
+  .altara-wave { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) 58px; }
+  .altara-wave-main { grid-row: 1; border-right: 0; }
+  .altara-wave-nav { grid-row: 2; flex-direction: row; align-items: stretch; gap: 0; padding: 0 5px; border-top: 1px solid var(--wave-line); border-right: 0; background: #0d0d0e; }
+  .altara-wave-nav > header,
+  .altara-wave-nav__post,
+  .altara-wave-nav__self { display: none; }
+  .altara-wave-nav nav { width: 100%; grid-template-columns: repeat(5, 1fr); gap: 0; }
+  .altara-wave-nav nav button { min-height: 58px; grid-template-columns: 1fr; place-items: center; gap: 2px; padding: 4px; border-radius: 0; text-align: center; }
+  .altara-wave-nav nav button span { font-size: 7px; }
+  .altara-wave-nav nav button b { position: absolute; margin: -25px 0 0 23px; }
+  .altara-wave-composer,
+  .altara-wave-post { padding-left: 14px; padding-right: 14px; }
+  .altara-wave-view-head { padding-left: 14px; padding-right: 14px; }
+  .altara-wave-profile-editor fieldset > div { grid-template-columns: 1fr; }
+  .altara-wave-composer footer > span { display: none; }
+  .altara-wave-onboarding { width: min(100% - 24px, 520px); max-height: calc(100% - 24px); grid-template-columns: 1fr; overflow-y: auto; }
+  .altara-wave-onboarding__intro { padding: 26px 26px 24px; }
+  .altara-wave-onboarding h1 { margin-top: 26px; font-size: 34px; }
+  .altara-wave-onboarding__setup { padding: 26px; border-top: 1px solid var(--wave-line); border-left: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .altara-wave *, .altara-wave *::before, .altara-wave *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+}

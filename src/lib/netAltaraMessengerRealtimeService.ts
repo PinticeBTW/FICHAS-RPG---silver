@@ -4,6 +4,8 @@ import { supabase } from './supabase'
 let channelSequence = 0
 let messengerChannel: ReturnType<NonNullable<typeof supabase>['channel']> | null = null
 let messengerStatus: NetAltaraMessengerRealtimeStatus = 'idle'
+let recoveryAttempted = false
+let lifecycleListenersAttached = false
 
 interface MessengerSubscriber {
   readonly onRevision: (identityLinkId: string, revision: number) => void
@@ -15,6 +17,32 @@ const subscribers = new Set<MessengerSubscriber>()
 function publishStatus(status: NetAltaraMessengerRealtimeStatus) {
   messengerStatus = status
   for (const subscriber of subscribers) subscriber.onStatus(status)
+}
+
+function reconcileChannel() {
+  if (!subscribers.size || messengerStatus !== 'disconnected' || messengerChannel) return
+  recoveryAttempted = false
+  ensureChannel()
+}
+
+function handleVisibilityChange() {
+  if (document.visibilityState === 'visible') reconcileChannel()
+}
+
+function attachLifecycleListeners() {
+  if (lifecycleListenersAttached || typeof window === 'undefined') return
+  lifecycleListenersAttached = true
+  window.addEventListener('online', reconcileChannel)
+  window.addEventListener('focus', reconcileChannel)
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+}
+
+function detachLifecycleListeners() {
+  if (!lifecycleListenersAttached || typeof window === 'undefined') return
+  lifecycleListenersAttached = false
+  window.removeEventListener('online', reconcileChannel)
+  window.removeEventListener('focus', reconcileChannel)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
 }
 
 function ensureChannel() {
@@ -49,9 +77,21 @@ function ensureChannel() {
   messengerChannel = channel
   channel.subscribe((status) => {
     if (messengerChannel !== channel) return
-    if (status === 'SUBSCRIBED') publishStatus('subscribed')
-    else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+    if (status === 'SUBSCRIBED') {
+      recoveryAttempted = false
+      publishStatus('subscribed')
+    } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+      messengerChannel = null
       publishStatus('disconnected')
+      // A revision bump delivered while this channel is dead is never
+      // replayed. Without an explicit recreate, a former member's own
+      // removal signal (and any later membership change) can be silently
+      // lost for the rest of the session once the socket drops.
+      const shouldRecover = subscribers.size > 0 && !recoveryAttempted
+      recoveryAttempted = true
+      void client.removeChannel(channel).finally(() => {
+        if (shouldRecover && subscribers.size > 0 && !messengerChannel) ensureChannel()
+      })
     }
   })
 }
@@ -68,12 +108,19 @@ export function subscribeToNetAltaraMessenger(
   const client = supabase
   const subscriber = { onRevision, onStatus }
   subscribers.add(subscriber)
+  attachLifecycleListeners()
   onStatus(messengerStatus)
   ensureChannel()
 
   return () => {
     subscribers.delete(subscriber)
-    if (subscribers.size > 0 || !messengerChannel) return
+    if (subscribers.size > 0) return
+    detachLifecycleListeners()
+    recoveryAttempted = false
+    if (!messengerChannel) {
+      messengerStatus = 'idle'
+      return
+    }
     const retiredChannel = messengerChannel
     messengerChannel = null
     messengerStatus = 'idle'

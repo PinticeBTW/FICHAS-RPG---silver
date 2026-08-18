@@ -27,6 +27,8 @@ export interface SheetEconomyAccountSources {
   readonly voxBank: SheetEconomyAccountSummary | null
   readonly shneiderBank: SheetEconomyAccountSummary | null
   readonly altaraBank: SheetEconomyAccountSummary | null
+  readonly novaBank: SheetEconomyAccountSummary | null
+  readonly altaraFundsTotal: number | null
   readonly homeCurrency: {
     readonly currencyCode: 'VG' | 'FINIT' | 'SECTUS'
     readonly displayName: string
@@ -122,6 +124,21 @@ export async function fetchSheetEconomyAccountSources(input: {
   if (primaryOsId !== null && primaryOsId !== undefined && !isNetOsId(primaryOsId)) {
     throw new Error('The sheet account response contained an unsupported operating system.')
   }
+  const altaraBank = parseAccount(payload.altara_bank ?? null, null)
+  const novaBank = parseAccount(payload.nova_bank ?? null, null)
+  const rawFundsTotal = payload.altara_funds_total
+  // The server distinguishes "no active bank account" (null) from a
+  // legitimate zero balance. Trust it directly rather than re-deriving a
+  // fabricated sum, which would turn absence back into a fake 0.
+  const altaraFundsTotal = rawFundsTotal === null || rawFundsTotal === undefined
+    ? null
+    : Number(rawFundsTotal)
+  if (
+    altaraFundsTotal !== null
+    && (!Number.isSafeInteger(altaraFundsTotal) || altaraFundsTotal < 0)
+  ) {
+    throw new Error('The sheet funds response was invalid.')
+  }
 
   return {
     serverNow: payload.server_now,
@@ -130,6 +147,8 @@ export async function fetchSheetEconomyAccountSources(input: {
     vlt: parseAccount(payload.vlt, 'VG'),
     voxBank: parseAccount(payload.vox_bank, 'VG'),
     shneiderBank: parseAccount(payload.shneider_bank, 'VG'),
-    altaraBank: parseAccount(payload.altara_bank ?? null, null),
+    altaraBank,
+    novaBank,
+    altaraFundsTotal,
   }
 }

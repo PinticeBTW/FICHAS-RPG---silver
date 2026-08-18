@@ -440,7 +440,13 @@ function AltaraBankGmConfirmation({
   )
 }
 
-function AltaraFxAdmin({ enabled }: { readonly enabled: boolean }) {
+/**
+ * GM currency/exchange-rate editor. Rendered from GM SYSTEM Settings
+ * (src/components/net/altara/AltaraAppSurfaces.tsx), not from ALTARA BANK --
+ * exported so that surface can reuse this exact implementation instead of a
+ * second one. ALTARA BANK's own admin view no longer renders it.
+ */
+export function AltaraFxAdmin({ enabled }: { readonly enabled: boolean }) {
   const [configuration, setConfiguration] = useState<NetAltaraEconomyConfiguration>()
   const [currencyA, setCurrencyA] = useState<NetAltaraCurrencyCode>('FINIT')
   const [currencyB, setCurrencyB] = useState<NetAltaraCurrencyCode>('SECTUS')
@@ -662,7 +668,6 @@ function AltaraBankGmAdmin({ enabled, onNotice }: { readonly enabled: boolean; r
               </button>
             ))}
           </div>
-          <AltaraFxAdmin enabled={enabled} />
         </aside>
 
         {!selectedId ? (

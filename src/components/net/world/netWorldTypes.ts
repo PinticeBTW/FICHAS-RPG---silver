@@ -4,7 +4,7 @@ export type NetDistrictId = string
 export type NetLocationId = string
 export type NetEventId = string
 
-export type NetAppId = 'echo' | 'pulse' | 'iden' | 'nvn' | 'loop'
+export type NetAppId = 'pulse' | 'nvn' | 'loop'
 
 export type NetEntityType =
   | 'person'

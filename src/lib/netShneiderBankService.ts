@@ -23,7 +23,7 @@ interface RpcErrorLike {
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const PAYMENT_IDENTIFIER_PATTERN = /^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/
-const ACTIVITY_KINDS = ['bank-deposit', 'bank-withdrawal', 'bank-transfer'] as const
+const ACTIVITY_KINDS = ['bank-deposit', 'bank-withdrawal', 'bank-transfer', 'gm-credit', 'gm-debit'] as const
 const BENEFIT_CATEGORIES = ['hospital', 'clinic', 'pharmacy'] as const
 const SAFE_BALANCE_MAX = 9_000_000_000_000_000
 
@@ -127,6 +127,7 @@ function parseActivity(value: unknown): NetShneiderBankActivity {
       && PAYMENT_IDENTIFIER_PATTERN.test(row.counterparty_payment_identifier)
       ? { counterpartyPaymentIdentifier: row.counterparty_payment_identifier }
       : {}),
+    ...(typeof row.note === 'string' && row.note.trim() ? { note: row.note } : {}),
     createdAt: timestamp(row.created_at, 'activity time'),
   }
 }

@@ -25,13 +25,15 @@ import type { NetResolvedOsSession } from '../../lib/netOsService'
 import { ALTARA_NEWS_PRODUCT_NAME } from '../../lib/netAltaraNewsTypes'
 import { wallpaperPositionToCss } from '../../lib/netWallpaperStore'
 import { NetAppWindow } from './NetAppWindow'
-import { AltaraSettingsApp } from './altara/AltaraAppSurfaces'
+import { AltaraEconomySettings, AltaraSettingsApp } from './altara/AltaraAppSurfaces'
 import { AltaraBankApp, type AltaraBankMode } from './altara/AltaraBankApp'
 import { AltaraStoreApp } from './altara/AltaraStoreApp'
 import { AltaraMessengerApp } from './altara/AltaraMessengerApp'
 import { AltaraNewsApp, type AltaraNewsMode } from './altara/AltaraNewsApp'
 import { AltaraMusicApp, type AltaraMusicMode } from './altara/AltaraMusicApp'
 import { AltaraMusicAudioEngine } from './altara/AltaraMusicAudioEngine'
+import { AltaraWaveApp } from './altara/AltaraWaveApp'
+import { NovaBankApp } from './altara/NovaBankApp'
 import { useAltaraMusicPlayer } from './altara/useAltaraMusicPlayer'
 import {
   altaraAppCatalog,
@@ -44,11 +46,13 @@ import {
   isAltaraWallpaperPresetId,
 } from './altara/altaraWallpaperPresets'
 import { useAltaraWindowManager } from './altara/useAltaraWindowManager'
-import { NetGmSystemEnvironmentControl } from './identity/NetGmSystemEnvironmentControl'
+import { AltaraPersonaControl } from './altara/AltaraPersonaControl'
+import { NetSystemHackingBanner } from './identity/NetSystemHackingBanner'
 import { useNetActiveIdentitySession } from './identity/useNetActiveIdentitySession'
 import { useNetGmPersona } from './identity/useNetGmPersona'
 import { useNetPlayableIdentityCandidates } from './identity/useNetPlayableIdentityCandidates'
 import { useNetIdentitySystem } from './system/useNetIdentitySystem'
+import { useNetSystemHackingRuntime } from './system/useNetSystemHackingRuntime'
 
 import '../../styles/altaraOs.css'
 
@@ -186,6 +190,7 @@ export function AltaraOsGateway({
   const gmPersona = useNetGmPersona(profile, authLoading, candidates)
   const activeIdentitySession = useNetActiveIdentitySession(profile, authLoading, candidates)
   const activeIdentity = activeIdentitySession.activeIdentity
+  const hacking = useNetSystemHackingRuntime(profile?.id)
   const playerIdentityLinkMatches = activeIdentity.status === 'ready'
     && activeIdentity.identity.identityLinkId === resolvedIdentityLinkId
   const controlledIdentityLinkMatches = gmPersona.state.status === 'controlled'
@@ -197,67 +202,94 @@ export function AltaraOsGateway({
   const controlledNpcMode = takeControlMode
     && gmPersona.state.status === 'controlled'
     && gmPersona.state.identity.identityKind === 'npc'
+  // Full runtime-takeover parity: a player (never GM/TAKE CONTROL -- those
+  // already have their own, higher-precedence identity source) whose own
+  // hacking session is both active and "entered" (ENTER SYSTEM clicked, not
+  // just credentialed) projects this whole OS onto the hacking target,
+  // exactly like TAKE CONTROL already projects it onto a GM's controlled
+  // identity. hacking.session.active alone is deliberately not enough --
+  // that only means an authorised connection exists, matching
+  // NetSystemSecurityControl's own COMPROMISED CONNECTION / ENTER SYSTEM
+  // step.
+  const hackedTarget = !gmSystemMode && !takeControlMode && hacking.mounted && hacking.session?.active
+    ? { identityLinkId: hacking.session.targetIdentityLinkId, osId: hacking.session.targetOsId }
+    : undefined
   const shellReady = gmSystemMode
     || (takeControlMode
       ? Boolean(resolvedIdentityLinkId) && controlledIdentityLinkMatches
-      : playerIdentityLinkMatches)
+      : hackedTarget
+        ? hacking.targetIdentity?.status === 'ready'
+        : playerIdentityLinkMatches)
   const identityName = takeControlMode && controlledIdentityLinkMatches
     ? gmPersona.state.status === 'controlled' ? gmPersona.state.identity.displayName : 'CONTROLLED IDENTITY'
     : gmSystemMode
       ? 'GM SYSTEM'
-      : playerIdentityLinkMatches && activeIdentity.status === 'ready'
-        ? activeIdentity.identity.displayName
-        : 'ALTARA IDENTITY'
+      : hackedTarget && hacking.targetIdentity?.status === 'ready'
+        ? hacking.targetIdentity.identity.displayName
+        : playerIdentityLinkMatches && activeIdentity.status === 'ready'
+          ? activeIdentity.identity.displayName
+          : 'ALTARA IDENTITY'
+  const effectiveIdentityLinkId = hackedTarget ? hackedTarget.identityLinkId : resolvedIdentityLinkId
   const playerSystemIdentityLinkId = playerIdentityLinkMatches ? resolvedIdentityLinkId : undefined
-  const systemIdentityLinkId = takeControlMode
-    ? resolvedIdentityLinkId
-    : playerSystemIdentityLinkId
+  const systemIdentityLinkId = hackedTarget
+    ? hackedTarget.identityLinkId
+    : takeControlMode
+      ? resolvedIdentityLinkId
+      : playerSystemIdentityLinkId
   const identitySystem = useNetIdentitySystem(gmSystemMode ? undefined : systemIdentityLinkId)
   const runtimeSystemState = identitySystem.state
   const messengerIdentityLinkId = gmSystemMode || !shellReady
     ? undefined
-    : resolvedIdentityLinkId
+    : effectiveIdentityLinkId
   const runtimeMutationsAllowed = !gmSystemMode && shellReady && Boolean(systemIdentityLinkId)
   const [now, setNow] = useState(() => new Date())
   const [launcherOpen, setLauncherOpen] = useState(false)
   const [notice, setNotice] = useState('ALTARA NETWORK // DESKTOP READY')
   const launcherRef = useRef<HTMLElement | null>(null)
   const launcherButtonRef = useRef<HTMLButtonElement | null>(null)
-  const windowManager = useAltaraWindowManager()
+  const windowManager = useAltaraWindowManager(profile?.id)
   const closeWindow = windowManager.closeWindow
 
   const installedAltaraBank = runtimeSystemState.status === 'ready'
     && runtimeSystemState.system.installedOptionalAppIds.includes('altara-bank')
+  const installedNovaBank = runtimeSystemState.status === 'ready'
+    && runtimeSystemState.system.installedOptionalAppIds.includes('nova-bank')
   const installedAltaraNews = runtimeSystemState.status === 'ready'
     && runtimeSystemState.system.installedOptionalAppIds.includes('altara-news')
   const installedAltaraMusic = runtimeSystemState.status === 'ready'
     && runtimeSystemState.system.installedOptionalAppIds.includes('altara-music')
+  const installedAltaraWave = runtimeSystemState.status === 'ready'
+    && runtimeSystemState.system.installedOptionalAppIds.includes('altara-wave')
   const altaraBankMode: AltaraBankMode = gmSystemMode
     ? 'gm-admin'
     : 'personal'
   const altaraBankAvailable = gmSystemMode || installedAltaraBank
+  const novaBankAvailable = !gmSystemMode && installedNovaBank
   const altaraNewsMode: AltaraNewsMode = gmSystemMode ? 'newsroom' : 'reader'
   const altaraNewsAvailable = gmSystemMode || installedAltaraNews
   const altaraMusicMode: AltaraMusicMode = gmSystemMode ? 'studio' : 'reader'
   const altaraMusicAvailable = gmSystemMode || installedAltaraMusic
+  const altaraWaveAvailable = !gmSystemMode && installedAltaraWave
   const altaraBankContextKey = [
     profile?.id ?? 'anonymous',
     osSession.actorMode,
     osSession.controlMode,
-    resolvedIdentityLinkId ?? 'system',
+    effectiveIdentityLinkId ?? 'system',
     gmPersona.session?.sessionGeneration ?? 'none',
   ].join(':')
   const altaraMusicContextKey = `${altaraBankContextKey}:${installedAltaraMusic ? 'installed' : 'uninstalled'}`
   const altaraMusicPlayer = useAltaraMusicPlayer(
     altaraMusicContextKey,
-    !gmSystemMode && shellReady && installedAltaraMusic ? resolvedIdentityLinkId : undefined,
+    !gmSystemMode && shellReady && installedAltaraMusic ? effectiveIdentityLinkId : undefined,
   )
   const availableApps = useMemo(() => altaraAppCatalog.filter(
     (app) => app.systemApp
       || (app.id === 'altara-bank' && altaraBankAvailable)
+      || (app.id === 'nova-bank' && novaBankAvailable)
       || (app.id === 'altara-news' && altaraNewsAvailable)
-      || (app.id === 'altara-music' && altaraMusicAvailable),
-  ), [altaraBankAvailable, altaraMusicAvailable, altaraNewsAvailable])
+      || (app.id === 'altara-music' && altaraMusicAvailable)
+      || (app.id === 'altara-wave' && altaraWaveAvailable),
+  ), [altaraBankAvailable, altaraMusicAvailable, altaraNewsAvailable, altaraWaveAvailable, novaBankAvailable])
   const availableAppIdSet = useMemo(
     () => new Set<AltaraAppId>(availableApps.map((app) => app.id)),
     [availableApps],
@@ -298,12 +330,20 @@ export function AltaraOsGateway({
   }, [altaraBankAvailable, closeWindow])
 
   useEffect(() => {
+    if (!novaBankAvailable) closeWindow('nova-bank')
+  }, [closeWindow, novaBankAvailable])
+
+  useEffect(() => {
     if (!altaraNewsAvailable) closeWindow('altara-news')
   }, [altaraNewsAvailable, closeWindow])
 
   useEffect(() => {
     if (!altaraMusicAvailable) closeWindow('altara-music')
   }, [altaraMusicAvailable, closeWindow])
+
+  useEffect(() => {
+    if (!altaraWaveAvailable) closeWindow('altara-wave')
+  }, [altaraWaveAvailable, closeWindow])
 
   useEffect(() => {
     const previousTitle = document.title
@@ -360,6 +400,31 @@ export function AltaraOsGateway({
     setNotice('ALTARA BANK // REMOVED')
   }
 
+  const installNovaBank = async () => {
+    if (!runtimeMutationsAllowed) {
+      throw new Error('A controlled ALTARA runtime identity is required for installation changes.')
+    }
+    if (identitySystem.state.status !== 'ready') {
+      throw new Error('The active identity system profile is not ready.')
+    }
+    const installed = await identitySystem.setAppInstalled('nova-bank', true)
+    if (!installed) throw new Error('The installation was not confirmed.')
+    setNotice('NOVA BANK // INSTALL COMPLETE')
+  }
+
+  const uninstallNovaBank = async () => {
+    if (!runtimeMutationsAllowed) {
+      throw new Error('A controlled ALTARA runtime identity is required for installation changes.')
+    }
+    if (identitySystem.state.status !== 'ready') {
+      throw new Error('The active identity system profile is not ready.')
+    }
+    const removed = await identitySystem.setAppInstalled('nova-bank', false)
+    if (!removed) throw new Error('The removal was not confirmed.')
+    closeWindow('nova-bank')
+    setNotice('NOVA BANK // REMOVED')
+  }
+
   const installAltaraNews = async () => {
     if (!runtimeMutationsAllowed) {
       throw new Error('A controlled ALTARA runtime identity is required for installation changes.')
@@ -410,6 +475,31 @@ export function AltaraOsGateway({
     setNotice('ALTARA MUSIC // REMOVED')
   }
 
+  const installAltaraWave = async () => {
+    if (!runtimeMutationsAllowed) {
+      throw new Error('A controlled ALTARA runtime identity is required for installation changes.')
+    }
+    if (identitySystem.state.status !== 'ready') {
+      throw new Error('The active identity system profile is not ready.')
+    }
+    const installed = await identitySystem.setAppInstalled('altara-wave', true)
+    if (!installed) throw new Error('The installation was not confirmed.')
+    setNotice('WAVE // INSTALL COMPLETE')
+  }
+
+  const uninstallAltaraWave = async () => {
+    if (!runtimeMutationsAllowed) {
+      throw new Error('A controlled ALTARA runtime identity is required for installation changes.')
+    }
+    if (identitySystem.state.status !== 'ready') {
+      throw new Error('The active identity system profile is not ready.')
+    }
+    const removed = await identitySystem.setAppInstalled('altara-wave', false)
+    if (!removed) throw new Error('The removal was not confirmed.')
+    closeWindow('altara-wave')
+    setNotice('WAVE // REMOVED')
+  }
+
   const uploadWallpaper: Parameters<typeof AltaraSettingsApp>[0]['onUpload'] = async (file, fit, position) => {
     if (!runtimeMutationsAllowed) throw new Error('A controlled ALTARA runtime identity is required.')
     const saved = await identitySystem.setWallpaper(file, fit, position)
@@ -451,9 +541,13 @@ export function AltaraOsGateway({
       ? gmPersona.state.status === 'error'
         ? gmPersona.state.reason
         : 'The controlled identity no longer matches this authoritative ALTARA session.'
-      : activeIdentity.status === 'error' || activeIdentity.status === 'no-identity'
-        ? activeIdentity.reason
-        : 'The selected identity no longer matches this authoritative ALTARA session.'
+      : hackedTarget
+        ? hacking.targetIdentity?.status === 'error'
+          ? hacking.targetIdentity.reason
+          : null
+        : activeIdentity.status === 'error' || activeIdentity.status === 'no-identity'
+          ? activeIdentity.reason
+          : 'The selected identity no longer matches this authoritative ALTARA session.'
     : null
 
   return (
@@ -465,6 +559,20 @@ export function AltaraOsGateway({
         if (event.target === event.currentTarget) setLauncherOpen(false)
       }}
     >
+      {hackedTarget ? (
+        <NetSystemHackingBanner
+          targetDisplayName={hacking.targetIdentity?.status === 'ready'
+            ? hacking.targetIdentity.identity.displayName
+            : 'TARGET SYSTEM'}
+          sourceDisplayName={playerIdentityLinkMatches && activeIdentity.status === 'ready'
+            ? activeIdentity.identity.displayName
+            : 'OPERATIVE'}
+          sourceOsId="altara"
+          onDisconnect={() => { void hacking.disconnect() }}
+          disconnecting={hacking.disconnecting}
+          disconnectError={hacking.disconnectError}
+        />
+      ) : null}
       <AltaraMusicAudioEngine {...altaraMusicPlayer} />
       <div className="altara-os__wallpaper" aria-hidden="true">
         {customWallpaper ? (
@@ -648,6 +756,15 @@ export function AltaraOsGateway({
               onOpen: () => openWindow('altara-bank'),
             },
             {
+              id: 'nova-bank',
+              installed: installedNovaBank,
+              running: Boolean(windowManager.windows['nova-bank']?.open),
+              disclosure: 'Remove the app? Your NOVA account, balance, and payment history will remain intact.',
+              onInstall: installNovaBank,
+              onUninstall: uninstallNovaBank,
+              onOpen: () => openWindow('nova-bank'),
+            },
+            {
               id: 'altara-news',
               installed: installedAltaraNews,
               running: Boolean(windowManager.windows['altara-news']?.open),
@@ -664,6 +781,15 @@ export function AltaraOsGateway({
               onInstall: installAltaraMusic,
               onUninstall: uninstallAltaraMusic,
               onOpen: () => openWindow('altara-music'),
+            },
+            {
+              id: 'altara-wave',
+              installed: installedAltaraWave,
+              running: Boolean(windowManager.windows['altara-wave']?.open),
+              disclosure: 'Remove the app? Your profile, posts, social graph, bookmarks, and notifications will remain intact.',
+              onInstall: installAltaraWave,
+              onUninstall: uninstallAltaraWave,
+              onOpen: () => openWindow('altara-wave'),
             },
           ]}
           disabled={!runtimeMutationsAllowed || identitySystem.mutating || identitySystem.state.status !== 'ready'}
@@ -685,7 +811,7 @@ export function AltaraOsGateway({
           mode={altaraNewsMode}
           enabled={Boolean(windowManager.windows['altara-news']?.open && shellReady)}
           identitySessionKey={altaraBankContextKey}
-          expectedIdentityLinkId={altaraNewsMode === 'reader' ? resolvedIdentityLinkId : undefined}
+          expectedIdentityLinkId={altaraNewsMode === 'reader' ? effectiveIdentityLinkId : undefined}
           identityName={identityName}
           onNotice={setNotice}
         />
@@ -702,9 +828,25 @@ export function AltaraOsGateway({
           key={`music:${altaraMusicContextKey}:${altaraMusicMode}`}
           mode={altaraMusicMode}
           enabled={Boolean(windowManager.windows['altara-music']?.open && shellReady)}
-          expectedIdentityLinkId={altaraMusicMode === 'reader' ? resolvedIdentityLinkId : undefined}
+          expectedIdentityLinkId={altaraMusicMode === 'reader' ? effectiveIdentityLinkId : undefined}
           identityName={identityName}
           player={altaraMusicPlayer}
+          onNotice={setNotice}
+        />
+      </NetAppWindow>
+
+      <NetAppWindow
+        title="WAVE"
+        subtitle="ALTARA // SOCIAL NETWORK"
+        icon={getAltaraAppDefinition('altara-wave').icon}
+        accentRgb={getAltaraAppDefinition('altara-wave').accentRgb}
+        {...windowManager.getManagedProps('altara-wave')}
+      >
+        <AltaraWaveApp
+          key={`wave:${altaraBankContextKey}:${installedAltaraWave ? 'installed' : 'uninstalled'}`}
+          enabled={Boolean(windowManager.windows['altara-wave']?.open && shellReady && altaraWaveAvailable)}
+          identitySessionKey={altaraBankContextKey}
+          expectedIdentityLinkId={altaraWaveAvailable ? effectiveIdentityLinkId : undefined}
           onNotice={setNotice}
         />
       </NetAppWindow>
@@ -721,7 +863,23 @@ export function AltaraOsGateway({
           mode={altaraBankMode}
           enabled={Boolean(windowManager.windows['altara-bank']?.open && shellReady)}
           identitySessionKey={altaraBankContextKey}
-          expectedIdentityLinkId={altaraBankMode === 'personal' ? resolvedIdentityLinkId : undefined}
+          expectedIdentityLinkId={altaraBankMode === 'personal' ? effectiveIdentityLinkId : undefined}
+          onNotice={setNotice}
+        />
+      </NetAppWindow>
+
+      <NetAppWindow
+        title="NOVA BANK"
+        subtitle="NOVA // DIGITAL FINANCE"
+        icon={getAltaraAppDefinition('nova-bank').icon}
+        accentRgb={getAltaraAppDefinition('nova-bank').accentRgb}
+        {...windowManager.getManagedProps('nova-bank')}
+      >
+        <NovaBankApp
+          key={`nova:${altaraBankContextKey}:${installedNovaBank ? 'installed' : 'uninstalled'}`}
+          enabled={Boolean(windowManager.windows['nova-bank']?.open && shellReady && novaBankAvailable)}
+          identitySessionKey={altaraBankContextKey}
+          expectedIdentityLinkId={novaBankAvailable ? effectiveIdentityLinkId : undefined}
           onNotice={setNotice}
         />
       </NetAppWindow>
@@ -736,6 +894,8 @@ export function AltaraOsGateway({
         <AltaraSettingsApp
           key={`${profile?.id ?? 'anonymous'}:${systemIdentityLinkId ?? 'gm-system'}:${gmPersona.session?.sessionGeneration ?? 'none'}`}
           identityName={identityName}
+          securityIdentityLinkId={gmSystemMode ? undefined : systemIdentityLinkId}
+          securityProfileId={gmSystemMode ? undefined : profile?.id}
           baseWallpaperVisual={wallpaperTheme}
           customWallpaper={customWallpaper}
           status={gmSystemMode ? 'ready' : runtimeSystemState.status}
@@ -747,15 +907,15 @@ export function AltaraOsGateway({
           {...(profile?.role === 'player' ? { onChangeIdentity } : {})}
           readOnly={!runtimeMutationsAllowed}
           workspaceControl={profile?.role === 'gm' ? (
-            <NetGmSystemEnvironmentControl
+            <AltaraPersonaControl
               profileId={profile.id}
               effectiveOsId={osSession.effectiveOsId}
               controlPrimaryOsId={takeControlMode ? osSession.primaryOsId : undefined}
               controller={gmPersona}
-              candidates={candidates.status === 'ready' ? candidates.candidates : []}
-              showControlPicker
+              candidates={candidates}
             />
           ) : undefined}
+          economyControl={gmSystemMode ? <AltaraEconomySettings /> : undefined}
         />
       </NetAppWindow>
     </main>

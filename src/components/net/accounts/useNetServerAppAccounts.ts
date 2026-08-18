@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import {
   createExplicitNetAppAccount,
-  ensureAutomaticNetAppAccount,
   fetchNetAppAccountsForIdentity,
   type NetExplicitAccountAppId,
 } from '../../../lib/netAppAccountService'
@@ -10,8 +9,6 @@ import {
   createNetPulseAccountWithProfile,
   type NetPulseProfileInput,
 } from '../../../lib/netPulseProfileService'
-import { provisionNetEchoAccount } from '../../../lib/netEchoService'
-import { NetEchoContextChangedError } from '../../../lib/netEchoTypes'
 import type { NetAppAccount } from './netAppAccountTypes'
 
 export interface NetServerAppAccountIdentityContext {
@@ -42,9 +39,7 @@ function mergeAccounts(accounts: readonly NetAppAccount[]): readonly NetAppAccou
 export function useNetServerAppAccounts(
   profileId: string | undefined,
   identityContext: NetServerAppAccountIdentityContext | undefined,
-  options: { readonly ensureAutomaticIden?: boolean } = {},
 ) {
-  const ensureAutomaticIden = options.ensureAutomaticIden ?? true
   const activeIdentityLinkId = identityContext?.identityLinkId
   const [state, setState] = useState<ServerAccountState>(() => ({
     profileId: profileId ?? null,
@@ -78,12 +73,7 @@ export function useNetServerAppAccounts(
           })
     })
 
-    void Promise.all([
-      fetchNetAppAccountsForIdentity(expectedLinkId),
-      ensureAutomaticIden
-        ? ensureAutomaticNetAppAccount(expectedLinkId, 'iden')
-        : Promise.resolve(null),
-    ]).then(([accounts, idenAccount]) => {
+    void fetchNetAppAccountsForIdentity(expectedLinkId).then((accounts) => {
       if (
         cancelled
         || profileIdRef.current !== expectedProfileId
@@ -97,7 +87,7 @@ export function useNetServerAppAccounts(
               ...current.entries,
               [expectedLinkId]: {
                 status: 'ready',
-                accounts: mergeAccounts(idenAccount ? [...accounts, idenAccount] : accounts),
+                accounts: mergeAccounts(accounts),
               },
             },
           }
@@ -126,7 +116,7 @@ export function useNetServerAppAccounts(
     })
 
     return () => { cancelled = true }
-  }, [activeIdentityLinkId, ensureAutomaticIden, profileId])
+  }, [activeIdentityLinkId, profileId])
 
   const activeEntry = state.profileId === (profileId ?? null) && activeIdentityLinkId
     ? state.entries[activeIdentityLinkId]
@@ -221,70 +211,12 @@ export function useNetServerAppAccounts(
     return account
   }, [])
 
-  const createEchoAccount = useCallback(async (input: {
-    readonly handle: string
-  }): Promise<NetAppAccount> => {
-    const expectedProfileId = profileId ?? null
-    const expectedLinkId = activeIdentityLinkId ?? null
-    if (!expectedProfileId || !expectedLinkId) {
-      throw new Error('An active server-backed character is required.')
-    }
-
-    const provisioned = await provisionNetEchoAccount({
-      expectedIdentityLinkId: expectedLinkId,
-      handle: input.handle,
-    })
-    if (
-      profileIdRef.current !== expectedProfileId
-      || activeIdentityLinkIdRef.current !== expectedLinkId
-    ) {
-      throw new NetEchoContextChangedError()
-    }
-
-    const refreshedAccounts = await fetchNetAppAccountsForIdentity(expectedLinkId)
-    if (
-      profileIdRef.current !== expectedProfileId
-      || activeIdentityLinkIdRef.current !== expectedLinkId
-    ) {
-      throw new NetEchoContextChangedError()
-    }
-
-    const account = refreshedAccounts.find((candidate) =>
-      candidate.id === provisioned.accountId
-      && candidate.appId === 'echo'
-      && candidate.owner.type === 'identity-link'
-      && candidate.owner.identityLinkId === expectedLinkId,
-    )
-    if (!account) {
-      throw new Error('ECHO presence was created but could not be reconciled locally.')
-    }
-
-    setState((current) => {
-      if (current.profileId !== expectedProfileId) return current
-      const currentEntry = current.entries[expectedLinkId]
-      const currentAccounts = currentEntry?.status === 'ready' ? currentEntry.accounts : []
-      return {
-        ...current,
-        entries: {
-          ...current.entries,
-          [expectedLinkId]: {
-            status: 'ready',
-            accounts: mergeAccounts([...currentAccounts, ...refreshedAccounts]),
-          },
-        },
-      }
-    })
-
-    return account
-  }, [activeIdentityLinkId, profileId])
-
   return useMemo(() => ({
     accounts,
     status,
     loading: status === 'loading',
     error: activeEntry?.status === 'error' ? activeEntry.reason : undefined,
     createExplicitAccount,
-    createEchoAccount,
     createPulseAccount,
-  }), [accounts, activeEntry, createEchoAccount, createExplicitAccount, createPulseAccount, status])
+  }), [accounts, activeEntry, createExplicitAccount, createPulseAccount, status])
 }

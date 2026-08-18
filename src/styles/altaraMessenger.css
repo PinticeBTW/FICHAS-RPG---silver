@@ -189,15 +189,24 @@
 .altara-messenger-group-form > label input:focus-visible { border-color: rgba(var(--messenger-gold), 0.68); box-shadow: 0 0 0 2px rgba(var(--messenger-gold), 0.13); }
 .altara-messenger-manage form button { padding: 7px; border: 1px solid rgba(var(--messenger-gold), 0.2); border-radius: 5px; color: rgba(var(--messenger-gold), 0.85); background: transparent; font: 650 0.58rem/1 var(--font-mono, ui-monospace, monospace); }
 
+.altara-messenger-danger-zone { display: grid; gap: 10px; margin-top: 4px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+.altara-messenger-manage button.altara-messenger-danger,
+.altara-messenger-confirm button.altara-messenger-danger { display: flex; width: 100%; align-items: center; justify-content: center; gap: 6px; padding: 7px; border: 1px solid rgba(184, 84, 66, 0.32); border-radius: 5px; color: #c88776; background: rgba(184, 84, 66, 0.08); font: 650 0.58rem/1 var(--font-mono, ui-monospace, monospace); letter-spacing: 0.03em; }
+.altara-messenger-danger:disabled { opacity: 0.55; }
+.altara-messenger-confirm { display: grid; gap: 10px; padding: 10px; border: 1px solid rgba(184, 84, 66, 0.28); border-radius: 6px; background: rgba(184, 84, 66, 0.06); }
+.altara-messenger-confirm p { margin: 0; color: rgba(255, 255, 255, 0.78); font-size: 0.63rem; line-height: 1.5; }
+.altara-messenger-confirm > div { display: flex; gap: 8px; }
+.altara-messenger-confirm > div > button { flex: 1; padding: 7px; border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 5px; color: rgba(255, 255, 255, 0.75); background: transparent; font: 650 0.56rem/1 var(--font-mono, ui-monospace, monospace); }
+
 .altara-messenger-compose-flow { width: min(590px, 100%); margin: auto; padding: 30px clamp(18px, 4vw, 42px); }
 .altara-messenger-compose-flow > .altara-messenger-back + h2 { margin-top: 24px; }
 .altara-messenger-compose-flow > h2 { margin: 0; font-size: clamp(1.2rem, 3vw, 1.8rem); font-weight: 420; letter-spacing: -0.025em; }
 .altara-messenger-compose-flow > span { display: block; max-width: 470px; margin-top: 8px; color: rgba(255, 255, 255, 0.6); font-size: 0.68rem; line-height: 1.55; }
 .altara-messenger-directory { display: grid; gap: 10px; margin-top: 20px; }
-.altara-messenger-directory > form { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; padding: 6px 7px 6px 10px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 7px; color: rgba(255, 255, 255, 0.35); background: rgba(0, 0, 0, 0.2); }
-.altara-messenger-directory > form:focus-within { border-color: rgba(var(--messenger-gold), 0.42); }
+.altara-messenger-directory > .altara-messenger-search-bar { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; padding: 6px 7px 6px 10px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 7px; color: rgba(255, 255, 255, 0.35); background: rgba(0, 0, 0, 0.2); }
+.altara-messenger-directory > .altara-messenger-search-bar:focus-within { border-color: rgba(var(--messenger-gold), 0.42); }
 .altara-messenger-directory input { min-width: 0; border: 0; outline: 0; color: #eee9df; background: transparent; font-size: 0.64rem; }
-.altara-messenger-directory > form button { min-height: 27px; padding: 0 8px; border: 1px solid rgba(var(--messenger-gold), 0.18); border-radius: 5px; color: rgba(var(--messenger-gold), 0.84); background: rgba(var(--messenger-gold), 0.05); font: 650 0.58rem/1 var(--font-mono, ui-monospace, monospace); }
+.altara-messenger-directory > .altara-messenger-search-bar button { min-height: 27px; padding: 0 8px; border: 1px solid rgba(var(--messenger-gold), 0.18); border-radius: 5px; color: rgba(var(--messenger-gold), 0.84); background: rgba(var(--messenger-gold), 0.05); font: 650 0.58rem/1 var(--font-mono, ui-monospace, monospace); }
 .altara-messenger-directory__results { display: grid; max-height: 230px; overflow-y: auto; }
 .altara-messenger-directory__results > button { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 9px; padding: 8px; border: 0; border-bottom: 1px solid rgba(255, 255, 255, 0.055); color: inherit; text-align: left; background: transparent; }
 .altara-messenger-directory__results > button:hover,

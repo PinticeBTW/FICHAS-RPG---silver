@@ -24,7 +24,7 @@ interface RpcErrorLike {
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const SAFE_BALANCE_MAX = 9_000_000_000_000_000
 const PAYMENT_IDENTIFIER_PATTERN = /^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/
-const ACTIVITY_KINDS = ['bank-deposit', 'bank-withdrawal', 'bank-yield', 'bank-transfer'] as const
+const ACTIVITY_KINDS = ['bank-deposit', 'bank-withdrawal', 'bank-yield', 'bank-transfer', 'gm-credit', 'gm-debit'] as const
 
 function client() {
   if (!supabase) throw new NetVoxBankError('request-failed', SUPABASE_CONFIG_ERROR)
@@ -130,6 +130,9 @@ function parseActivity(value: unknown): NetVoxBankActivity {
     ...(typeof value.counterparty_payment_identifier === 'string'
       && PAYMENT_IDENTIFIER_PATTERN.test(value.counterparty_payment_identifier)
       ? { counterpartyPaymentIdentifier: value.counterparty_payment_identifier }
+      : {}),
+    ...(typeof value.note === 'string' && value.note.trim()
+      ? { note: value.note }
       : {}),
     createdAt: timestamp(value.created_at, 'transaction time'),
   }

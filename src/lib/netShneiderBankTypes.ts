@@ -4,7 +4,7 @@ export const NET_SHNEIDER_BANK_MAX_TRANSFER_AMOUNT = 1_000_000_000
 
 export type NetShneiderBankDirection = 'deposit' | 'withdraw'
 export type NetShneiderBankMutation = 'open' | NetShneiderBankDirection | 'payment'
-export type NetShneiderBankActivityKind = 'bank-deposit' | 'bank-withdrawal' | 'bank-transfer'
+export type NetShneiderBankActivityKind = 'bank-deposit' | 'bank-withdrawal' | 'bank-transfer' | 'gm-credit' | 'gm-debit'
 export type NetShneiderBenefitCategory = 'hospital' | 'clinic' | 'pharmacy'
 
 export interface NetShneiderBankCursor {
@@ -27,6 +27,7 @@ export interface NetShneiderBankActivity {
   readonly transactionKind: NetShneiderBankActivityKind
   readonly counterpartyDisplayName?: string
   readonly counterpartyPaymentIdentifier?: string
+  readonly note?: string
   readonly createdAt: string
 }
 
