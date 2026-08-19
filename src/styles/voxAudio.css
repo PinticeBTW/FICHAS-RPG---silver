@@ -190,6 +190,33 @@
 .vox-audio-player__queue > div > button > span strong, .vox-audio-player__queue > div > button > span small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vox-audio-player__queue > div > button > span strong { color: var(--music-paper); font-size: 0.6rem; }
 .vox-audio-player__queue > div > button > span small { color: var(--music-muted); font-size: 0.46rem; }
+.vox-audio-player__queue-section { display: grid; border-bottom: 1px solid var(--music-line-soft); }
+.vox-audio-player__queue-section:last-child { border-bottom: 0; }
+.vox-audio-player__queue-section > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 11px 6px; color: var(--music-muted); font-size: 0.44rem; font-weight: 780; letter-spacing: 0.13em; }
+.vox-audio-player__queue-section > header small { font-size: inherit; }
+.vox-audio-player__queue-row {
+  display: grid;
+  min-height: 50px;
+  grid-template-columns: 30px 38px minmax(0, 1fr) 42px auto;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.045);
+}
+.vox-audio-player__queue-row:hover,
+.vox-audio-player__queue-row[data-current='true'] { background: rgba(111, 183, 230, 0.055); }
+.vox-audio-player__queue-row[data-current='true'] { box-shadow: inset 2px 0 var(--music-gold); }
+.vox-audio-player__queue-position,
+.vox-audio-player__queue-row time { color: var(--music-muted); font-size: 0.44rem; }
+.vox-audio-player__queue-row > span { display: grid; min-width: 0; gap: 3px; }
+.vox-audio-player__queue-row > span strong,
+.vox-audio-player__queue-row > span small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vox-audio-player__queue-row > span strong { color: var(--music-paper); font-size: 0.6rem; }
+.vox-audio-player__queue-row > span small { color: var(--music-muted); font-size: 0.46rem; }
+.vox-audio-player__queue-actions { display: flex; align-items: center; gap: 3px; }
+.vox-audio-player__queue-actions button { width: 24px; height: 24px; border: 1px solid transparent; border-radius: 6px; }
+.vox-audio-player__queue-actions button:hover { border-color: var(--music-line); background: rgba(111, 183, 230, 0.09); }
+.vox-audio-player__queue-empty { margin: 0; padding: 13px 12px 15px; color: var(--music-muted); font-size: 0.54rem; line-height: 1.5; }
 
 .vox-audio-search-page, .vox-audio-library-page, .vox-audio-detail { padding: clamp(20px, 4cqi, 44px); }
 .vox-audio-search-page > header, .vox-audio-library-page > header { margin-bottom: 24px; }

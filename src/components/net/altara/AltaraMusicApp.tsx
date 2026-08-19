@@ -211,6 +211,9 @@ function TrackList({
                 if (isCurrent) void player.toggle()
                 else void player.playQueue(tracks, index)
               }}
+              onPlayNext={() => { void player.playNext(track) }}
+              onAddToQueue={() => { void player.addToQueue(track) }}
+              queueActionsDisabled={isCurrent}
               onOpenArtist={onOpenArtist}
               onOpenRelease={onOpenRelease}
               onLike={() => onLike(track)}
@@ -235,6 +238,60 @@ function CollectionRail({
   readonly action?: ReactNode
 }) {
   return <section className="altara-music-rail"><header><h2>{title}</h2>{action}</header><div>{children}</div></section>
+}
+
+function PlayerQueuePanel({
+  player,
+  onClose,
+}: {
+  readonly player: AltaraMusicPlayerController
+  readonly onClose: () => void
+}) {
+  const track = player.current
+  const currentIndex = player.currentIndex
+  const upNext = currentIndex >= 0 ? player.queue.slice(currentIndex + 1) : []
+
+  return (
+    <aside id="altara-music-player-queue" className="altara-music-player__queue">
+      <header>
+        <div>
+          <strong>PLAYBACK QUEUE</strong>
+          <small>{upNext.length} UP NEXT</small>
+        </div>
+        <button type="button" onClick={onClose} aria-label="Close playback queue"><X size={14} /></button>
+      </header>
+      <section className="altara-music-player__queue-section">
+        <header><span>NOW PLAYING</span></header>
+        {track ? (
+          <article className="altara-music-player__queue-row" data-current="true">
+            <small className="altara-music-player__queue-position">NOW</small>
+            <Artwork source={track.artworkRef} label="" />
+            <span><strong>{track.title}</strong><small>{track.artistName}{track.releaseTitle ? ` · ${track.releaseTitle}` : ''}</small></span>
+            <time>{formatAltaraMusicDuration(track.durationMs)}</time>
+          </article>
+        ) : <p className="altara-music-player__queue-empty">Choose a track to begin listening.</p>}
+      </section>
+      <section className="altara-music-player__queue-section">
+        <header><span>UP NEXT</span><small>{upNext.length ? `${upNext.length} ${upNext.length === 1 ? 'TRACK' : 'TRACKS'}` : 'EMPTY'}</small></header>
+        {upNext.length ? upNext.map((queuedTrack, offset) => {
+          const queueIndex = currentIndex + 1 + offset
+          return (
+            <article className="altara-music-player__queue-row" key={`${queuedTrack.id}:${queueIndex}`}>
+              <small className="altara-music-player__queue-position">{String(offset + 1).padStart(2, '0')}</small>
+              <Artwork source={queuedTrack.artworkRef} label="" />
+              <span><strong>{queuedTrack.title}</strong><small>{queuedTrack.artistName}{queuedTrack.releaseTitle ? ` · ${queuedTrack.releaseTitle}` : ''}</small></span>
+              <time>{formatAltaraMusicDuration(queuedTrack.durationMs)}</time>
+              <div className="altara-music-player__queue-actions">
+                <button type="button" disabled={offset === 0} onClick={() => player.moveQueueItem(queueIndex, queueIndex - 1)} aria-label={`Move ${queuedTrack.title} up`}><ChevronUp size={13} /></button>
+                <button type="button" disabled={offset === upNext.length - 1} onClick={() => player.moveQueueItem(queueIndex, queueIndex + 1)} aria-label={`Move ${queuedTrack.title} down`}><ChevronDown size={13} /></button>
+                <button type="button" onClick={() => player.removeFromQueue(queueIndex)} aria-label={`Remove ${queuedTrack.title} from queue`}><Trash2 size={13} /></button>
+              </div>
+            </article>
+          )
+        }) : <p className="altara-music-player__queue-empty">Use Play Next or Add to Queue from a track's menu.</p>}
+      </section>
+    </aside>
+  )
 }
 
 function PlayerBar({
@@ -320,7 +377,7 @@ function PlayerBar({
         <button type="button" onClick={player.toggleMuted} aria-label={player.muted ? 'Unmute' : 'Mute'}>{player.muted ? <VolumeX size={16} /> : <Volume2 size={16} />}</button>
         <input type="range" min={0} max={1} step={0.02} value={player.volume} onChange={(event) => player.setVolume(Number(event.target.value))} aria-label="Volume" />
       </div>
-      {queueOpen && player.queue.length ? <aside id="altara-music-player-queue" className="altara-music-player__queue"><header><div><strong>PLAYBACK QUEUE</strong><small>{player.queue.length} {player.queue.length === 1 ? 'TRACK' : 'TRACKS'}</small></div><button type="button" onClick={() => setQueueOpen(false)} aria-label="Close playback queue"><X size={14} /></button></header><div>{player.queue.map((queuedTrack, index) => <button type="button" key={queuedTrack.id} data-current={queuedTrack.id === track?.id ? 'true' : 'false'} onClick={() => { void player.playQueue(player.queue, index) }}><small>{String(index + 1).padStart(2, '0')}</small><Artwork source={queuedTrack.artworkRef} label="" /><span><strong>{queuedTrack.title}</strong><small>{queuedTrack.artistName}{queuedTrack.releaseTitle ? ` · ${queuedTrack.releaseTitle}` : ''}</small></span><time>{formatAltaraMusicDuration(queuedTrack.durationMs)}</time></button>)}</div></aside> : null}
+      {queueOpen && player.queue.length ? <PlayerQueuePanel player={player} onClose={() => setQueueOpen(false)} /> : null}
       {player.error ? <p role="alert">{player.error}</p> : null}
     </footer>
   )

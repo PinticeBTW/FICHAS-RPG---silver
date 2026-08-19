@@ -9,6 +9,7 @@
   --wave-text: #f2eee7;
   --wave-muted: #aaa399;
   --wave-danger: #e19a88;
+  position: relative;
   width: 100%;
   height: 100%;
   min-height: 0;
@@ -105,8 +106,14 @@
 }
 
 .altara-wave-nav__post:hover { background: var(--wave-gold-bright); }
-.altara-wave-nav__self {
+.altara-wave-nav__self-shell {
   margin-top: auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 36px;
+  align-items: stretch;
+  gap: 7px;
+}
+.altara-wave-nav__self {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
@@ -117,11 +124,44 @@
   background: rgba(255, 255, 255, 0.025);
 }
 .altara-wave-nav__self:hover { background: rgba(221, 190, 132, 0.08); }
+.altara-wave-nav__profile {
+  display: grid;
+  min-width: 36px;
+  min-height: 100%;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(221, 190, 132, 0.16);
+  border-radius: 13px;
+  color: var(--wave-muted) !important;
+  background: rgba(255, 255, 255, 0.018);
+  cursor: pointer;
+}
+.altara-wave-nav__profile:hover,
+.altara-wave-nav__profile[aria-expanded='true'] {
+  border-color: rgba(221, 190, 132, 0.42);
+  color: var(--wave-gold-bright) !important;
+  background: rgba(221, 190, 132, 0.09);
+}
 .altara-wave-nav__self > span:last-child { min-width: 0; display: grid; gap: 2px; }
 .altara-wave-nav__self strong,
 .altara-wave-nav__self small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .altara-wave-nav__self strong { font-size: 11px; }
 .altara-wave-nav__self small { color: var(--wave-muted); font-size: 10px; }
+
+.altara-wave > .altara-wave-app-profile {
+  position: absolute;
+  z-index: 45;
+  left: 235px;
+  bottom: 18px;
+  width: min(360px, calc(100% - 260px));
+  border: 1px solid rgba(221, 190, 132, 0.18);
+  border-radius: 16px;
+  background: rgba(15, 15, 16, 0.96);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.44);
+}
+.altara-wave-app-profile .net-app-profile-editor {
+  --app-profile-accent: 221, 190, 132;
+}
 
 .altara-wave-main {
   min-width: 0;
@@ -292,7 +332,15 @@
 .altara-wave-profile__banner { height: clamp(130px, 23vh, 220px); overflow: hidden; background: radial-gradient(circle at 28% 18%, rgba(221, 190, 132, 0.2), transparent 40%), radial-gradient(circle at 76% 72%, rgba(152, 123, 78, 0.1), transparent 34%), linear-gradient(135deg, #211f1b, #111112 68%); }
 .altara-wave-profile__identity { height: 46px; display: flex; align-items: flex-start; justify-content: space-between; padding: 0 20px; }
 .altara-wave-profile__identity .altara-wave-avatar { transform: translateY(-42px); }
-.altara-wave-profile__identity > button { margin-top: 10px; min-height: 31px; padding: 0 11px; border: 1px solid var(--wave-line-strong); border-radius: 10px; color: var(--wave-gold-bright); background: transparent; cursor: pointer; font-size: 9px; font-weight: 800; letter-spacing: 0.06em; }
+.altara-wave-profile__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+.altara-wave-profile__actions > button { min-height: 31px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 11px; border: 1px solid var(--wave-line-strong); border-radius: 10px; color: var(--wave-gold-bright); background: transparent; cursor: pointer; font-size: 9px; font-weight: 800; letter-spacing: 0.06em; }
+.altara-wave-profile__actions > button[aria-expanded='true'] { border-color: rgba(221, 190, 132, 0.54); background: rgba(221, 190, 132, 0.08); }
 .altara-wave-profile > h1 { margin: 4px 20px 0; font-family: var(--font-display, Inter, ui-sans-serif, sans-serif); font-size: 25px; font-weight: 560; letter-spacing: -0.02em; }
 .altara-wave-profile__handle { margin: 2px 20px 0; color: var(--wave-muted); font-size: 11px; }
 .altara-wave-profile__bio { max-width: 70ch; margin: 15px 20px 0; color: #ded8d0; font-size: 12px; line-height: 1.6; }
@@ -355,9 +403,30 @@
 .altara-wave-onboarding h1 { max-width: 10ch; margin: 42px 0 10px; font-family: var(--font-display, Inter, ui-sans-serif, sans-serif); font-size: clamp(34px, 5cqi, 52px); font-weight: 570; line-height: 0.98; letter-spacing: -0.03em; text-wrap: balance; }
 .altara-wave-onboarding__intro > p { max-width: 31ch; margin: 0; color: var(--wave-muted); font-size: 12px; line-height: 1.6; }
 .altara-wave-onboarding__setup { min-width: 0; display: flex; flex-direction: column; justify-content: center; padding: 44px 42px; border-left: 1px solid var(--wave-line); }
-.altara-wave-onboarding__identity { display: grid; gap: 6px; padding-bottom: 22px; border-bottom: 1px solid var(--wave-line); }
+.altara-wave-onboarding__identity { display: grid; grid-template-columns: auto minmax(0, 1fr) 34px; align-items: center; gap: 10px; padding-bottom: 22px; border-bottom: 1px solid var(--wave-line); }
+.altara-wave-onboarding__identity > span { min-width: 0; display: grid; gap: 6px; }
 .altara-wave-onboarding__identity small { color: var(--wave-gold); font-size: 8px; font-weight: 800; letter-spacing: 0.14em; }
 .altara-wave-onboarding__identity strong { overflow: hidden; font-family: var(--font-display, Inter, ui-sans-serif, sans-serif); font-size: 24px; font-weight: 560; letter-spacing: -0.015em; text-overflow: ellipsis; white-space: nowrap; }
+.altara-wave-onboarding__identity > button {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(221, 190, 132, 0.2);
+  border-radius: 11px;
+  color: var(--wave-muted);
+  background: rgba(255, 255, 255, 0.025);
+  cursor: pointer;
+}
+.altara-wave-onboarding__identity > button[aria-expanded='true'] {
+  border-color: rgba(221, 190, 132, 0.48);
+  color: var(--wave-gold-bright);
+  background: rgba(221, 190, 132, 0.08);
+}
+.altara-wave-onboarding .altara-wave-app-profile {
+  margin-top: 15px;
+}
 .altara-wave-onboarding form { width: 100%; display: grid; gap: 12px; margin-top: 24px; text-align: left; }
 .altara-wave-onboarding form label { display: grid; gap: 7px; color: var(--wave-muted); font-size: 9px; font-weight: 800; letter-spacing: 0.08em; }
 .altara-wave-onboarding form small { color: var(--wave-muted); font-size: 9px; line-height: 1.45; }
@@ -384,7 +453,15 @@
   .altara-wave-nav { grid-row: 2; flex-direction: row; align-items: stretch; gap: 0; padding: 0 5px; border-top: 1px solid var(--wave-line); border-right: 0; background: #0d0d0e; }
   .altara-wave-nav > header,
   .altara-wave-nav__post,
-  .altara-wave-nav__self { display: none; }
+  .altara-wave-nav__self-shell { display: none; }
+  .altara-wave > .altara-wave-app-profile {
+    left: 12px;
+    right: 12px;
+    bottom: 70px;
+    width: auto;
+    max-height: calc(100% - 94px);
+    overflow-y: auto;
+  }
   .altara-wave-nav nav { width: 100%; grid-template-columns: repeat(5, 1fr); gap: 0; }
   .altara-wave-nav nav button { min-height: 58px; grid-template-columns: 1fr; place-items: center; gap: 2px; padding: 4px; border-radius: 0; text-align: center; }
   .altara-wave-nav nav button span { font-size: 7px; }

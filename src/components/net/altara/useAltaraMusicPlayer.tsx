@@ -11,6 +11,7 @@ export type AltaraMusicRepeatMode = 'off' | 'track' | 'queue'
 export interface AltaraMusicPlayerController {
   readonly current: NetAltaraMusicTrack | null
   readonly queue: readonly NetAltaraMusicTrack[]
+  readonly currentIndex: number
   readonly playing: boolean
   readonly loading: boolean
   readonly error?: string
@@ -22,6 +23,10 @@ export interface AltaraMusicPlayerController {
   readonly repeat: AltaraMusicRepeatMode
   readonly bindAudioElement: (element: HTMLAudioElement | null) => void
   readonly playQueue: (tracks: readonly NetAltaraMusicTrack[], startIndex?: number) => Promise<void>
+  readonly playNext: (track: NetAltaraMusicTrack) => Promise<void>
+  readonly addToQueue: (track: NetAltaraMusicTrack) => Promise<void>
+  readonly removeFromQueue: (queueIndex: number) => void
+  readonly moveQueueItem: (fromIndex: number, toIndex: number) => void
   readonly toggle: () => Promise<void>
   readonly previous: () => Promise<void>
   readonly next: () => Promise<void>
@@ -69,6 +74,13 @@ export function useAltaraMusicPlayer(
 
   const current = index >= 0 ? queue[index] ?? null : null
 
+  const commitQueue = useCallback((nextQueue: readonly NetAltaraMusicTrack[], nextIndex = indexRef.current) => {
+    queueRef.current = nextQueue
+    indexRef.current = nextIndex
+    setQueue(nextQueue)
+    setIndex(nextIndex)
+  }, [])
+
   const loadIndex = useCallback(async (nextIndex: number, nextQueue = queueRef.current) => {
     const identityLinkId = identityRef.current
     const track = nextQueue[nextIndex]
@@ -82,10 +94,7 @@ export function useAltaraMusicPlayer(
       if (generationRef.current !== generation || identityRef.current !== identityLinkId) return
       const sameSource = audio.dataset.trackId === track.id
         && audio.dataset.objectPath === track.audioObjectPath
-      queueRef.current = nextQueue
-      indexRef.current = nextIndex
-      setQueue(nextQueue)
-      setIndex(nextIndex)
+      commitQueue(nextQueue, nextIndex)
       if (!sameSource) {
         audio.src = signedUrl
         audio.dataset.trackId = track.id
@@ -106,7 +115,7 @@ export function useAltaraMusicPlayer(
     } finally {
       if (generationRef.current === generation) setLoading(false)
     }
-  }, [muted, volume])
+  }, [commitQueue, muted, volume])
 
   const playQueue = useCallback(async (
     tracks: readonly NetAltaraMusicTrack[],
@@ -115,6 +124,70 @@ export function useAltaraMusicPlayer(
     if (!tracks.length || startIndex < 0 || startIndex >= tracks.length) return
     await loadIndex(startIndex, [...tracks])
   }, [loadIndex])
+
+  const playNext = useCallback(async (track: NetAltaraMusicTrack) => {
+    const activeQueue = [...queueRef.current]
+    let currentIndex = indexRef.current
+    const currentTrack = currentIndex >= 0 ? activeQueue[currentIndex] : undefined
+    if (!activeQueue.length || currentIndex < 0 || !currentTrack) {
+      await loadIndex(0, [track])
+      return
+    }
+    if (currentTrack.id === track.id) return
+
+    const existingIndex = activeQueue.findIndex((queuedTrack) => queuedTrack.id === track.id)
+    if (existingIndex >= 0) {
+      activeQueue.splice(existingIndex, 1)
+      if (existingIndex < currentIndex) currentIndex -= 1
+    }
+    activeQueue.splice(currentIndex + 1, 0, track)
+    commitQueue(activeQueue, currentIndex)
+  }, [commitQueue, loadIndex])
+
+  const addToQueue = useCallback(async (track: NetAltaraMusicTrack) => {
+    const activeQueue = [...queueRef.current]
+    let currentIndex = indexRef.current
+    const currentTrack = currentIndex >= 0 ? activeQueue[currentIndex] : undefined
+    if (!activeQueue.length || currentIndex < 0 || !currentTrack) {
+      await loadIndex(0, [track])
+      return
+    }
+    if (currentTrack.id === track.id) return
+
+    const existingIndex = activeQueue.findIndex((queuedTrack) => queuedTrack.id === track.id)
+    if (existingIndex >= 0) {
+      activeQueue.splice(existingIndex, 1)
+      if (existingIndex < currentIndex) currentIndex -= 1
+    }
+    activeQueue.push(track)
+    commitQueue(activeQueue, currentIndex)
+  }, [commitQueue, loadIndex])
+
+  const removeFromQueue = useCallback((queueIndex: number) => {
+    const activeQueue = [...queueRef.current]
+    const currentIndex = indexRef.current
+    if (queueIndex <= currentIndex || queueIndex < 0 || queueIndex >= activeQueue.length) return
+    activeQueue.splice(queueIndex, 1)
+    commitQueue(activeQueue, currentIndex)
+  }, [commitQueue])
+
+  const moveQueueItem = useCallback((fromIndex: number, toIndex: number) => {
+    const activeQueue = [...queueRef.current]
+    const currentIndex = indexRef.current
+    if (
+      fromIndex <= currentIndex
+      || toIndex <= currentIndex
+      || fromIndex < 0
+      || toIndex < 0
+      || fromIndex >= activeQueue.length
+      || toIndex >= activeQueue.length
+      || fromIndex === toIndex
+    ) return
+    const [moved] = activeQueue.splice(fromIndex, 1)
+    if (!moved) return
+    activeQueue.splice(toIndex, 0, moved)
+    commitQueue(activeQueue, currentIndex)
+  }, [commitQueue])
 
   const next = useCallback(async () => {
     const activeQueue = queueRef.current
@@ -241,6 +314,7 @@ export function useAltaraMusicPlayer(
   return useMemo(() => ({
     current,
     queue,
+    currentIndex: index,
     playing,
     loading,
     ...(error ? { error } : {}),
@@ -252,6 +326,10 @@ export function useAltaraMusicPlayer(
     repeat,
     bindAudioElement,
     playQueue,
+    playNext,
+    addToQueue,
+    removeFromQueue,
+    moveQueueItem,
     toggle,
     previous,
     next,
@@ -267,9 +345,10 @@ export function useAltaraMusicPlayer(
     onEnded,
     onError,
   }), [
-    bindAudioElement, current, currentTime, cycleRepeat, duration, error, loading,
-    muted, next, onDurationChange, onEnded, onError, onPause, onPlaying,
-    onTimeUpdate, playQueue, playing, previous, queue, repeat, seek, setVolume,
+    addToQueue, bindAudioElement, current, currentTime, cycleRepeat, duration,
+    error, index, loading, moveQueueItem, muted, next, onDurationChange,
+    onEnded, onError, onPause, onPlaying, onTimeUpdate, playNext, playQueue,
+    playing, previous, queue, removeFromQueue, repeat, seek, setVolume,
     shuffle, toggle, toggleMuted, toggleShuffle, volume,
   ])
 }

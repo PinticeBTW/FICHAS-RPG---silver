@@ -1,4 +1,4 @@
-import { Heart, MoreHorizontal, Music2, Play, UserCog } from 'lucide-react'
+import { Heart, MoreHorizontal, Music2, Play, Plus, UserCog } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
 
 import { NetAppProfileEditor } from './profile/NetAppProfileEditor'
@@ -114,6 +114,9 @@ export function MusicTrackContextMenu({
   playlists,
   activePersonalPlaylistId,
   onPlay,
+  onPlayNext,
+  onAddToQueue,
+  queueActionsDisabled,
   onOpenArtist,
   onOpenRelease,
   onLike,
@@ -128,6 +131,9 @@ export function MusicTrackContextMenu({
   readonly playlists: readonly MusicProductPlaylistOption[]
   readonly activePersonalPlaylistId?: string
   readonly onPlay: () => void
+  readonly onPlayNext?: () => void
+  readonly onAddToQueue?: () => void
+  readonly queueActionsDisabled?: boolean
   readonly onOpenArtist: (artistId: string) => void
   readonly onOpenRelease: (releaseId: string) => void
   readonly onLike: () => void
@@ -184,6 +190,22 @@ export function MusicTrackContextMenu({
         <div id={menuId} className={`${classPrefix}-track-menu__surface`} role="menu">
           <button type="button" role="menuitem" onClick={() => run(onPlay)}>
             <Play size={13} fill="currentColor" aria-hidden="true" /> PLAY FROM HERE
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            disabled={!onPlayNext || queueActionsDisabled}
+            onClick={() => onPlayNext ? run(onPlayNext) : undefined}
+          >
+            <Play size={13} aria-hidden="true" /> PLAY NEXT
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            disabled={!onAddToQueue || queueActionsDisabled}
+            onClick={() => onAddToQueue ? run(onAddToQueue) : undefined}
+          >
+            <Plus size={13} aria-hidden="true" /> ADD TO QUEUE
           </button>
           <button type="button" role="menuitem" onClick={() => run(() => onOpenArtist(artistId))}>
             <Music2 size={13} aria-hidden="true" /> GO TO ARTIST

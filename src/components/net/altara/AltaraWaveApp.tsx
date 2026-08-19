@@ -17,6 +17,7 @@ import {
   Search,
   Send,
   Trash2,
+  UserCog,
   UserMinus,
   UserPlus,
   UserRound,
@@ -65,6 +66,8 @@ import {
 } from '../../../lib/netAltaraWaveTypes'
 import { SharedMediaImage } from '../../shared/SharedMediaImage'
 import { normalizeNetHandle } from '../accounts/netAppAccountSelectors'
+import { NetAppProfileEditor } from '../profile/NetAppProfileEditor'
+import { useNetAppPresentation } from '../profile/useNetAppIdentityPresentation'
 import { useNetAltaraWave } from './useNetAltaraWave'
 
 import '../../../styles/altaraWave.css'
@@ -102,6 +105,13 @@ interface AltaraWaveAppProps {
   readonly onNotice: (message: string) => void
 }
 
+type WaveAvatarSize = 'small' | 'medium' | 'large'
+
+interface WaveAppPresentation {
+  readonly displayName: string
+  readonly avatarUrl?: string
+}
+
 function initials(value: string): string {
   return value.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('') || 'W'
 }
@@ -118,13 +128,34 @@ function relativeTime(value: string): string {
   return days < 7 ? `${days}d` : new Date(value).toLocaleDateString([], { day: '2-digit', month: 'short' })
 }
 
-function WaveAvatar({ account, size = 'medium' }: { readonly account: Pick<NetAltaraWaveAccount, 'displayName' | 'avatarRef'>; readonly size?: 'small' | 'medium' | 'large' }) {
+function WaveAvatar({ account, size = 'medium' }: { readonly account: Pick<NetAltaraWaveAccount, 'displayName' | 'avatarRef'>; readonly size?: WaveAvatarSize }) {
   const fallback = <span>{initials(account.displayName)}</span>
   return (
     <span className="altara-wave-avatar" data-size={size}>
       {account.avatarRef
         ? <SharedMediaImage source={account.avatarRef} variant="thumbnail" alt="" fallback={fallback} errorFallback={fallback} />
         : fallback}
+    </span>
+  )
+}
+
+function WaveAppProfileAvatar({
+  displayName,
+  avatarUrl,
+  size = 'medium',
+}: WaveAppPresentation & {
+  readonly size?: WaveAvatarSize
+}) {
+  const [failedUrl, setFailedUrl] = useState<string>()
+  const visibleAvatarUrl = avatarUrl && avatarUrl !== failedUrl
+    ? avatarUrl
+    : undefined
+
+  return (
+    <span className="altara-wave-avatar" data-size={size} aria-hidden="true">
+      {visibleAvatarUrl
+        ? <img src={visibleAvatarUrl} alt="" onError={() => setFailedUrl(visibleAvatarUrl)} />
+        : <span>{initials(displayName)}</span>}
     </span>
   )
 }
@@ -190,9 +221,10 @@ function WavePostBody({ post, onProfile }: { readonly post: NetAltaraWavePost; r
   )
 }
 
-function WavePostCard({ post, viewerAccountId, busyAction, onProfile, onThread, onReply, onReaction, onBoost, onBookmark, onDelete }: {
+function WavePostCard({ post, viewerAccountId, viewerPresentation, busyAction, onProfile, onThread, onReply, onReaction, onBoost, onBookmark, onDelete }: {
   readonly post: NetAltaraWavePost
   readonly viewerAccountId: string
+  readonly viewerPresentation?: WaveAppPresentation
   readonly busyAction?: string
   readonly onProfile: (accountId: string) => void
   readonly onThread: (post: NetAltaraWavePost) => void
@@ -203,14 +235,22 @@ function WavePostCard({ post, viewerAccountId, busyAction, onProfile, onThread, 
   readonly onDelete: (post: NetAltaraWavePost) => void
 }) {
   const busy = busyAction?.endsWith(post.id)
+  const authorPresentation = post.authorAccountId === viewerAccountId
+    ? viewerPresentation
+    : undefined
+  const authorDisplayName = authorPresentation?.displayName ?? post.author.displayName
   return (
     <article className="altara-wave-post" data-deleted={post.deleted ? 'true' : 'false'}>
       {post.boostedBy ? <button type="button" className="altara-wave-post__boost-note" onClick={() => onProfile(post.boostedBy!.id)}><Repeat2 size={12} /> @{post.boostedBy.handle} amplified</button> : null}
       <div className="altara-wave-post__layout">
-        <button type="button" className="altara-wave-post__avatar" onClick={() => onProfile(post.author.id)} aria-label={`Open ${post.author.displayName}'s profile`}><WaveAvatar account={post.author} /></button>
+        <button type="button" className="altara-wave-post__avatar" onClick={() => onProfile(post.author.id)} aria-label={`Open ${authorDisplayName}'s profile`}>
+          {authorPresentation
+            ? <WaveAppProfileAvatar displayName={authorPresentation.displayName} avatarUrl={authorPresentation.avatarUrl} />
+            : <WaveAvatar account={post.author} />}
+        </button>
         <div className="altara-wave-post__content">
           <header>
-            <button type="button" onClick={() => onProfile(post.author.id)}><strong>{post.author.displayName}</strong><span>@{post.author.handle}</span></button>
+            <button type="button" onClick={() => onProfile(post.author.id)}><strong>{authorDisplayName}</strong><span>@{post.author.handle}</span></button>
             <button type="button" onClick={() => onThread(post)}><time>{relativeTime(post.createdAt)}</time></button>
           </header>
           <div className="altara-wave-post__open">
@@ -229,8 +269,9 @@ function WavePostCard({ post, viewerAccountId, busyAction, onProfile, onThread, 
   )
 }
 
-function WaveComposer({ account, mode, busy, onResetReplyTarget, onSubmit }: {
+function WaveComposer({ account, presentation, mode, busy, onResetReplyTarget, onSubmit }: {
   readonly account: NetAltaraWaveAccount
+  readonly presentation?: WaveAppPresentation
   readonly mode: WaveComposerMode
   readonly busy: boolean
   readonly onResetReplyTarget?: () => void
@@ -255,7 +296,9 @@ function WaveComposer({ account, mode, busy, onResetReplyTarget, onSubmit }: {
   return (
     <form className="altara-wave-composer" onSubmit={submit}>
       {mode.kind === 'reply' ? <div className="altara-wave-composer__reply"><span>Replying to <strong>@{mode.target.author.handle}</strong></span>{mode.canResetTarget && onResetReplyTarget ? <button type="button" onClick={onResetReplyTarget} aria-label="Reply to the conversation root instead"><X size={13} /></button> : null}</div> : null}
-      <WaveAvatar account={account} />
+      {presentation
+        ? <WaveAppProfileAvatar displayName={presentation.displayName} avatarUrl={presentation.avatarUrl} />
+        : <WaveAvatar account={account} />}
       <div>
         <textarea value={body} maxLength={NET_ALTARA_WAVE_POST_MAX_LENGTH} rows={mode.kind === 'reply' ? 3 : 4} placeholder={mode.kind === 'reply' ? 'Join the conversation…' : 'Share something with the ALTARA network…'} onChange={(event) => setBody(event.target.value)} />
         <footer>
@@ -303,7 +346,23 @@ function WaveProfileEditor({ session, busy, onCancel, onSave }: {
   )
 }
 
-function WaveOnboarding({ session, busy, onCreate }: { readonly session: NetAltaraWaveSession; readonly busy: boolean; readonly onCreate: (handle: string) => Promise<void> }) {
+function WaveOnboarding({
+  session,
+  presentation,
+  busy,
+  showAppProfile,
+  onToggleAppProfile,
+  appProfileEditor,
+  onCreate,
+}: {
+  readonly session: NetAltaraWaveSession
+  readonly presentation: WaveAppPresentation
+  readonly busy: boolean
+  readonly showAppProfile: boolean
+  readonly onToggleAppProfile: () => void
+  readonly appProfileEditor?: ReactNode
+  readonly onCreate: (handle: string) => Promise<void>
+}) {
   const suggested = normalizeNetHandle(session.canonicalDisplayName.replace(/\s+/g, '.')) ?? ''
   const [handle, setHandle] = useState(suggested)
   const [error, setError] = useState<string>()
@@ -319,9 +378,21 @@ function WaveOnboarding({ session, busy, onCreate }: { readonly session: NetAlta
       </div>
       <div className="altara-wave-onboarding__setup">
         <div className="altara-wave-onboarding__identity">
-          <small>CONTINUE AS</small>
-          <strong>{session.canonicalDisplayName}</strong>
+          <WaveAppProfileAvatar displayName={presentation.displayName} avatarUrl={presentation.avatarUrl} />
+          <span>
+            <small>CONTINUE AS</small>
+            <strong>{presentation.displayName}</strong>
+          </span>
+          <button
+            type="button"
+            aria-label={showAppProfile ? 'Close WAVE app profile' : 'Edit WAVE app profile'}
+            aria-expanded={showAppProfile}
+            onClick={onToggleAppProfile}
+          >
+            <UserCog size={14} aria-hidden="true" />
+          </button>
         </div>
+        {appProfileEditor}
         <form onSubmit={(event) => { event.preventDefault(); setError(undefined); void onCreate(handle).catch((createError) => setError(createError instanceof Error ? createError.message : 'WAVE activation failed.')) }}>
           <label>WAVE HANDLE<span className="altara-wave-handle-input"><b>@</b><input autoFocus value={handle} maxLength={NET_ALTARA_WAVE_HANDLE_MAX_LENGTH} onChange={(event) => setHandle(event.target.value.replace(/^@+/, ''))} /></span></label>
           <small>This handle is unique to the exact ALTARA identity shown above.</small>
@@ -349,6 +420,7 @@ export function AltaraWaveApp({ enabled, identitySessionKey, expectedIdentityLin
   const [searchDraft, setSearchDraft] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [localRevision, setLocalRevision] = useState(0)
+  const [showAppProfile, setShowAppProfile] = useState(false)
   const loadGenerationRef = useRef(0)
   const screenKeyRef = useRef('')
 
@@ -360,10 +432,32 @@ export function AltaraWaveApp({ enabled, identitySessionKey, expectedIdentityLin
     : JSON.stringify(screen)
   screenKeyRef.current = viewKey
   const revision = wave.revision + localRevision
+  const appPresentation = useNetAppPresentation({
+    appId: 'altara-wave',
+    identityLinkId: expectedIdentityLinkId,
+    enabled: enabled && Boolean(expectedIdentityLinkId),
+    fallbackDisplayName: session?.canonicalDisplayName ?? account?.displayName,
+  })
+  const selfPresentation: WaveAppPresentation = {
+    displayName: appPresentation.displayName,
+    ...(appPresentation.avatarUrl ? { avatarUrl: appPresentation.avatarUrl } : {}),
+  }
+  const appProfileEditor = showAppProfile && expectedIdentityLinkId ? (
+    <div className="altara-wave-app-profile">
+      <NetAppProfileEditor
+        appId="altara-wave"
+        appLabel="WAVE"
+        identityLinkId={expectedIdentityLinkId}
+        onClose={() => setShowAppProfile(false)}
+        onSaved={() => { void appPresentation.reload() }}
+      />
+    </div>
+  ) : null
 
   useEffect(() => {
     setScreen({ kind: 'primary', view: 'home' })
     setPage(undefined); setDirectory(undefined); setNotifications(undefined); setThread(undefined); setRelationships(undefined); setConversation(undefined); setError(undefined)
+    setShowAppProfile(false)
   }, [identitySessionKey, expectedIdentityLinkId])
 
   const refreshVisible = useCallback(() => setLocalRevision((value) => value + 1), [])
@@ -411,7 +505,7 @@ export function AltaraWaveApp({ enabled, identitySessionKey, expectedIdentityLin
   if (!enabled || !expectedIdentityLinkId) return <section className="altara-wave"><WaveFeedback title="WAVE NEEDS A RUNTIME IDENTITY" copy="Open WAVE from an installed ALTARA identity. GM System has no fictional social profile." /></section>
   if (wave.state.status === 'loading' || wave.state.status === 'idle') return <section className="altara-wave"><WaveFeedback icon={<LoaderCircle className="altara-wave-spin" />} title="CONNECTING TO WAVE" copy="Resolving the exact ALTARA runtime identity." /></section>
   if (wave.state.status === 'error') return <section className="altara-wave"><WaveFeedback title="WAVE IDENTITY UNAVAILABLE" copy={wave.state.reason} action={<button type="button" onClick={wave.refresh}><RefreshCw size={14} /> RETRY</button>} /></section>
-  if (!account) return <section className="altara-wave"><WaveOnboarding session={session!} busy={busy} onCreate={async (handle) => { setBusy(true); try { await createNetAltaraWaveAccount(expectedIdentityLinkId, handle); wave.refresh(); onNotice('WAVE // PROFILE ACTIVATED') } finally { setBusy(false) } }} /></section>
+  if (!account) return <section className="altara-wave"><WaveOnboarding session={session!} presentation={selfPresentation} busy={busy} showAppProfile={showAppProfile} onToggleAppProfile={() => setShowAppProfile((current) => !current)} appProfileEditor={appProfileEditor} onCreate={async (handle) => { setBusy(true); try { await createNetAltaraWaveAccount(expectedIdentityLinkId, handle); wave.refresh(); onNotice('WAVE // PROFILE ACTIVATED') } finally { setBusy(false) } }} /></section>
 
   const common = { expectedIdentityLinkId, expectedAccountId: account.id }
   const runAction = async (key: string, operation: () => Promise<unknown>, notice?: string) => {
@@ -469,6 +563,7 @@ export function AltaraWaveApp({ enabled, identitySessionKey, expectedIdentityLin
   }
   const postActions = {
     viewerAccountId: account.id,
+    viewerPresentation: selfPresentation,
     busyAction,
     onProfile: openProfile,
     onThread: openThread,
@@ -538,6 +633,7 @@ export function AltaraWaveApp({ enabled, identitySessionKey, expectedIdentityLin
           <WaveComposer
             key={`reply:${account.id}:${conversation.conversationRootId}`}
             account={account}
+            presentation={selfPresentation}
             mode={{
               kind: 'reply',
               target: conversationReplyTarget,
@@ -579,13 +675,14 @@ export function AltaraWaveApp({ enabled, identitySessionKey, expectedIdentityLin
   } else if (screen.kind === 'relationships') {
     center = <><header className="altara-wave-view-head"><button type="button" onClick={() => openProfile(screen.accountId)}><ArrowLeft size={15} /></button><div><h1>{screen.direction === 'followers' ? 'Followers' : 'Following'}</h1><p>Current WAVE-eligible identities</p></div></header><div className="altara-wave-relationship-list">{relationships?.accounts.map((person) => <WaveAccountRow key={person.id} account={person} onOpen={() => openProfile(person.id)} busy={Boolean(busyAction)} onFollow={() => { void runAction(`follow:${person.id}`, () => setNetAltaraWaveFollow(expectedIdentityLinkId, account.id, person.id, !person.viewerFollowing)) }} />)}{loadMoreButton(Boolean(relationships?.hasMore))}</div></>
   } else if (profileAccount) {
-    center = <><section className="altara-wave-profile"><div className="altara-wave-profile__banner" aria-hidden="true" /><div className="altara-wave-profile__identity"><WaveAvatar account={profileAccount} size="large" />{profileAccount.viewerOwns ? <button type="button" onClick={() => setScreen({ kind: 'edit-profile' })}>EDIT PROFILE</button> : <button type="button" className="altara-wave-follow" data-following={profileAccount.viewerFollowing ? 'true' : 'false'} onClick={() => { void runAction(`follow:${profileAccount.id}`, () => setNetAltaraWaveFollow(expectedIdentityLinkId, account.id, profileAccount.id, !profileAccount.viewerFollowing)) }}>{profileAccount.viewerFollowing ? <UserMinus size={13} /> : <UserPlus size={13} />}{profileAccount.viewerFollowing ? 'FOLLOWING' : 'FOLLOW'}</button>}</div><h1>{profileAccount.displayName}</h1><p className="altara-wave-profile__handle">@{profileAccount.handle}</p>{profileAccount.bio ? <p className="altara-wave-profile__bio">{profileAccount.bio}</p> : null}<div className="altara-wave-profile__meta">{profileAccount.location ? <span><MapPin size={13} /> {profileAccount.location}</span> : null}{profileAccount.websiteUrl ? <a href={profileAccount.websiteUrl} target="_blank" rel="noreferrer"><LinkIcon size={13} /> {new URL(profileAccount.websiteUrl).hostname}</a> : null}<span>JOINED {new Date(profileAccount.joinedAt).toLocaleDateString([], { month: 'long', year: 'numeric' }).toUpperCase()}</span></div><div className="altara-wave-profile__counts"><button type="button" onClick={() => setScreen({ kind: 'relationships', accountId: profileAccount.id, direction: 'following' })}><strong>{profileAccount.followingCount}</strong> FOLLOWING</button><button type="button" onClick={() => setScreen({ kind: 'relationships', accountId: profileAccount.id, direction: 'followers' })}><strong>{profileAccount.followersCount}</strong> FOLLOWERS</button><span><strong>{profileAccount.postsCount}</strong> POSTS</span></div></section><div className="altara-wave-stream">{page?.posts.map((post) => <WavePostCard key={post.id} post={post} {...postActions} />)}{loadMoreButton(Boolean(page?.hasMore))}</div></>
+    const profileDisplayName = profileAccount.viewerOwns ? selfPresentation.displayName : profileAccount.displayName
+    center = <><section className="altara-wave-profile"><div className="altara-wave-profile__banner" aria-hidden="true" /><div className="altara-wave-profile__identity">{profileAccount.viewerOwns ? <WaveAppProfileAvatar displayName={selfPresentation.displayName} avatarUrl={selfPresentation.avatarUrl} size="large" /> : <WaveAvatar account={profileAccount} size="large" />}<div className="altara-wave-profile__actions">{profileAccount.viewerOwns ? <><button type="button" onClick={() => setScreen({ kind: 'edit-profile' })}>EDIT WAVE BIO</button><button type="button" aria-expanded={showAppProfile} onClick={() => setShowAppProfile((current) => !current)}><UserCog size={13} aria-hidden="true" /> APP PROFILE</button></> : <button type="button" className="altara-wave-follow" data-following={profileAccount.viewerFollowing ? 'true' : 'false'} onClick={() => { void runAction(`follow:${profileAccount.id}`, () => setNetAltaraWaveFollow(expectedIdentityLinkId, account.id, profileAccount.id, !profileAccount.viewerFollowing)) }}>{profileAccount.viewerFollowing ? <UserMinus size={13} /> : <UserPlus size={13} />}{profileAccount.viewerFollowing ? 'FOLLOWING' : 'FOLLOW'}</button>}</div></div><h1>{profileDisplayName}</h1><p className="altara-wave-profile__handle">@{profileAccount.handle}</p>{profileAccount.bio ? <p className="altara-wave-profile__bio">{profileAccount.bio}</p> : null}<div className="altara-wave-profile__meta">{profileAccount.location ? <span><MapPin size={13} /> {profileAccount.location}</span> : null}{profileAccount.websiteUrl ? <a href={profileAccount.websiteUrl} target="_blank" rel="noreferrer"><LinkIcon size={13} /> {new URL(profileAccount.websiteUrl).hostname}</a> : null}<span>JOINED {new Date(profileAccount.joinedAt).toLocaleDateString([], { month: 'long', year: 'numeric' }).toUpperCase()}</span></div><div className="altara-wave-profile__counts"><button type="button" onClick={() => setScreen({ kind: 'relationships', accountId: profileAccount.id, direction: 'following' })}><strong>{profileAccount.followingCount}</strong> FOLLOWING</button><button type="button" onClick={() => setScreen({ kind: 'relationships', accountId: profileAccount.id, direction: 'followers' })}><strong>{profileAccount.followersCount}</strong> FOLLOWERS</button><span><strong>{profileAccount.postsCount}</strong> POSTS</span></div></section><div className="altara-wave-stream">{page?.posts.map((post) => <WavePostCard key={post.id} post={post} {...postActions} />)}{loadMoreButton(Boolean(page?.hasMore))}</div></>
   } else if (primaryView === 'notifications') {
     center = <><header className="altara-wave-view-head"><div><h1>Notifications</h1><p>Signals from your WAVE network</p></div>{notifications?.unreadCount ? <button type="button" onClick={() => { void runAction('notifications:all', () => markNetAltaraWaveNotificationRead(expectedIdentityLinkId, account.id), 'WAVE // NOTIFICATIONS READ') }}><Check size={13} /> MARK ALL READ</button> : null}</header><div className="altara-wave-notifications">{notifications?.notifications.map((notification) => <button type="button" key={notification.id} data-unread={!notification.readAt ? 'true' : 'false'} onClick={() => { void markNetAltaraWaveNotificationRead(expectedIdentityLinkId, account.id, notification.id); if (notification.postAvailable && notification.rootPostId) openConversation(notification.rootPostId, notification.postId ?? notification.rootPostId); else openProfile(notification.actor.id) }}><WaveAvatar account={notification.actor} /><span><strong>{notification.actor.displayName}</strong> {notification.type === 'follow' ? 'followed you' : notification.type === 'reaction' ? 'liked your post' : notification.type === 'boost' ? 'amplified your post' : notification.type === 'mention' ? 'mentioned you' : 'replied to you'}{notification.excerpt ? <small>{notification.excerpt}</small> : null}</span><time>{relativeTime(notification.createdAt)}</time></button>)}{!notifications?.notifications.length && !loading ? <WaveFeedback title="ALL QUIET" copy="New follows, replies, mentions, likes, and boosts will appear here." /> : null}{loadMoreButton(Boolean(notifications?.hasMore))}</div></>
   } else if (primaryView === 'explore') {
     center = <><header className="altara-wave-view-head"><div><h1>Explore</h1><p>Find people and public conversations</p></div></header><form className="altara-wave-search" onSubmit={(event) => { event.preventDefault(); setSearchQuery(searchDraft.trim()) }}><Search size={16} /><input value={searchDraft} maxLength={80} placeholder="Search people or posts" onChange={(event) => setSearchDraft(event.target.value)} /><button type="submit">SEARCH</button>{searchQuery ? <button type="button" onClick={() => { setSearchDraft(''); setSearchQuery('') }} aria-label="Clear search"><X size={14} /></button> : null}</form>{directory?.accounts.length ? <section className="altara-wave-people"><header><h2>{searchQuery ? 'PEOPLE' : 'DISCOVER PEOPLE'}</h2></header>{directory.accounts.slice(0, 6).map((person) => <WaveAccountRow key={person.id} account={person} onOpen={() => openProfile(person.id)} busy={Boolean(busyAction)} onFollow={() => { void runAction(`follow:${person.id}`, () => setNetAltaraWaveFollow(expectedIdentityLinkId, account.id, person.id, !person.viewerFollowing)) }} />)}</section> : null}<div className="altara-wave-stream">{page?.posts.map((post) => <WavePostCard key={post.id} post={post} {...postActions} />)}{!page?.posts.length && !directory?.accounts.length && !loading ? <WaveFeedback title={searchQuery ? 'NO RESULTS' : 'THE NETWORK IS QUIET'} copy={searchQuery ? 'Try a different handle, name, or phrase.' : 'New public WAVE profiles and posts will appear here.'} /> : null}{loadMoreButton(Boolean(page?.hasMore))}</div></>
   } else {
-    center = <><header className="altara-wave-view-head"><div><h1>{primaryView === 'bookmarks' ? 'Bookmarks' : 'Home'}</h1><p>{primaryView === 'bookmarks' ? 'Your private saved collection' : 'The people and conversations you follow'}</p></div></header>{primaryView === 'home' ? <WaveComposer key={`root:${account.id}`} account={account} mode={{ kind: 'root' }} busy={busyAction === 'compose'} onSubmit={async (input) => { if (input.parentPostId !== null) throw new Error('WAVE // ROOT POST TARGET INVALID'); setBusyAction('compose'); try { await submitPost(input) } finally { setBusyAction(undefined) } }} /> : null}<div className="altara-wave-stream">{page?.posts.map((post) => <WavePostCard key={post.id} post={post} {...postActions} />)}{!page?.posts.length && !loading ? <WaveFeedback title={primaryView === 'bookmarks' ? 'NO BOOKMARKS YET' : 'YOUR WAVE STARTS HERE'} copy={primaryView === 'bookmarks' ? 'Save a post to keep it in this private collection.' : 'Post something or follow people from Explore.'} action={primaryView === 'home' ? <button type="button" onClick={() => setScreen({ kind: 'primary', view: 'explore' })}><Users size={14} /> EXPLORE WAVE</button> : undefined} /> : null}{loadMoreButton(Boolean(page?.hasMore))}</div></>
+    center = <><header className="altara-wave-view-head"><div><h1>{primaryView === 'bookmarks' ? 'Bookmarks' : 'Home'}</h1><p>{primaryView === 'bookmarks' ? 'Your private saved collection' : 'The people and conversations you follow'}</p></div></header>{primaryView === 'home' ? <WaveComposer key={`root:${account.id}`} account={account} presentation={selfPresentation} mode={{ kind: 'root' }} busy={busyAction === 'compose'} onSubmit={async (input) => { if (input.parentPostId !== null) throw new Error('WAVE // ROOT POST TARGET INVALID'); setBusyAction('compose'); try { await submitPost(input) } finally { setBusyAction(undefined) } }} /> : null}<div className="altara-wave-stream">{page?.posts.map((post) => <WavePostCard key={post.id} post={post} {...postActions} />)}{!page?.posts.length && !loading ? <WaveFeedback title={primaryView === 'bookmarks' ? 'NO BOOKMARKS YET' : 'YOUR WAVE STARTS HERE'} copy={primaryView === 'bookmarks' ? 'Save a post to keep it in this private collection.' : 'Post something or follow people from Explore.'} action={primaryView === 'home' ? <button type="button" onClick={() => setScreen({ kind: 'primary', view: 'explore' })}><Users size={14} /> EXPLORE WAVE</button> : undefined} /> : null}{loadMoreButton(Boolean(page?.hasMore))}</div></>
   }
 
   return (
@@ -594,8 +691,12 @@ export function AltaraWaveApp({ enabled, identitySessionKey, expectedIdentityLin
         <header><span><AtSign size={20} /></span><div><strong>WAVE</strong><small>ALTARA SOCIAL</small></div></header>
         <nav>{navItems.map(({ id, label, icon: Icon, badge }) => <button key={id} type="button" data-active={primaryView === id ? 'true' : 'false'} onClick={() => { leaveConversation(); setScreen({ kind: 'primary', view: id }) }}><Icon size={18} /><span>{label}</span>{badge ? <b>{Math.min(badge, 99)}</b> : null}</button>)}</nav>
         <button type="button" className="altara-wave-nav__post" onClick={() => { leaveConversation(); setScreen({ kind: 'primary', view: 'home' }); window.requestAnimationFrame(() => document.querySelector<HTMLTextAreaElement>('.altara-wave-composer textarea')?.focus()) }}><Plus size={16} /> CREATE</button>
-        <button type="button" className="altara-wave-nav__self" onClick={() => { leaveConversation(); setScreen({ kind: 'primary', view: 'profile' }) }}><WaveAvatar account={account} size="small" /><span><strong>{account.displayName}</strong><small>@{account.handle}</small></span></button>
+        <div className="altara-wave-nav__self-shell">
+          <button type="button" className="altara-wave-nav__self" onClick={() => { leaveConversation(); setScreen({ kind: 'primary', view: 'profile' }) }}><WaveAppProfileAvatar displayName={selfPresentation.displayName} avatarUrl={selfPresentation.avatarUrl} size="small" /><span><strong>{selfPresentation.displayName}</strong><small>@{account.handle}</small></span></button>
+          <button type="button" className="altara-wave-nav__profile" aria-label={showAppProfile ? 'Close WAVE app profile' : 'Edit WAVE app profile'} aria-expanded={showAppProfile} onClick={() => setShowAppProfile((current) => !current)}><UserCog size={14} aria-hidden="true" /></button>
+        </div>
       </aside>
+      {appProfileEditor}
       <main className="altara-wave-main" aria-busy={loading}>{loading ? <div className="altara-wave-progress"><i /></div> : null}{center}{error ? <div className="altara-wave-error" role="alert"><span>{error}</span><button type="button" onClick={() => setError(undefined)}><X size={14} /></button></div> : null}</main>
       <aside className="altara-wave-rail">
         <section><header><h2>Across WAVE</h2><p>ALTARA-connected identities</p></header>{directory?.accounts.filter((person) => !person.viewerOwns).slice(0, 4).map((person) => <WaveAccountRow key={person.id} account={person} onOpen={() => openProfile(person.id)} />) ?? <p className="altara-wave-rail__empty">Explore the network to find new voices.</p>}</section>
