@@ -63,6 +63,7 @@ import {
   type NetAltaraMusicStudioPayload,
   type NetAltaraMusicTrack,
 } from '../../../lib/netAltaraMusicTypes'
+import { MusicAppProfileEntry, MusicTrackContextMenu } from '../MusicProductPrimitives'
 import { useNetAltaraMusic } from './useNetAltaraMusic'
 import type { AltaraMusicPlayerController } from './useAltaraMusicPlayer'
 
@@ -125,6 +126,8 @@ function TrackList({
   onAddToPlaylist,
   activePersonalPlaylistId,
   onRemoveFromPlaylist,
+  onOpenArtist,
+  onOpenRelease,
 }: {
   readonly tracks: readonly NetAltaraMusicTrack[]
   readonly player: AltaraMusicPlayerController
@@ -133,12 +136,18 @@ function TrackList({
   readonly onAddToPlaylist: (playlistId: string, trackId: string) => void
   readonly activePersonalPlaylistId?: string
   readonly onRemoveFromPlaylist?: (playlistId: string, trackId: string) => void
+  readonly onOpenArtist: (artistId: string) => void
+  readonly onOpenRelease: (releaseId: string) => void
 }) {
   if (!tracks.length) return null
   return (
     <div className="altara-music-track-list" role="list">
       {tracks.map((track, index) => {
         const isCurrent = player.current?.id === track.id
+        const releaseId = track.releaseId
+        const removeFromPlaylist = activePersonalPlaylistId && onRemoveFromPlaylist
+          ? () => onRemoveFromPlaylist(activePersonalPlaylistId, track.id)
+          : undefined
         return (
           <article key={track.id} role="listitem" data-current={isCurrent ? 'true' : 'false'}>
             <button
@@ -152,12 +161,35 @@ function TrackList({
             >
               {isCurrent && player.playing ? <Pause size={14} /> : <Play size={14} />}
             </button>
-            <Artwork source={track.artworkRef} label="" />
+            {releaseId ? (
+              <button
+                type="button"
+                className="altara-music-track-artwork-button"
+                aria-label={`Open ${track.releaseTitle ?? track.title}`}
+                title={track.releaseTitle ? `Open ${track.releaseTitle}` : 'Open release'}
+                onClick={() => onOpenRelease(releaseId)}
+              >
+                <Artwork source={track.artworkRef} label="" />
+              </button>
+            ) : (
+              <Artwork source={track.artworkRef} label="" />
+            )}
             <span className="altara-music-track-copy">
               <strong>{track.title}</strong>
-              <small>{track.artistName}{track.explicit ? ' · EXPLICIT' : ''}</small>
+              <small>
+                <button type="button" className="altara-music-metadata-link" onClick={() => onOpenArtist(track.artistId)}>
+                  {track.artistName}
+                </button>
+                {track.explicit ? <span> · EXPLICIT</span> : null}
+              </small>
             </span>
-            <span className="altara-music-track-release">{track.releaseTitle ?? 'ALTARA ORIGINAL'}</span>
+            {releaseId ? (
+              <button type="button" className="altara-music-track-release" onClick={() => onOpenRelease(releaseId)}>
+                {track.releaseTitle ?? 'OPEN RELEASE'}
+              </button>
+            ) : (
+              <span className="altara-music-track-release">ALTARA ORIGINAL</span>
+            )}
             <button
               type="button"
               className="altara-music-icon-action"
@@ -167,27 +199,24 @@ function TrackList({
             >
               <Heart size={14} fill={track.liked ? 'currentColor' : 'none'} />
             </button>
-            {activePersonalPlaylistId && onRemoveFromPlaylist ? (
-              <button
-                type="button"
-                className="altara-music-icon-action"
-                onClick={() => onRemoveFromPlaylist(activePersonalPlaylistId, track.id)}
-                aria-label={`Remove ${track.title} from this playlist`}
-              >
-                <X size={14} />
-              </button>
-            ) : playlists.length ? (
-              <label className="altara-music-track-add">
-                <span className="sr-only">Add {track.title} to playlist</span>
-                <select defaultValue="" onChange={(event) => {
-                  if (event.target.value) onAddToPlaylist(event.target.value, track.id)
-                  event.target.value = ''
-                }}>
-                  <option value="">＋ PLAYLIST</option>
-                  {playlists.map((playlist) => <option key={playlist.id} value={playlist.id}>{playlist.title}</option>)}
-                </select>
-              </label>
-            ) : null}
+            <MusicTrackContextMenu
+              classPrefix="altara-music"
+              trackTitle={track.title}
+              artistId={track.artistId}
+              releaseId={track.releaseId}
+              liked={track.liked}
+              playlists={playlists}
+              activePersonalPlaylistId={activePersonalPlaylistId}
+              onPlay={() => {
+                if (isCurrent) void player.toggle()
+                else void player.playQueue(tracks, index)
+              }}
+              onOpenArtist={onOpenArtist}
+              onOpenRelease={onOpenRelease}
+              onLike={() => onLike(track)}
+              onAddToPlaylist={(playlistId) => onAddToPlaylist(playlistId, track.id)}
+              onRemoveFromPlaylist={removeFromPlaylist}
+            />
             <time>{formatAltaraMusicDuration(track.durationMs)}</time>
           </article>
         )
@@ -208,18 +237,59 @@ function CollectionRail({
   return <section className="altara-music-rail"><header><h2>{title}</h2>{action}</header><div>{children}</div></section>
 }
 
-function PlayerBar({ player }: { readonly player: AltaraMusicPlayerController }) {
+function PlayerBar({
+  player,
+  onOpenArtist,
+  onOpenRelease,
+}: {
+  readonly player: AltaraMusicPlayerController
+  readonly onOpenArtist: (artistId: string) => void
+  readonly onOpenRelease: (releaseId: string) => void
+}) {
   const track = player.current
+  const currentReleaseId = track?.releaseId
   const [queueOpen, setQueueOpen] = useState(false)
   return (
     <footer className="altara-music-player" data-empty={track ? 'false' : 'true'}>
       <div className="altara-music-player__identity">
-        <Artwork source={track?.artworkRef} label="" />
-        <span><strong>{track?.title ?? 'READY WHEN YOU ARE'}</strong><small>{track ? `${track.artistName}${track.releaseTitle ? ` · ${track.releaseTitle}` : ''}` : 'Choose a native track to begin'}</small></span>
+        {track && currentReleaseId ? (
+          <button
+            type="button"
+            className="altara-music-player__artwork-link"
+            aria-label={`Open ${track.releaseTitle ?? track.title}`}
+            title={track.releaseTitle ? `Open ${track.releaseTitle}` : 'Open release'}
+            onClick={() => onOpenRelease(currentReleaseId)}
+          >
+            <Artwork source={track.artworkRef} label="" />
+          </button>
+        ) : (
+          <Artwork source={track?.artworkRef} label="" />
+        )}
+        <span>
+          <strong>{track?.title ?? 'READY WHEN YOU ARE'}</strong>
+          <small>
+            {track ? (
+              <>
+                <button type="button" className="altara-music-metadata-link" onClick={() => onOpenArtist(track.artistId)}>
+                  {track.artistName}
+                </button>
+                {track.releaseTitle ? (
+                  currentReleaseId ? (
+                    <>
+                      {' · '}
+                      <button type="button" className="altara-music-metadata-link" onClick={() => onOpenRelease(currentReleaseId)}>
+                        {track.releaseTitle}
+                      </button>
+                    </>
+                  ) : ` · ${track.releaseTitle}`
+                ) : null}
+              </>
+            ) : 'Choose a native track to begin'}
+          </small>
+        </span>
       </div>
       <div className="altara-music-player__transport">
         <div>
-          <button type="button" disabled={!player.queue.length} data-active={queueOpen ? 'true' : 'false'} onClick={() => setQueueOpen((open) => !open)} aria-expanded={queueOpen} aria-controls="altara-music-player-queue" aria-label="Show playback queue" title="Playback queue"><ListMusic size={14} /></button>
           <button type="button" disabled={!track} data-active={player.shuffle ? 'true' : 'false'} onClick={player.toggleShuffle} aria-label={player.shuffle ? 'Disable shuffle' : 'Enable shuffle'} title={player.shuffle ? 'Shuffle on' : 'Shuffle off'}><Shuffle size={14} /></button>
           <button type="button" disabled={!track} onClick={() => { void player.previous() }} aria-label="Previous track"><SkipBack size={16} fill="currentColor" /></button>
           <button type="button" className="altara-music-player__primary" disabled={!track || player.loading} onClick={() => { void player.toggle() }} aria-label={player.playing ? 'Pause' : 'Play'}>
@@ -246,6 +316,7 @@ function PlayerBar({ player }: { readonly player: AltaraMusicPlayerController })
         </label>
       </div>
       <div className="altara-music-player__volume">
+        <button type="button" disabled={!player.queue.length} data-active={queueOpen ? 'true' : 'false'} onClick={() => setQueueOpen((open) => !open)} aria-expanded={queueOpen} aria-controls="altara-music-player-queue" aria-label="Show playback queue" title="Playback queue"><ListMusic size={14} /></button>
         <button type="button" onClick={player.toggleMuted} aria-label={player.muted ? 'Unmute' : 'Mute'}>{player.muted ? <VolumeX size={16} /> : <Volume2 size={16} />}</button>
         <input type="range" min={0} max={1} step={0.02} value={player.volume} onChange={(event) => player.setVolume(Number(event.target.value))} aria-label="Volume" />
       </div>
@@ -267,6 +338,8 @@ function MusicReader({
   const [query, setQuery] = useState('')
   const [newPlaylistTitle, setNewPlaylistTitle] = useState('')
   const [newPlaylistDescription, setNewPlaylistDescription] = useState('')
+  const mainRef = useRef<HTMLElement | null>(null)
+  const savedScrollRef = useRef(0)
   const home = music.home
   const library = music.library
 
@@ -284,6 +357,30 @@ function MusicReader({
     void music.setPlaylistTrack(playlistId, trackId, false)
       .then(() => onNotice('ALTARA MUSIC // TRACK REMOVED FROM PLAYLIST'))
       .catch(() => undefined)
+  }
+  const rememberScroll = () => {
+    savedScrollRef.current = mainRef.current?.scrollTop ?? 0
+  }
+  const restoreScroll = () => {
+    window.requestAnimationFrame(() => {
+      mainRef.current?.scrollTo({ top: savedScrollRef.current })
+    })
+  }
+  const openArtist = (artistId: string) => {
+    rememberScroll()
+    void music.openArtist(artistId)
+  }
+  const openRelease = (releaseId: string) => {
+    rememberScroll()
+    void music.openRelease(releaseId)
+  }
+  const openPlaylist = (playlistId: string) => {
+    rememberScroll()
+    void music.openPlaylist(playlistId)
+  }
+  const closeDetail = () => {
+    music.closeDetail()
+    restoreScroll()
   }
   let content: ReactNode
   if (!enabled || !expectedIdentityLinkId) {
@@ -304,13 +401,21 @@ function MusicReader({
         : detail.value.playlist.description
     content = (
       <section className="altara-music-detail">
-        <button type="button" className="altara-music-back" onClick={music.closeDetail}><ArrowLeft size={14} /> BACK</button>
+        <button type="button" className="altara-music-back" onClick={closeDetail}><ArrowLeft size={14} /> BACK</button>
         <header>
           <Artwork source={artwork} label={title} kind={detail.kind === 'artist' ? 'artist' : 'hero'} />
           <div>
             <span>{detail.kind.toUpperCase()}</span>
             <h1>{title}</h1>
-            {detail.kind === 'release' ? <p>{detail.value.release.artistName} · {detail.value.release.releaseType.toUpperCase()}{detail.value.release.releaseDate ? ` · ${detail.value.release.releaseDate}` : ''}</p> : description ? <p>{description}</p> : null}
+            {detail.kind === 'release' ? (
+              <p>
+                <button type="button" className="altara-music-metadata-link" onClick={() => openArtist(detail.value.release.artistId)}>
+                  {detail.value.release.artistName}
+                </button>
+                {' · '}
+                {detail.value.release.releaseType.toUpperCase()}{detail.value.release.releaseDate ? ` · ${detail.value.release.releaseDate}` : ''}
+              </p>
+            ) : description ? <p>{description}</p> : null}
             <small>{tracks.length} {tracks.length === 1 ? 'TRACK' : 'TRACKS'}</small>
             {tracks.length ? <button type="button" onClick={() => { void player.playQueue(tracks) }}><Play size={14} fill="currentColor" /> PLAY ALL</button> : null}
           </div>
@@ -318,7 +423,7 @@ function MusicReader({
         {detail.kind === 'artist' && detail.value.releases.length ? (
           <CollectionRail title="RELEASES">
             <div className="altara-music-cover-grid altara-music-cover-grid--releases">
-              {detail.value.releases.map((release) => <button type="button" key={release.id} className="altara-music-cover-card" onClick={() => { void music.openRelease(release.id) }}><Artwork source={release.coverRef} label={release.title} /><strong>{release.title}</strong><small>{release.releaseType.toUpperCase()}{release.releaseDate ? ` · ${release.releaseDate}` : ''}</small></button>)}
+              {detail.value.releases.map((release) => <button type="button" key={release.id} className="altara-music-cover-card" onClick={() => openRelease(release.id)}><Artwork source={release.coverRef} label={release.title} /><strong>{release.title}</strong><small>{release.releaseType.toUpperCase()}{release.releaseDate ? ` · ${release.releaseDate}` : ''}</small></button>)}
             </div>
           </CollectionRail>
         ) : null}
@@ -328,6 +433,8 @@ function MusicReader({
           playlists={library?.playlists ?? []}
           onLike={like}
           onAddToPlaylist={addToPlaylist}
+          onOpenArtist={openArtist}
+          onOpenRelease={openRelease}
           activePersonalPlaylistId={detail.kind === 'playlist' && detail.value.playlist.playlistKind === 'personal'
             ? detail.value.playlist.id
             : undefined}
@@ -343,26 +450,78 @@ function MusicReader({
     const leadArtist = leadRelease ? undefined : featuredArtists[0] ?? home.artists[0]
     const leadTitle = leadRelease?.title ?? leadArtist?.name
     const leadArtwork = leadRelease?.coverRef ?? leadArtist?.bannerRef ?? leadArtist?.avatarRef
+    const leadTracks = leadRelease
+      ? home.tracks.filter((track) => track.releaseId === leadRelease.id)
+      : leadArtist
+        ? home.tracks.filter((track) => track.artistId === leadArtist.id)
+        : []
+    const playNowTracks = leadTracks.length ? leadTracks : featuredTracks.length ? featuredTracks : home.tracks
+    const leadMeta = leadRelease
+      ? [
+          leadRelease.releaseType.toUpperCase(),
+          leadRelease.releaseDate,
+          leadTracks.length ? `${leadTracks.length} ${leadTracks.length === 1 ? 'TRACK' : 'TRACKS'}` : undefined,
+        ].filter(Boolean).join(' · ')
+      : leadArtist
+        ? 'FEATURED ARTIST · ALTARA GLOBAL CATALOGUE'
+        : 'GLOBAL AUDIO NETWORK'
+    const leadCopy = leadRelease?.description?.trim()
+      || leadArtist?.bio?.trim()
+      || (leadRelease
+        ? 'An editorial selection from the ALTARA global catalogue, held in warm focus for this session.'
+        : 'The native catalogue is ready. Silver can publish the first canonical artist, release, or track from MUSIC STUDIO.')
     const featuredReleaseIds = new Set(featuredReleases.map((release) => release.id))
     const secondaryFeaturedReleases = featuredReleases.filter((release) => release.id !== leadRelease?.id)
     const newReleases = home.releases.filter((release) => release.id !== leadRelease?.id && !featuredReleaseIds.has(release.id))
+    const releaseShelf = [...secondaryFeaturedReleases, ...newReleases]
+    const recentTracks = home.recentlyPlayed.slice(0, 6)
+    const likedCount = library?.likedTracks.length
+    const personalPlaylistCount = library?.playlists.length
     content = (
       <div className="altara-music-home">
-        <section className="altara-music-home__lead">
-          <div>
-            <span>ALTARA MUSIC // GLOBAL CATALOGUE</span>
+        <section className="altara-music-home__hero">
+          {leadArtwork ? <div className="altara-music-home__hero-backdrop" aria-hidden="true"><Artwork source={leadArtwork} label="" kind="hero" /></div> : null}
+          <button
+            type="button"
+            className="altara-music-home__hero-art"
+            onClick={() => {
+              if (leadRelease) openRelease(leadRelease.id)
+              else if (leadArtist) openArtist(leadArtist.id)
+            }}
+            aria-label={leadRelease ? `Open ${leadRelease.title}` : leadArtist ? `Open ${leadArtist.name}` : 'Featured ALTARA MUSIC artwork'}
+          >
+            <Artwork source={leadArtwork} label={leadTitle ?? ''} kind="hero" />
+          </button>
+          <div className="altara-music-home__hero-panel">
+            <span>EDITOR'S PICK</span>
             <h1>{leadTitle ?? 'A quieter kind of signal.'}</h1>
-            <p>{leadRelease ? `${leadRelease.artistName} · ${leadRelease.releaseType.toUpperCase()}` : leadArtist ? leadArtist.bio ?? 'Featured on the ALTARA native music network.' : 'The native catalogue is ready. Silver can publish the first canonical artist, release, or track from MUSIC STUDIO.'}</p>
-            {leadRelease ? <button type="button" onClick={() => { void music.openRelease(leadRelease.id) }}><Play size={15} fill="currentColor" /> OPEN RELEASE</button> : leadArtist ? <button type="button" onClick={() => { void music.openArtist(leadArtist.id) }}><Music2 size={15} /> OPEN ARTIST</button> : null}
+            <p className="altara-music-home__hero-artist">{leadRelease?.artistName ?? leadArtist?.name ?? 'ALTARA MUSIC // GLOBAL AUDIO NETWORK'}</p>
+            <p className="altara-music-home__hero-meta">{leadMeta}</p>
+            <p className="altara-music-home__hero-description">{leadCopy}</p>
+            <div className="altara-music-home__hero-actions">
+              {playNowTracks.length ? <button type="button" className="altara-music-home__primary-action" onClick={() => { void player.playQueue(playNowTracks) }}><Play size={15} fill="currentColor" /> PLAY NOW</button> : null}
+              {leadRelease ? <button type="button" className="altara-music-home__secondary-action" onClick={() => openRelease(leadRelease.id)}>OPEN RELEASE <ChevronRight size={14} /></button> : leadArtist ? <button type="button" className="altara-music-home__secondary-action" onClick={() => openArtist(leadArtist.id)}>OPEN ARTIST <ChevronRight size={14} /></button> : null}
+            </div>
           </div>
-          <Artwork source={leadArtwork} label={leadTitle ?? ''} kind="hero" />
         </section>
-        {home.recentlyPlayed.length ? <CollectionRail title="RECENTLY PLAYED"><TrackList tracks={home.recentlyPlayed} player={player} playlists={library?.playlists ?? []} onLike={like} onAddToPlaylist={addToPlaylist} /></CollectionRail> : null}
-        {secondaryFeaturedReleases.length ? <CollectionRail title="FEATURED RELEASES"><div className="altara-music-cover-grid">{secondaryFeaturedReleases.map((release) => <button type="button" key={release.id} className="altara-music-cover-card" onClick={() => { void music.openRelease(release.id) }}><Artwork source={release.coverRef} label={release.title} /><strong>{release.title}</strong><small>{release.artistName} · {release.releaseType.toUpperCase()}</small></button>)}</div></CollectionRail> : null}
-        {newReleases.length ? <CollectionRail title="NEW RELEASES"><div className="altara-music-cover-grid">{newReleases.map((release) => <button type="button" key={release.id} className="altara-music-cover-card" onClick={() => { void music.openRelease(release.id) }}><Artwork source={release.coverRef} label={release.title} /><strong>{release.title}</strong><small>{release.artistName}</small></button>)}</div></CollectionRail> : null}
-        {featuredTracks.length ? <CollectionRail title="FEATURED TRACKS" action={<button type="button" className="altara-music-rail-action" onClick={() => { void player.playQueue(featuredTracks) }}><Play size={12} fill="currentColor" /> PLAY ALL</button>}><TrackList tracks={featuredTracks} player={player} playlists={library?.playlists ?? []} onLike={like} onAddToPlaylist={addToPlaylist} /></CollectionRail> : null}
-        {home.artists.length ? <CollectionRail title="ARTISTS"><div className="altara-music-cover-grid altara-music-cover-grid--artists">{home.artists.map((artist) => <button type="button" key={artist.id} className="altara-music-cover-card" onClick={() => { void music.openArtist(artist.id) }}><Artwork source={artist.avatarRef} label={artist.name} kind="artist" /><strong>{artist.name}</strong><small>ARTIST</small></button>)}</div></CollectionRail> : null}
-        {home.playlists.length ? <CollectionRail title="CURATED PLAYLISTS"><div className="altara-music-cover-grid">{home.playlists.map((playlist) => <button type="button" key={playlist.id} className="altara-music-cover-card" onClick={() => { void music.openPlaylist(playlist.id) }}><Artwork source={playlist.coverRef} label={playlist.title} /><strong>{playlist.title}</strong><small>{playlist.trackCount} TRACKS</small></button>)}</div></CollectionRail> : null}
+        {recentTracks.length ? <CollectionRail title="RECENTLY PLAYED" action={<button type="button" className="altara-music-rail-action" onClick={() => { void player.playQueue(recentTracks) }}><Play size={12} fill="currentColor" /> PLAY RECENT</button>}><div className="altara-music-home__recent"><TrackList tracks={recentTracks} player={player} playlists={library?.playlists ?? []} onLike={like} onAddToPlaylist={addToPlaylist} onOpenArtist={openArtist} onOpenRelease={openRelease} /></div></CollectionRail> : null}
+        {releaseShelf.length ? <CollectionRail title="FEATURED / NEW RELEASES"><div className="altara-music-home-release-grid">{releaseShelf.map((release) => <button type="button" key={release.id} className="altara-music-cover-card" onClick={() => openRelease(release.id)}><Artwork source={release.coverRef} label={release.title} /><strong>{release.title}</strong><small>{release.artistName} · {release.releaseType.toUpperCase()}</small></button>)}</div></CollectionRail> : featuredTracks.length ? <CollectionRail title="FEATURED TRACKS" action={<button type="button" className="altara-music-rail-action" onClick={() => { void player.playQueue(featuredTracks) }}><Play size={12} fill="currentColor" /> PLAY ALL</button>}><div className="altara-music-home__recent"><TrackList tracks={featuredTracks.slice(0, 6)} player={player} playlists={library?.playlists ?? []} onLike={like} onAddToPlaylist={addToPlaylist} onOpenArtist={openArtist} onOpenRelease={openRelease} /></div></CollectionRail> : null}
+        <CollectionRail title="FOR YOU / QUICK ACCESS">
+          <div className="altara-music-home__quick-grid">
+            <button type="button" onClick={() => { music.closeDetail(); setNav('liked') }}>
+              <Heart size={17} />
+              <span><strong>Liked Songs</strong><small>{likedCount === undefined ? 'Saved pieces' : `${likedCount} ${likedCount === 1 ? 'track' : 'tracks'}`}</small></span>
+            </button>
+            <button type="button" onClick={() => { music.closeDetail(); setNav('library') }}>
+              <Library size={17} />
+              <span><strong>Your Library</strong><small>{home.recentlyPlayed.length ? `${home.recentlyPlayed.length} recent plays` : 'Private listening'}</small></span>
+            </button>
+            <button type="button" onClick={() => { music.closeDetail(); setNav('playlists') }}>
+              <ListMusic size={17} />
+              <span><strong>Playlists</strong><small>{personalPlaylistCount === undefined ? 'Private collections' : `${personalPlaylistCount} ${personalPlaylistCount === 1 ? 'playlist' : 'playlists'}`}</small></span>
+            </button>
+          </div>
+        </CollectionRail>
       </div>
     )
   } else if (nav === 'search') {
@@ -375,10 +534,10 @@ function MusicReader({
         </form>
         {!results ? <Feedback title="START WITH A NAME" copy="Search the bounded native catalogue by artist, release, track, or playlist name." /> : (
           <div className="altara-music-search-results">
-            {results.artists.length ? <CollectionRail title="ARTISTS"><div className="altara-music-cover-grid">{results.artists.map((artist) => <button type="button" key={artist.id} className="altara-music-cover-card" onClick={() => { void music.openArtist(artist.id) }}><Artwork source={artist.avatarRef} label={artist.name} kind="artist" /><strong>{artist.name}</strong></button>)}</div></CollectionRail> : null}
-            {results.releases.length ? <CollectionRail title="RELEASES"><div className="altara-music-cover-grid">{results.releases.map((release) => <button type="button" key={release.id} className="altara-music-cover-card" onClick={() => { void music.openRelease(release.id) }}><Artwork source={release.coverRef} label={release.title} /><strong>{release.title}</strong><small>{release.artistName}</small></button>)}</div></CollectionRail> : null}
-            {results.tracks.length ? <CollectionRail title="TRACKS"><TrackList tracks={results.tracks} player={player} playlists={library?.playlists ?? []} onLike={like} onAddToPlaylist={addToPlaylist} /></CollectionRail> : null}
-            {results.playlists.length ? <CollectionRail title="CURATED PLAYLISTS"><div className="altara-music-cover-grid">{results.playlists.map((playlist) => <button type="button" key={playlist.id} className="altara-music-cover-card" onClick={() => { void music.openPlaylist(playlist.id) }}><Artwork source={playlist.coverRef} label={playlist.title} /><strong>{playlist.title}</strong><small>{playlist.trackCount} TRACKS</small></button>)}</div></CollectionRail> : null}
+            {results.artists.length ? <CollectionRail title="ARTISTS"><div className="altara-music-cover-grid">{results.artists.map((artist) => <button type="button" key={artist.id} className="altara-music-cover-card" onClick={() => openArtist(artist.id)}><Artwork source={artist.avatarRef} label={artist.name} kind="artist" /><strong>{artist.name}</strong></button>)}</div></CollectionRail> : null}
+            {results.releases.length ? <CollectionRail title="RELEASES"><div className="altara-music-cover-grid">{results.releases.map((release) => <button type="button" key={release.id} className="altara-music-cover-card" onClick={() => openRelease(release.id)}><Artwork source={release.coverRef} label={release.title} /><strong>{release.title}</strong><small>{release.artistName}</small></button>)}</div></CollectionRail> : null}
+            {results.tracks.length ? <CollectionRail title="TRACKS"><TrackList tracks={results.tracks} player={player} playlists={library?.playlists ?? []} onLike={like} onAddToPlaylist={addToPlaylist} onOpenArtist={openArtist} onOpenRelease={openRelease} /></CollectionRail> : null}
+            {results.playlists.length ? <CollectionRail title="CURATED PLAYLISTS"><div className="altara-music-cover-grid">{results.playlists.map((playlist) => <button type="button" key={playlist.id} className="altara-music-cover-card" onClick={() => openPlaylist(playlist.id)}><Artwork source={playlist.coverRef} label={playlist.title} /><strong>{playlist.title}</strong><small>{playlist.trackCount} TRACKS</small></button>)}</div></CollectionRail> : null}
             {!results.tracks.length && !results.artists.length && !results.releases.length && !results.playlists.length ? <Feedback title="NO MATCHES" copy="Try a shorter artist, release, track, or playlist name." /> : null}
           </div>
         )}
@@ -391,9 +550,9 @@ function MusicReader({
         <form className="altara-music-new-playlist" onSubmit={(event) => {
           event.preventDefault()
           if (!newPlaylistTitle.trim()) return
-          void music.savePlaylist({ title: newPlaylistTitle, description: newPlaylistDescription }).then((id) => { setNewPlaylistTitle(''); setNewPlaylistDescription(''); onNotice('ALTARA MUSIC // PLAYLIST CREATED'); void music.openPlaylist(id) }).catch(() => undefined)
+          void music.savePlaylist({ title: newPlaylistTitle, description: newPlaylistDescription }).then((id) => { setNewPlaylistTitle(''); setNewPlaylistDescription(''); onNotice('ALTARA MUSIC // PLAYLIST CREATED'); openPlaylist(id) }).catch(() => undefined)
         }}><input value={newPlaylistTitle} maxLength={120} required onChange={(event) => setNewPlaylistTitle(event.target.value)} placeholder="Playlist title" aria-label="Playlist title" /><input value={newPlaylistDescription} maxLength={1000} onChange={(event) => setNewPlaylistDescription(event.target.value)} placeholder="Description (optional)" aria-label="Playlist description" /><button type="submit" disabled={music.mutating}><Plus size={14} /> {music.mutating ? 'CREATING…' : 'CREATE PLAYLIST'}</button></form>
-        {library?.playlists.length ? <div className="altara-music-playlist-directory">{library.playlists.map((playlist) => <article key={playlist.id}><button type="button" onClick={() => { void music.openPlaylist(playlist.id) }}><Artwork source={playlist.coverRef} label={playlist.title} /><span><strong>{playlist.title}</strong><small>{playlist.trackCount} TRACKS</small></span></button><button type="button" aria-label={`Delete ${playlist.title}`} onClick={() => { if (window.confirm(`Delete ${playlist.title}? The tracks remain in ALTARA MUSIC.`)) void music.deletePlaylist(playlist.id) }}><Trash2 size={14} /></button></article>)}</div> : <Feedback title="NO PLAYLISTS YET" copy="Create a private playlist, then add published native tracks from any track row." />}
+        {library?.playlists.length ? <div className="altara-music-playlist-directory">{library.playlists.map((playlist) => <article key={playlist.id}><button type="button" onClick={() => openPlaylist(playlist.id)}><Artwork source={playlist.coverRef} label={playlist.title} /><span><strong>{playlist.title}</strong><small>{playlist.trackCount} TRACKS</small></span></button><button type="button" aria-label={`Delete ${playlist.title}`} onClick={() => { if (window.confirm(`Delete ${playlist.title}? The tracks remain in ALTARA MUSIC.`)) void music.deletePlaylist(playlist.id) }}><Trash2 size={14} /></button></article>)}</div> : <Feedback title="NO PLAYLISTS YET" copy="Create a private playlist, then add published native tracks from any track row." />}
       </section>
     )
   } else if (nav === 'liked') {
@@ -401,7 +560,7 @@ function MusicReader({
     content = (
       <section className="altara-music-library-page">
         <header className="altara-music-library-heading"><div><h1>Liked songs</h1><p>Tracks saved by this exact ALTARA identity.</p></div>{likedTracks.length ? <button type="button" onClick={() => { void player.playQueue(likedTracks) }}><Play size={14} fill="currentColor" /> PLAY ALL</button> : null}</header>
-        {likedTracks.length ? <TrackList tracks={likedTracks} player={player} playlists={library?.playlists ?? []} onLike={like} onAddToPlaylist={addToPlaylist} /> : <Feedback title="NO LIKED SONGS" copy="Use the heart on a published native track to keep it here." />}
+        {likedTracks.length ? <TrackList tracks={likedTracks} player={player} playlists={library?.playlists ?? []} onLike={like} onAddToPlaylist={addToPlaylist} onOpenArtist={openArtist} onOpenRelease={openRelease} /> : <Feedback title="NO LIKED SONGS" copy="Use the heart on a published native track to keep it here." />}
       </section>
     )
   } else {
@@ -412,9 +571,9 @@ function MusicReader({
     content = (
       <section className="altara-music-library-page altara-music-library-page--overview">
         <header><h1>Your library</h1><p>Recent listening, saved tracks, and private collections for {identityName}.</p></header>
-        {recentTracks.length ? <CollectionRail title="RECENTLY PLAYED" action={<button type="button" className="altara-music-rail-action" onClick={() => { void player.playQueue(recentTracks) }}><Play size={12} fill="currentColor" /> PLAY</button>}><TrackList tracks={recentTracks.slice(0, 12)} player={player} playlists={personalPlaylists} onLike={like} onAddToPlaylist={addToPlaylist} /></CollectionRail> : null}
-        {likedTracks.length ? <CollectionRail title="LIKED SONGS" action={<button type="button" className="altara-music-rail-action" onClick={() => setNav('liked')}>VIEW ALL <ChevronRight size={12} /></button>}><TrackList tracks={likedTracks.slice(0, 8)} player={player} playlists={personalPlaylists} onLike={like} onAddToPlaylist={addToPlaylist} /></CollectionRail> : null}
-        {personalPlaylists.length ? <CollectionRail title="YOUR PLAYLISTS" action={<button type="button" className="altara-music-rail-action" onClick={() => setNav('playlists')}>MANAGE <ChevronRight size={12} /></button>}><div className="altara-music-cover-grid">{personalPlaylists.slice(0, 12).map((playlist) => <button type="button" key={playlist.id} className="altara-music-cover-card" onClick={() => { void music.openPlaylist(playlist.id) }}><Artwork source={playlist.coverRef} label={playlist.title} /><strong>{playlist.title}</strong><small>{playlist.trackCount} TRACKS</small></button>)}</div></CollectionRail> : null}
+        {recentTracks.length ? <CollectionRail title="RECENTLY PLAYED" action={<button type="button" className="altara-music-rail-action" onClick={() => { void player.playQueue(recentTracks) }}><Play size={12} fill="currentColor" /> PLAY</button>}><TrackList tracks={recentTracks.slice(0, 12)} player={player} playlists={personalPlaylists} onLike={like} onAddToPlaylist={addToPlaylist} onOpenArtist={openArtist} onOpenRelease={openRelease} /></CollectionRail> : null}
+        {likedTracks.length ? <CollectionRail title="LIKED SONGS" action={<button type="button" className="altara-music-rail-action" onClick={() => setNav('liked')}>VIEW ALL <ChevronRight size={12} /></button>}><TrackList tracks={likedTracks.slice(0, 8)} player={player} playlists={personalPlaylists} onLike={like} onAddToPlaylist={addToPlaylist} onOpenArtist={openArtist} onOpenRelease={openRelease} /></CollectionRail> : null}
+        {personalPlaylists.length ? <CollectionRail title="YOUR PLAYLISTS" action={<button type="button" className="altara-music-rail-action" onClick={() => setNav('playlists')}>MANAGE <ChevronRight size={12} /></button>}><div className="altara-music-cover-grid">{personalPlaylists.slice(0, 12).map((playlist) => <button type="button" key={playlist.id} className="altara-music-cover-card" onClick={() => openPlaylist(playlist.id)}><Artwork source={playlist.coverRef} label={playlist.title} /><strong>{playlist.title}</strong><small>{playlist.trackCount} TRACKS</small></button>)}</div></CollectionRail> : null}
         {emptyLibrary ? <Feedback title="YOUR LIBRARY IS READY" copy="Play a native track, like a song, or create a private playlist to begin." action={<button type="button" onClick={() => setNav('home')}>EXPLORE MUSIC</button>} /> : null}
       </section>
     )
@@ -428,16 +587,24 @@ function MusicReader({
           {([
             ['home', 'HOME', Sparkles], ['search', 'SEARCH', Search], ['library', 'YOUR LIBRARY', Library],
             ['liked', 'LIKED SONGS', Heart], ['playlists', 'PLAYLISTS', ListMusic],
-          ] as const).map(([id, label, Icon]) => <button key={id} type="button" data-active={nav === id ? 'true' : 'false'} onClick={() => { music.closeDetail(); setNav(id) }}><Icon size={15} /> {label}</button>)}
+          ] as const).map(([id, label, Icon]) => <button key={id} type="button" data-active={nav === id ? 'true' : 'false'} onClick={() => { music.closeDetail(); setNav(id) }} title={label} aria-label={label}><Icon size={15} /> {label}</button>)}
         </nav>
-        <div className="altara-music-sidebar__library"><span>YOUR PLAYLISTS</span>{library?.playlists.slice(0, 12).map((playlist) => <button type="button" key={playlist.id} onClick={() => { void music.openPlaylist(playlist.id) }}><Disc3 size={12} /> {playlist.title}</button>)}{!library?.playlists.length ? <small>No personal playlists</small> : null}</div>
-        <footer><strong>{identityName}</strong><small>PRIVATE LISTENING CONTEXT</small></footer>
+        <div className="altara-music-sidebar__library"><span>YOUR PLAYLISTS</span>{library?.playlists.slice(0, 12).map((playlist) => <button type="button" key={playlist.id} onClick={() => openPlaylist(playlist.id)} title={playlist.title}><Disc3 size={12} /> {playlist.title}</button>)}{!library?.playlists.length ? <small>No personal playlists</small> : null}</div>
+        <footer>
+          <MusicAppProfileEntry
+            appId="altara-music"
+            appLabel="ALTARA MUSIC"
+            classPrefix="altara-music"
+            identityLinkId={expectedIdentityLinkId}
+            fallbackDisplayName={identityName}
+          />
+        </footer>
       </aside>
       <div className="altara-music-workspace">
         {music.refreshing ? <div className="altara-music-sync"><LoaderCircle className="altara-music-spin" size={12} /> SYNCHRONIZING</div> : null}
         {music.error && home ? <div className="altara-music-error" role="alert">{music.error}<button type="button" onClick={music.reload}>RETRY</button></div> : null}
-        <main>{content}</main>
-        <PlayerBar player={player} />
+        <main ref={mainRef}>{content}</main>
+        <PlayerBar player={player} onOpenArtist={openArtist} onOpenRelease={openRelease} />
       </div>
     </section>
   )

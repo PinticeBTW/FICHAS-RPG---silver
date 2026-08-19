@@ -2,6 +2,8 @@
   --music-bg: #090a0b;
   --music-panel: #111214;
   --music-panel-up: #17181a;
+  --music-glass: rgba(255, 248, 235, 0.072);
+  --music-glass-strong: rgba(255, 248, 235, 0.115);
   --music-paper: #f1ece3;
   --music-copy: #c9c0b1;
   --music-muted: #8e877c;
@@ -16,7 +18,10 @@
   min-height: 0;
   overflow: hidden;
   color: var(--music-paper);
-  background: var(--music-bg);
+  background:
+    radial-gradient(circle at 16% 0%, rgba(214, 181, 121, 0.12), transparent 34%),
+    radial-gradient(circle at 88% 14%, rgba(255, 242, 214, 0.07), transparent 30%),
+    var(--music-bg);
   container-type: inline-size;
 }
 
@@ -26,20 +31,30 @@
 .altara-music button:disabled { cursor: not-allowed; opacity: 0.44; }
 .altara-music button:focus-visible, .altara-music input:focus-visible, .altara-music select:focus-visible, .altara-music textarea:focus-visible { outline: 2px solid var(--music-gold); outline-offset: 2px; }
 
-.altara-music-sidebar { display: grid; width: 218px; min-width: 218px; grid-template-rows: auto auto minmax(0, 1fr) auto; border-right: 1px solid var(--music-line-soft); background: #0c0d0f; }
+.altara-music-sidebar { display: grid; width: 226px; min-width: 226px; grid-template-rows: auto auto minmax(0, 1fr) auto; border-right: 1px solid rgba(255, 255, 255, 0.08); background: linear-gradient(180deg, rgba(20, 18, 15, 0.82), rgba(9, 10, 11, 0.94)); box-shadow: inset -1px 0 rgba(255, 255, 255, 0.035); }
 .altara-music-sidebar > header { display: flex; align-items: center; gap: 11px; padding: 18px 16px 16px; border-bottom: 1px solid var(--music-line-soft); }
-.altara-music-sidebar > header > span { display: grid; width: 35px; height: 35px; place-items: center; border: 1px solid var(--music-line); color: var(--music-gold); background: #151619; }
+.altara-music-sidebar > header > span { display: grid; width: 35px; height: 35px; place-items: center; border: 1px solid rgba(239, 211, 154, 0.32); border-radius: 13px; color: var(--music-gold); background: linear-gradient(145deg, rgba(239, 211, 154, 0.12), rgba(255, 255, 255, 0.03)); box-shadow: inset 0 1px rgba(255, 255, 255, 0.12); }
 .altara-music-sidebar > header > div, .altara-music-sidebar > footer { display: grid; gap: 3px; }
 .altara-music-sidebar strong { font-size: 0.7rem; letter-spacing: 0.045em; }
 .altara-music-sidebar small, .altara-music-sidebar__library > span { color: var(--music-muted); font-size: 0.46rem; letter-spacing: 0.11em; }
 .altara-music-sidebar nav { display: grid; gap: 3px; padding: 14px 10px; }
 .altara-music-sidebar nav button, .altara-music-sidebar__library button { display: flex; width: 100%; min-width: 0; align-items: center; gap: 9px; padding: 9px 10px; overflow: hidden; border: 0; color: var(--music-muted); text-align: left; text-overflow: ellipsis; white-space: nowrap; background: transparent; font-size: 0.59rem; font-weight: 650; letter-spacing: 0.05em; }
-.altara-music-sidebar nav button:hover, .altara-music-sidebar__library button:hover { color: var(--music-paper); background: rgba(255, 255, 255, 0.035); }
-.altara-music-sidebar nav button[data-active='true'] { color: #17130c; background: var(--music-gold); }
+.altara-music-sidebar nav button, .altara-music-sidebar__library button { border-radius: 13px; }
+.altara-music-sidebar nav button:hover, .altara-music-sidebar__library button:hover { color: var(--music-paper); background: var(--music-glass); }
+.altara-music-sidebar nav button[data-active='true'] { color: var(--music-gold-strong); background: linear-gradient(135deg, rgba(239, 211, 154, 0.16), rgba(255, 255, 255, 0.055)); box-shadow: inset 0 1px rgba(255, 255, 255, 0.1), inset 2px 0 var(--music-gold); }
 .altara-music-sidebar__library { min-height: 0; padding: 13px 10px; overflow: auto; border-top: 1px solid var(--music-line-soft); scrollbar-color: var(--music-line) transparent; }
 .altara-music-sidebar__library > span { display: block; padding: 0 10px 8px; }
 .altara-music-sidebar__library > small { display: block; padding: 9px 10px; line-height: 1.5; }
-.altara-music-sidebar > footer { padding: 13px 16px; border-top: 1px solid var(--music-line-soft); background: #101113; }
+.altara-music-sidebar > footer { position: relative; padding: 11px 12px; border-top: 1px solid var(--music-line-soft); background: rgba(16, 15, 13, 0.72); }
+.altara-music-profile-entry { position: relative; min-width: 0; }
+.altara-music-profile-entry__button { display: grid; width: 100%; min-width: 0; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 9px; padding: 7px; border: 1px solid rgba(255, 255, 255, 0.075); border-radius: 16px; color: inherit; text-align: left; background: var(--music-glass); box-shadow: inset 0 1px rgba(255, 255, 255, 0.08); transition: border-color 140ms ease, background 140ms ease, transform 140ms ease; }
+.altara-music-profile-entry__button:hover, .altara-music-profile-entry__button[aria-expanded='true'] { border-color: rgba(239, 211, 154, 0.34); background: var(--music-glass-strong); transform: translateY(-1px); }
+.altara-music-profile-entry__avatar { display: grid; width: 34px; height: 34px; place-items: center; overflow: hidden; border: 1px solid rgba(239, 211, 154, 0.28); border-radius: 50%; color: var(--music-gold-strong); background: #171411; font-size: 0.58rem; font-weight: 760; letter-spacing: 0.02em; }
+.altara-music-profile-entry__avatar img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.altara-music-profile-entry__copy { display: grid; min-width: 0; gap: 3px; }
+.altara-music-profile-entry__copy strong, .altara-music-profile-entry__copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.altara-music-profile-entry__button > svg { color: var(--music-muted); }
+.altara-music-app-profile-popover { position: absolute; z-index: 60; bottom: 0; left: calc(100% + 12px); width: min(350px, calc(100cqi - 94px)); border: 1px solid rgba(239, 211, 154, 0.28); border-radius: 24px; background: rgba(17, 16, 14, 0.94); box-shadow: 0 26px 70px rgba(0, 0, 0, 0.52), inset 0 1px rgba(255, 255, 255, 0.08); backdrop-filter: blur(14px); }
 
 .altara-music-workspace { position: relative; display: grid; min-width: 0; min-height: 0; flex: 1; grid-template-rows: minmax(0, 1fr) 86px; }
 .altara-music-workspace > main { min-width: 0; min-height: 0; overflow: auto; scrollbar-color: rgba(214, 181, 121, 0.28) transparent; }
@@ -55,20 +70,33 @@
 .altara-music-feedback p { max-width: 60ch; margin: 0; font-size: 0.72rem; line-height: 1.65; }
 .altara-music-feedback button { display: flex; align-items: center; gap: 6px; margin-top: 6px; padding: 9px 12px; border: 1px solid var(--music-line); color: var(--music-gold); background: var(--music-panel); }
 
-.altara-music-home { padding-bottom: 28px; }
-.altara-music-home__lead { display: grid; min-height: clamp(260px, 38cqi, 430px); grid-template-columns: minmax(0, 1.1fr) minmax(230px, 0.72fr); align-items: stretch; overflow: hidden; border-bottom: 1px solid var(--music-line-soft); background: #111214; }
-.altara-music-home__lead > div { display: grid; align-content: end; gap: 13px; padding: clamp(26px, 5cqi, 62px); }
-.altara-music-home__lead > div > span, .altara-music-detail header > div > span { color: var(--music-gold); font-size: 0.5rem; font-weight: 700; letter-spacing: 0.13em; }
-.altara-music-home__lead h1, .altara-music-detail h1 { max-width: 790px; margin: 0; font-family: var(--font-display, Inter, sans-serif); font-size: clamp(2.1rem, 5.6cqi, 4.8rem); font-weight: 520; line-height: 0.98; letter-spacing: -0.04em; text-wrap: balance; }
-.altara-music-home__lead p, .altara-music-detail header p { margin: 0; color: var(--music-copy); font-size: 0.8rem; line-height: 1.55; }
-.altara-music-home__lead button, .altara-music-detail header button { display: inline-flex; width: max-content; align-items: center; gap: 7px; margin-top: 5px; padding: 10px 14px; border: 0; border-radius: 999px; color: #19140d; background: var(--music-gold); font-size: 0.57rem; font-weight: 720; letter-spacing: 0.07em; }
-.altara-music-home__lead > .altara-music-artwork { width: 100%; height: 100%; border: 0; border-left: 1px solid var(--music-line-soft); }
-.altara-music-home__lead > .altara-music-artwork img { filter: saturate(0.76) contrast(1.04); }
+.altara-music-home { display: grid; gap: clamp(24px, 4cqi, 42px); padding: clamp(22px, 4.5cqi, 52px); padding-bottom: 42px; }
+.altara-music-home__hero { position: relative; isolation: isolate; display: grid; min-height: clamp(360px, 48cqi, 560px); grid-template-columns: minmax(230px, clamp(230px, 34cqi, 380px)) minmax(0, 1fr); align-items: end; gap: clamp(22px, 5cqi, 60px); overflow: hidden; padding: clamp(24px, 5cqi, 58px); border: 1px solid rgba(255, 255, 255, 0.105); border-radius: 34px; background: linear-gradient(135deg, rgba(35, 29, 22, 0.82), rgba(12, 11, 11, 0.92)); box-shadow: 0 34px 90px rgba(0, 0, 0, 0.42), inset 0 1px rgba(255, 255, 255, 0.08); }
+.altara-music-home__hero::before { position: absolute; inset: 0; z-index: 1; content: ''; background: radial-gradient(circle at 18% 18%, rgba(239, 211, 154, 0.24), transparent 34%), linear-gradient(140deg, rgba(255, 255, 255, 0.11), transparent 38%, rgba(214, 181, 121, 0.08)); pointer-events: none; }
+.altara-music-home__hero::after { position: absolute; inset: auto 8% 8% auto; z-index: 1; width: 38%; height: 34%; content: ''; border-radius: 999px; background: rgba(239, 211, 154, 0.09); filter: blur(34px); pointer-events: none; }
+.altara-music-home__hero-backdrop { position: absolute; inset: -20%; z-index: 0; opacity: 0.18; filter: blur(30px) saturate(0.92); transform: scale(1.04); pointer-events: none; }
+.altara-music-home__hero-backdrop .altara-music-artwork { width: 100%; height: 100%; border: 0; }
+.altara-music-home__hero-art { position: relative; z-index: 2; display: grid; align-self: center; justify-items: center; padding: 0; border: 0; color: inherit; text-align: center; background: transparent; }
+.altara-music-home__hero-art > .altara-music-artwork { width: clamp(230px, 34cqi, 380px); height: auto; aspect-ratio: 1 / 1; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 30px; box-shadow: 0 28px 70px rgba(0, 0, 0, 0.48); }
+.altara-music-home__hero-art:hover > .altara-music-artwork { border-color: rgba(239, 211, 154, 0.44); filter: brightness(1.06); }
+.altara-music-home__hero-panel { position: relative; z-index: 2; display: grid; align-content: end; gap: 11px; max-width: 700px; padding: clamp(18px, 3cqi, 30px); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 28px; background: rgba(13, 13, 12, 0.48); box-shadow: inset 0 1px rgba(255, 255, 255, 0.1), 0 18px 52px rgba(0, 0, 0, 0.26); backdrop-filter: blur(12px); }
+.altara-music-home__hero-panel > span, .altara-music-detail header > div > span { color: var(--music-gold-strong); font-size: 0.5rem; font-weight: 760; letter-spacing: 0.17em; }
+.altara-music-home__hero h1, .altara-music-detail h1 { max-width: 790px; margin: 0; font-family: var(--font-display, Inter, sans-serif); font-size: clamp(2.35rem, 5.8cqi, 5rem); font-weight: 520; line-height: 0.94; letter-spacing: -0.055em; text-wrap: balance; }
+.altara-music-home__hero p, .altara-music-detail header p { margin: 0; color: var(--music-copy); font-size: 0.8rem; line-height: 1.62; }
+.altara-music-home__hero .altara-music-home__hero-artist { color: var(--music-paper); font-size: clamp(0.9rem, 1.7cqi, 1.05rem); font-weight: 640; letter-spacing: 0.01em; }
+.altara-music-home__hero .altara-music-home__hero-meta { color: var(--music-muted); font-size: 0.56rem; font-weight: 720; letter-spacing: 0.12em; text-transform: uppercase; }
+.altara-music-home__hero-description { max-width: 60ch; }
+.altara-music-home__hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+.altara-music-home__hero-actions button, .altara-music-detail header button { display: inline-flex; width: max-content; align-items: center; justify-content: center; gap: 7px; padding: 10px 15px; border-radius: 999px; font-size: 0.56rem; font-weight: 760; letter-spacing: 0.075em; transition: border-color 140ms ease, color 140ms ease, background 140ms ease, transform 140ms ease; }
+.altara-music-home__hero-actions button:hover, .altara-music-detail header button:hover { transform: translateY(-1px); }
+.altara-music-home__primary-action, .altara-music-detail header button { border: 0; color: #1c150b; background: linear-gradient(135deg, #fff0c7, var(--music-gold)); box-shadow: 0 12px 34px rgba(214, 181, 121, 0.24); }
+.altara-music-home__secondary-action { border: 1px solid rgba(255, 255, 255, 0.16); color: var(--music-paper); background: rgba(255, 255, 255, 0.055); }
+.altara-music-home__secondary-action:hover { border-color: rgba(239, 211, 154, 0.4); color: var(--music-gold-strong); background: rgba(239, 211, 154, 0.09); }
 
 .altara-music-artwork { position: relative; display: grid; width: 42px; height: 42px; flex: 0 0 auto; place-items: center; overflow: hidden; border: 1px solid var(--music-line-soft); color: var(--music-gold); background: #191a1c; }
 .altara-music-artwork[data-kind='artist'] { border-radius: 50%; }
-.altara-music-artwork[data-kind='hero'] { width: 170px; height: 170px; }
-.altara-music-artwork img { width: 100%; height: 100%; object-fit: cover; }
+.altara-music-artwork[data-kind='hero'] { width: 170px; height: 170px; aspect-ratio: 1 / 1; }
+.altara-music-artwork img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .altara-music-artwork__fallback { display: grid; width: 100%; height: 100%; place-items: center; background: #171819; }
 .altara-music-artwork__fallback svg { width: 31%; height: 31%; opacity: 0.62; }
 
@@ -76,6 +104,9 @@
 .altara-music-rail > header { display: flex; align-items: end; justify-content: space-between; margin-bottom: 12px; padding-bottom: 9px; border-bottom: 1px solid var(--music-line-soft); }
 .altara-music-rail h2 { margin: 0; font-family: var(--font-display, Inter, sans-serif); font-size: clamp(1rem, 2.2cqi, 1.45rem); font-weight: 560; letter-spacing: -0.02em; }
 .altara-music-rail-action { display: inline-flex; align-items: center; gap: 5px; padding: 5px 0; border: 0; color: var(--music-gold); background: transparent; font-size: 0.48rem; font-weight: 700; letter-spacing: 0.07em; }
+.altara-music-home > .altara-music-rail { padding: 0; }
+.altara-music-home > .altara-music-rail > header { margin-bottom: 14px; padding-bottom: 0; border-bottom: 0; }
+.altara-music-home > .altara-music-rail h2 { font-size: clamp(1.08rem, 1.9cqi, 1.45rem); font-weight: 590; letter-spacing: -0.035em; }
 .altara-music-cover-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(126px, 1fr)); gap: 14px; }
 .altara-music-cover-card { display: grid; min-width: 0; align-content: start; gap: 7px; padding: 0 0 10px; border: 0; color: inherit; text-align: left; background: transparent; }
 .altara-music-cover-card:hover strong { color: var(--music-gold); }
@@ -84,45 +115,77 @@
 .altara-music-cover-card small { overflow: hidden; color: var(--music-muted); font-size: 0.52rem; text-overflow: ellipsis; white-space: nowrap; }
 .altara-music-cover-grid--artists .altara-music-cover-card { text-align: center; }
 .altara-music-cover-grid--releases { grid-template-columns: repeat(auto-fill, minmax(180px, 230px)); }
+.altara-music-home-release-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 210px)); justify-content: start; gap: clamp(16px, 2.4cqi, 24px); }
+.altara-music-home-release-grid .altara-music-cover-card { gap: 10px; padding: 10px 10px 13px; border: 1px solid rgba(255, 255, 255, 0.085); border-radius: 22px; background: var(--music-glass); box-shadow: inset 0 1px rgba(255, 255, 255, 0.06); transition: border-color 140ms ease, background 140ms ease, transform 140ms ease; }
+.altara-music-home-release-grid .altara-music-cover-card:hover { border-color: rgba(239, 211, 154, 0.34); background: var(--music-glass-strong); transform: translateY(-2px); }
+.altara-music-home-release-grid .altara-music-cover-card > .altara-music-artwork { border-radius: 18px; box-shadow: 0 16px 36px rgba(0, 0, 0, 0.32); }
+.altara-music-home-release-grid .altara-music-cover-card strong { font-size: 0.75rem; }
+.altara-music-home__recent .altara-music-track-list { overflow: visible; border: 1px solid rgba(255, 255, 255, 0.085); border-radius: 22px; background: rgba(255, 248, 235, 0.035); box-shadow: inset 0 1px rgba(255, 255, 255, 0.055); }
+.altara-music-home__recent .altara-music-track-list article { min-height: 60px; padding: 8px 12px; border-bottom-color: rgba(255, 255, 255, 0.06); }
+.altara-music-home__recent .altara-music-track-list article:last-child { border-bottom: 0; }
+.altara-music-home__recent .altara-music-track-list article:hover, .altara-music-home__recent .altara-music-track-list article[data-current='true'] { background: rgba(214, 181, 121, 0.075); }
+.altara-music-home__quick-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.altara-music-home__quick-grid button { display: flex; min-width: 0; align-items: center; gap: 12px; min-height: 82px; padding: 15px; border: 1px solid rgba(255, 255, 255, 0.09); border-radius: 22px; color: inherit; text-align: left; background: var(--music-glass); box-shadow: inset 0 1px rgba(255, 255, 255, 0.065); transition: border-color 140ms ease, background 140ms ease, transform 140ms ease; }
+.altara-music-home__quick-grid button:hover { border-color: rgba(239, 211, 154, 0.34); background: var(--music-glass-strong); transform: translateY(-1px); }
+.altara-music-home__quick-grid button > svg { flex: 0 0 auto; color: var(--music-gold-strong); }
+.altara-music-home__quick-grid span { display: grid; min-width: 0; gap: 4px; }
+.altara-music-home__quick-grid strong { overflow: hidden; font-size: 0.72rem; text-overflow: ellipsis; white-space: nowrap; }
+.altara-music-home__quick-grid small { overflow: hidden; color: var(--music-muted); font-size: 0.5rem; text-overflow: ellipsis; white-space: nowrap; }
 
 .altara-music-track-list { border-top: 1px solid var(--music-line-soft); }
-.altara-music-track-list article { display: grid; min-width: 0; min-height: 56px; grid-template-columns: 30px 42px minmax(120px, 1.4fr) minmax(90px, 0.9fr) 28px minmax(86px, auto) 42px; align-items: center; gap: 10px; padding: 7px 3px; border-bottom: 1px solid var(--music-line-soft); }
-.altara-music-track-list article:hover, .altara-music-track-list article[data-current='true'] { background: rgba(214, 181, 121, 0.045); }
+.altara-music-track-list article { position: relative; display: grid; min-width: 0; min-height: 56px; grid-template-columns: 30px 42px minmax(120px, 1.4fr) minmax(90px, 0.9fr) 28px 32px 42px; align-items: center; gap: 10px; padding: 7px 3px; border-bottom: 1px solid var(--music-line-soft); }
+.altara-music-track-list article:hover, .altara-music-track-list article[data-current='true'] { z-index: 2; background: rgba(214, 181, 121, 0.045); }
 .altara-music-track-list article[data-current='true'] .altara-music-track-copy strong { color: var(--music-gold); }
-.altara-music-track-play, .altara-music-icon-action { display: grid; width: 28px; height: 28px; place-items: center; border: 0; color: var(--music-muted); background: transparent; }
+.altara-music-track-play, .altara-music-icon-action { display: grid; width: 28px; height: 28px; place-items: center; border: 0; border-radius: 50%; color: var(--music-muted); background: transparent; }
 .altara-music-track-play:hover, .altara-music-icon-action:hover, .altara-music-icon-action[data-active='true'] { color: var(--music-gold); }
+.altara-music-track-artwork-button { display: grid; width: 42px; height: 42px; padding: 0; border: 0; border-radius: 11px; color: inherit; background: transparent; }
+.altara-music-track-artwork-button:hover .altara-music-artwork { border-color: rgba(239, 211, 154, 0.38); filter: brightness(1.08); }
 .altara-music-track-copy { display: grid; min-width: 0; gap: 4px; }
 .altara-music-track-copy strong, .altara-music-track-release { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .altara-music-track-copy strong { font-size: 0.67rem; }
 .altara-music-track-copy small, .altara-music-track-release, .altara-music-track-list time { color: var(--music-muted); font-size: 0.51rem; }
-.altara-music-track-add select { width: 88px; min-height: 27px; border: 1px solid var(--music-line-soft); color: var(--music-muted); background: #111214; font-size: 0.46rem; }
-.altara-music-track-add select option { color: var(--music-paper); background: #111214; }
+.altara-music-track-release { justify-self: start; max-width: 100%; padding: 0; border: 0; color: var(--music-muted); text-align: left; background: transparent; }
+.altara-music-track-release:hover, .altara-music-metadata-link:hover { color: var(--music-gold-strong); text-decoration: underline; text-underline-offset: 3px; }
+.altara-music-metadata-link { display: inline; width: auto; height: auto; min-width: 0; padding: 0; border: 0; border-radius: 0; color: inherit; text-align: left; background: transparent; font: inherit; }
+.altara-music-track-menu { position: relative; display: grid; justify-items: center; }
+.altara-music-track-menu__surface { position: absolute; z-index: 50; top: calc(100% + 7px); right: 0; display: grid; width: min(248px, 70cqi); max-height: min(360px, 62cqh); overflow: auto; padding: 7px; border: 1px solid rgba(239, 211, 154, 0.3); border-radius: 18px; background: rgba(18, 16, 13, 0.94); box-shadow: 0 20px 54px rgba(0, 0, 0, 0.46), inset 0 1px rgba(255, 255, 255, 0.08); backdrop-filter: blur(12px); }
+.altara-music-track-menu__surface button { display: flex; width: 100%; min-height: 32px; align-items: center; justify-content: flex-start; gap: 8px; padding: 7px 9px; border: 0; border-radius: 12px; color: var(--music-copy); text-align: left; background: transparent; font-size: 0.5rem; font-weight: 720; letter-spacing: 0.055em; }
+.altara-music-track-menu__surface button:hover { color: var(--music-paper); background: rgba(239, 211, 154, 0.11); }
+.altara-music-track-menu__surface button:disabled { color: var(--music-muted); background: transparent; opacity: 0.45; }
+.altara-music-track-menu__playlist-group { display: grid; gap: 2px; margin-top: 4px; padding-top: 5px; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+.altara-music-track-menu__playlist-group > span { padding: 5px 9px 3px; color: var(--music-muted); font-size: 0.44rem; font-weight: 760; letter-spacing: 0.1em; }
 
-.altara-music-player { position: relative; display: grid; min-width: 0; grid-template-columns: minmax(180px, 0.9fr) minmax(260px, 1.4fr) minmax(110px, 0.55fr); align-items: center; gap: 18px; padding: 10px 15px; border-top: 1px solid var(--music-line); background: #0d0e10; box-shadow: 0 -12px 28px rgba(0, 0, 0, 0.2); }
-.altara-music-player[data-empty='true'] { background: #0b0c0d; }
-.altara-music-player[data-empty='true'] .altara-music-player__identity { opacity: 0.72; }
+.altara-music-player { position: relative; display: grid; min-width: 0; grid-template-columns: minmax(190px, 0.95fr) minmax(270px, 1.28fr) minmax(124px, 0.58fr); align-items: center; gap: clamp(12px, 2.2cqi, 22px); padding: 10px 16px; border-top: 1px solid rgba(255, 255, 255, 0.105); background: linear-gradient(180deg, rgba(22, 20, 17, 0.88), rgba(9, 10, 11, 0.96)); box-shadow: 0 -18px 44px rgba(0, 0, 0, 0.3), inset 0 1px rgba(255, 255, 255, 0.06); backdrop-filter: blur(12px); }
+.altara-music-player[data-empty='true'] { background: linear-gradient(180deg, rgba(17, 16, 14, 0.84), rgba(9, 10, 11, 0.96)); }
+.altara-music-player[data-empty='true'] .altara-music-player__identity { opacity: 0.76; }
 .altara-music-player__identity { display: flex; min-width: 0; align-items: center; gap: 10px; }
+.altara-music-player__identity > .altara-music-artwork { width: 44px; height: 44px; border-radius: 13px; }
 .altara-music-player__identity > span:last-child { display: grid; min-width: 0; gap: 3px; }
 .altara-music-player__identity strong, .altara-music-player__identity small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.altara-music-player__identity strong { font-size: 0.65rem; }
+.altara-music-player__identity strong { font-size: 0.66rem; letter-spacing: -0.01em; }
 .altara-music-player__identity small { color: var(--music-muted); font-size: 0.5rem; }
+.altara-music-player button.altara-music-player__artwork-link { display: grid; width: 44px; height: 44px; flex: 0 0 auto; padding: 0; overflow: hidden; border: 0; border-radius: 13px; color: inherit; background: transparent; }
+.altara-music-player__artwork-link > .altara-music-artwork { width: 44px; height: 44px; border-radius: 13px; transition: filter 140ms ease, border-color 140ms ease; }
+.altara-music-player__artwork-link:hover > .altara-music-artwork { border-color: rgba(239, 211, 154, 0.4); filter: brightness(1.08); }
+.altara-music-player__identity .altara-music-metadata-link { display: inline; width: auto; height: auto; padding: 0; border-radius: 0; color: inherit; background: transparent; }
+.altara-music-player__identity .altara-music-metadata-link:hover { color: var(--music-gold-strong); background: transparent; }
 .altara-music-player__transport { display: grid; gap: 7px; }
 .altara-music-player__transport > div { display: flex; align-items: center; justify-content: center; gap: 5px; }
 .altara-music-player button { display: grid; width: 29px; height: 29px; place-items: center; border: 0; border-radius: 50%; color: var(--music-muted); background: transparent; }
-.altara-music-player button:hover, .altara-music-player button[data-active='true'] { color: var(--music-gold); }
+.altara-music-player button:hover, .altara-music-player button[data-active='true'] { color: var(--music-gold-strong); background: rgba(239, 211, 154, 0.1); }
 .altara-music-player button:disabled { cursor: default; opacity: 0.32; }
-.altara-music-player .altara-music-player__primary { width: 34px; height: 34px; color: #17130c; background: var(--music-gold); }
+.altara-music-player .altara-music-player__primary { width: 34px; height: 34px; color: #1c150b; background: linear-gradient(135deg, #fff0c7, var(--music-gold)); box-shadow: 0 8px 22px rgba(214, 181, 121, 0.22); }
 .altara-music-player__transport label { display: grid; grid-template-columns: 32px minmax(100px, 1fr) 32px; align-items: center; gap: 8px; color: var(--music-muted); font-size: 0.44rem; }
 .altara-music-player input[type='range'] { width: 100%; height: 3px; accent-color: var(--music-gold); }
-.altara-music-player__volume { display: flex; align-items: center; justify-content: flex-end; gap: 5px; }
-.altara-music-player__volume input { max-width: 90px; }
+.altara-music-player__volume { display: flex; min-width: 0; align-items: center; justify-content: flex-end; gap: 5px; }
+.altara-music-player__volume input { max-width: 96px; min-width: 62px; }
 .altara-music-player > p { position: absolute; right: 10px; bottom: calc(100% + 6px); max-width: 360px; margin: 0; padding: 7px 9px; color: #f0c7bf; background: #281513; font-size: 0.5rem; }
-.altara-music-player__queue { position: absolute; z-index: 12; right: 10px; bottom: calc(100% + 8px); width: min(440px, calc(100% - 20px)); max-height: min(430px, 60cqh); overflow: auto; border: 1px solid var(--music-line); background: #0d0e10; box-shadow: 0 20px 48px rgba(0, 0, 0, 0.46); }
-.altara-music-player__queue > header { position: sticky; z-index: 2; top: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px; border-bottom: 1px solid var(--music-line-soft); background: #111214; }
+.altara-music-player__queue { position: absolute; z-index: 12; right: 10px; bottom: calc(100% + 8px); width: min(440px, calc(100% - 20px)); max-height: min(430px, 60cqh); overflow: auto; border: 1px solid rgba(239, 211, 154, 0.28); border-radius: 22px; background: rgba(17, 16, 14, 0.94); box-shadow: 0 24px 62px rgba(0, 0, 0, 0.5), inset 0 1px rgba(255, 255, 255, 0.08); backdrop-filter: blur(14px); }
+.altara-music-player__queue > header { position: sticky; z-index: 2; top: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px; border-bottom: 1px solid var(--music-line-soft); background: rgba(20, 18, 15, 0.94); }
 .altara-music-player__queue > header > div { display: grid; gap: 3px; }
 .altara-music-player__queue > header strong { font-size: 0.57rem; letter-spacing: 0.06em; }
 .altara-music-player__queue > header small { color: var(--music-muted); font-size: 0.44rem; }
-.altara-music-player__queue > header button { border: 1px solid var(--music-line-soft); border-radius: 0; }
+.altara-music-player__queue > header button { border: 1px solid var(--music-line-soft); border-radius: 50%; }
 .altara-music-player__queue > div { display: grid; }
 .altara-music-player__queue > div > button { display: grid; width: 100%; height: auto; min-height: 54px; grid-template-columns: 26px 38px minmax(0, 1fr) auto; align-items: center; gap: 9px; padding: 7px 11px; border-bottom: 1px solid var(--music-line-soft); border-radius: 0; color: inherit; text-align: left; }
 .altara-music-player__queue > div > button:hover, .altara-music-player__queue > div > button[data-current='true'] { color: inherit; background: var(--music-panel-up); }
@@ -154,9 +217,12 @@
 .altara-music-playlist-directory article small { color: var(--music-muted); font-size: 0.5rem; }
 .altara-music-playlist-directory article > button:last-child { border: 0; color: var(--music-muted); background: transparent; }
 
-.altara-music-back { display: flex; align-items: center; gap: 6px; margin: 0 0 22px; padding: 0; border: 0; color: var(--music-muted); background: transparent; font-size: 0.53rem; letter-spacing: 0.07em; }
-.altara-music-detail > header { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: end; gap: clamp(18px, 4cqi, 38px); margin-bottom: 30px; }
-.altara-music-detail > header .altara-music-artwork { width: clamp(140px, 25cqi, 250px); height: auto; aspect-ratio: 1; }
+.altara-music-back { display: flex; align-items: center; gap: 6px; margin: 0 0 18px; padding: 6px 0; border: 0; color: var(--music-muted); background: transparent; font-size: 0.53rem; font-weight: 720; letter-spacing: 0.07em; }
+.altara-music-back:hover { color: var(--music-gold-strong); }
+.altara-music-detail > header { position: relative; isolation: isolate; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: end; gap: clamp(20px, 4.5cqi, 46px); margin-bottom: 32px; padding: clamp(18px, 3.4cqi, 32px); overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.105); border-radius: 30px; background: linear-gradient(135deg, rgba(255, 248, 235, 0.08), rgba(255, 255, 255, 0.025)); box-shadow: inset 0 1px rgba(255, 255, 255, 0.07); }
+.altara-music-detail > header::before { position: absolute; inset: 0; z-index: -1; content: ''; background: radial-gradient(circle at 8% 12%, rgba(239, 211, 154, 0.12), transparent 36%); pointer-events: none; }
+.altara-music-detail > header .altara-music-artwork { width: clamp(150px, 27cqi, 270px); height: auto; aspect-ratio: 1; border-radius: 22px; box-shadow: 0 22px 56px rgba(0, 0, 0, 0.38); }
+.altara-music-detail > header .altara-music-artwork[data-kind='artist'] { border-radius: 50%; }
 .altara-music-detail > header > div { display: grid; gap: 9px; }
 .altara-music-detail > header p { max-width: 70ch; }
 .altara-music-detail > header small { color: var(--music-muted); font-size: 0.5rem; }
@@ -349,14 +415,21 @@
   .altara-music-sidebar > header > div, .altara-music-sidebar nav button:not([data-active='true'])::after, .altara-music-sidebar nav button { font-size: 0; }
   .altara-music-sidebar nav button { justify-content: center; }
   .altara-music-sidebar nav button svg { width: 17px; height: 17px; }
-  .altara-music-sidebar__library, .altara-music-sidebar > footer { display: none; }
-  .altara-music-home__lead { grid-template-columns: 1fr; }
-  .altara-music-home__lead > .altara-music-artwork { position: absolute; width: 42%; height: 54%; right: 22px; top: 20px; opacity: 0.36; border: 0; }
-  .altara-music-home__lead > div { z-index: 1; }
-  .altara-music-track-list article { grid-template-columns: 28px 38px minmax(100px, 1fr) 28px 40px; }
-  .altara-music-track-release, .altara-music-track-add { display: none; }
+  .altara-music-sidebar__library { display: none; }
+  .altara-music-sidebar > footer { display: block; padding: 8px; }
+  .altara-music-profile-entry__button { display: grid; grid-template-columns: 1fr; justify-items: center; padding: 5px; }
+  .altara-music-profile-entry__copy, .altara-music-profile-entry__button > svg { display: none; }
+  .altara-music-app-profile-popover { left: calc(100% + 8px); width: min(350px, calc(100cqi - 84px)); }
+  .altara-music-home { padding: 18px; }
+  .altara-music-home__hero { min-height: clamp(330px, 58cqi, 460px); grid-template-columns: minmax(170px, 30cqi) minmax(0, 1fr); gap: 22px; padding: 24px; }
+  .altara-music-home__hero-art > .altara-music-artwork { width: clamp(170px, 30cqi, 245px); border-radius: 22px; }
+  .altara-music-home__hero h1 { font-size: clamp(2.15rem, 6.8cqi, 3.6rem); }
+  .altara-music-home-release-grid { grid-template-columns: repeat(auto-fill, minmax(148px, 190px)); }
+  .altara-music-home__quick-grid { grid-template-columns: 1fr; }
+  .altara-music-track-list article { grid-template-columns: 28px 38px minmax(100px, 1fr) 28px 32px 40px; }
+  .altara-music-track-release { display: none; }
   .altara-music-player { grid-template-columns: minmax(120px, 0.8fr) minmax(230px, 1.2fr); }
-  .altara-music-player__volume { display: none; }
+  .altara-music-player__volume input { display: none; }
   .altara-music-studio-grid { grid-template-columns: 210px minmax(0, 1fr); }
   .altara-music-studio-editor > form, .altara-music-studio-form, .altara-music-studio-form--track { grid-template-columns: 1fr; }
   .altara-music-studio-editor form > header { grid-column: 1; }
@@ -371,12 +444,19 @@
   .altara-music-sidebar > header > span { width: 30px; height: 30px; }
   .altara-music-sidebar nav { display: flex; min-width: 0; padding: 6px; overflow-x: auto; }
   .altara-music-sidebar nav button { min-width: 40px; padding: 8px; }
+  .altara-music-sidebar > footer { display: none; }
   .altara-music-workspace { min-height: 0; grid-template-rows: minmax(0, 1fr) 108px; }
   .altara-music-player { grid-template-columns: 1fr auto; grid-template-rows: auto auto; gap: 7px; padding: 8px 10px; }
   .altara-music-player__transport { grid-column: 1 / -1; grid-row: 2; }
   .altara-music-player__transport label { grid-template-columns: 28px minmax(80px, 1fr) 28px; }
-  .altara-music-home__lead { min-height: 300px; }
-  .altara-music-home__lead h1 { font-size: clamp(2rem, 10cqi, 3rem); }
+  .altara-music-home { padding: 14px; }
+  .altara-music-home__hero { min-height: 0; grid-template-columns: 1fr; gap: 18px; padding: 18px; border-radius: 24px; }
+  .altara-music-home__hero-art { justify-self: start; }
+  .altara-music-home__hero-art > .altara-music-artwork { width: min(66cqi, 240px); border-radius: 20px; }
+  .altara-music-home__hero-panel { padding: 0; border: 0; background: transparent; box-shadow: none; backdrop-filter: none; }
+  .altara-music-home__hero h1 { font-size: clamp(2.1rem, 10.5cqi, 3.1rem); }
+  .altara-music-home__hero-actions button { width: 100%; }
+  .altara-music-home-release-grid { grid-template-columns: repeat(auto-fill, minmax(136px, 1fr)); }
   .altara-music-detail > header { grid-template-columns: 1fr; }
   .altara-music-detail > header .altara-music-artwork { width: min(58%, 210px); }
   .altara-music-new-playlist { grid-template-columns: 1fr; }
