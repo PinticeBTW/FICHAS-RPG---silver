@@ -625,6 +625,7 @@ export function AltaraOsGateway({
       className="altara-os"
       data-wallpaper={wallpaperTheme}
       data-custom-wallpaper={customWallpaper ? 'true' : 'false'}
+      data-window-interacting={windowManager.interactingWindowId ? 'true' : 'false'}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) setLauncherOpen(false)
       }}

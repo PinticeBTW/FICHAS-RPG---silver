@@ -113,6 +113,7 @@ export function useAltaraWindowManager(profileId?: string) {
   const [viewport, setViewport] = useState(getInitialViewport)
   const [windows, setWindows] = useState<Partial<Record<AltaraAppId, AltaraWindowState>>>({})
   const [snapPreview, setSnapPreview] = useState<SnapPreview>(null)
+  const [interactingWindowId, setInteractingWindowId] = useState<AltaraAppId | null>(null)
   const zIndexCounterRef = useRef(0)
   const bounds = useMemo(
     () => getNetDesktopBounds(viewport.width, viewport.height),
@@ -441,6 +442,12 @@ export function useAltaraWindowManager(profileId?: string) {
       onPrepareDrag: (pointerX: number, pointerY: number) => prepareDrag(id, pointerX, pointerY),
       onRectCommit: (rect: NetWindowRect) => commitRect(id, rect),
       onSnap: (snap: 'left' | 'right' | 'maximize') => applySnap(id, snap),
+      onInteractionChange: (interacting: boolean) => {
+        setInteractingWindowId((current) => {
+          if (interacting) return id
+          return current === id ? null : current
+        })
+      },
       onSnapPreviewChange: (preview: 'left' | 'right' | 'maximize' | null) => (
         handleSnapPreview(id, preview)
       ),
@@ -472,6 +479,7 @@ export function useAltaraWindowManager(profileId?: string) {
   return {
     windows,
     focusedId,
+    interactingWindowId,
     isMobile,
     snapPreviewRect,
     openWindow,

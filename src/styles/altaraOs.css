@@ -503,6 +503,23 @@
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.17) transparent;
 }
+.altara-os .net-app-window[data-interacting='true'] {
+  transition: none;
+  will-change: transform, width, height;
+}
+.altara-os[data-window-interacting='true'] .net-app-window,
+.altara-os[data-window-interacting='true'] .net-app-window__body,
+.altara-os[data-window-interacting='true'] .net-app-window__body *,
+.altara-os[data-window-interacting='true'] .altara-osbar,
+.altara-os[data-window-interacting='true'] .altara-os__wallpaper,
+.altara-os[data-window-interacting='true'] .altara-os__wallpaper::before,
+.altara-os[data-window-interacting='true'] .altara-os__wallpaper::after,
+.altara-os[data-window-interacting='true'] .altara-os__wallpaper > i {
+  animation-play-state: paused !important;
+  backdrop-filter: none !important;
+  filter: none !important;
+  transition: none !important;
+}
 .altara-os .net-app-window[data-maximized='true'] { border-radius: 8px; }
 .altara-os .net-app-window[data-minimized='true'] { display: none; }
 .altara-os .net-app-window[data-focused='false'] { border-color: rgba(255, 255, 255, 0.08); box-shadow: 0 24px 70px rgba(0, 0, 0, 0.48); filter: saturate(0.88); }

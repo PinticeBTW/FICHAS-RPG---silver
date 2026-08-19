@@ -63,6 +63,7 @@ interface NetAppWindowProps {
   onPrepareDrag: (pointerX: number, pointerY: number) => NetWindowRect
   onRectCommit: (rect: NetWindowRect) => void
   onSnap: (snap: 'left' | 'right' | 'maximize') => void
+  onInteractionChange?: (interacting: boolean) => void
   onSnapPreviewChange?: (preview: SnapPreview) => void
   children: ReactNode
 }
@@ -144,6 +145,7 @@ export function NetAppWindow({
   onPrepareDrag,
   onRectCommit,
   onSnap,
+  onInteractionChange,
   onSnapPreviewChange,
   children,
 }: NetAppWindowProps) {
@@ -153,16 +155,23 @@ export function NetAppWindow({
   const [transientFrame, setTransientFrame] = useState<TransientFrame | null>(null)
   const transientRectRef = useRef<NetWindowRect | null>(null)
   const snapPreviewChangeRef = useRef(onSnapPreviewChange)
+  const interactionChangeRef = useRef(onInteractionChange)
 
   useEffect(() => {
     snapPreviewChangeRef.current = onSnapPreviewChange
   }, [onSnapPreviewChange])
+
+  useEffect(() => {
+    interactionChangeRef.current = onInteractionChange
+  }, [onInteractionChange])
 
   const visibleRect = transientFrame?.rect ?? rect
 
   useEffect(() => {
     return () => snapPreviewChangeRef.current?.(null)
   }, [])
+
+  useEffect(() => () => interactionChangeRef.current?.(false), [])
 
   if (!isOpen) return null
 
@@ -192,6 +201,7 @@ export function NetAppWindow({
     setPreview(null)
     const finalRect = transientRectRef.current ?? rect
     updateTransientRect(null)
+    interactionChangeRef.current?.(false)
 
     if (!cancelled && interaction.kind === 'drag' && preview) {
       onSnap(preview)
@@ -260,6 +270,7 @@ export function NetAppWindow({
       direction,
     }
     updateTransientRect(startRect)
+    interactionChangeRef.current?.(true)
     event.currentTarget.setPointerCapture(event.pointerId)
   }
 
