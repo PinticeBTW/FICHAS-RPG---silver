@@ -36,6 +36,11 @@ type ActiveInteraction = {
   direction?: ResizeDirection
 }
 
+type TransientFrame = {
+  rect: NetWindowRect
+  dragStartRect?: NetWindowRect
+}
+
 interface NetAppWindowProps {
   title: string
   subtitle?: string
@@ -145,20 +150,15 @@ export function NetAppWindow({
   const lastPointerFocusAtRef = useRef(0)
   const interactionRef = useRef<ActiveInteraction | null>(null)
   const previewRef = useRef<SnapPreview>(null)
-  const [transientRect, setTransientRect] = useState<NetWindowRect | null>(null)
+  const [transientFrame, setTransientFrame] = useState<TransientFrame | null>(null)
   const transientRectRef = useRef<NetWindowRect | null>(null)
   const snapPreviewChangeRef = useRef(onSnapPreviewChange)
 
-  snapPreviewChangeRef.current = onSnapPreviewChange
-
-  const visibleRect = transientRect ?? rect
-
   useEffect(() => {
-    if (!interactionRef.current) {
-      transientRectRef.current = null
-      setTransientRect(null)
-    }
-  }, [rect.x, rect.y, rect.width, rect.height])
+    snapPreviewChangeRef.current = onSnapPreviewChange
+  }, [onSnapPreviewChange])
+
+  const visibleRect = transientFrame?.rect ?? rect
 
   useEffect(() => {
     return () => snapPreviewChangeRef.current?.(null)
@@ -174,7 +174,13 @@ export function NetAppWindow({
 
   const updateTransientRect = (nextRect: NetWindowRect | null) => {
     transientRectRef.current = nextRect
-    setTransientRect(nextRect)
+    const interaction = interactionRef.current
+    setTransientFrame(nextRect
+      ? {
+          rect: nextRect,
+          ...(interaction?.kind === 'drag' ? { dragStartRect: interaction.startRect } : {}),
+        }
+      : null)
   }
 
   const finishInteraction = (cancelled = false) => {
@@ -257,12 +263,18 @@ export function NetAppWindow({
     event.currentTarget.setPointerCapture(event.pointerId)
   }
 
+  const dragStartRect = transientFrame?.dragStartRect
+  const styleRect = dragStartRect ?? visibleRect
+  const transform = dragStartRect && transientFrame
+    ? `translate3d(${visibleRect.x - dragStartRect.x}px, ${visibleRect.y - dragStartRect.y}px, 0)`
+    : undefined
   const style = {
     '--app-rgb': accentRgb,
-    left: `${visibleRect.x}px`,
-    top: `${visibleRect.y}px`,
-    width: `${visibleRect.width}px`,
-    height: `${visibleRect.height}px`,
+    left: `${styleRect.x}px`,
+    top: `${styleRect.y}px`,
+    width: `${styleRect.width}px`,
+    height: `${styleRect.height}px`,
+    ...(transform ? { transform } : {}),
     ...(typeof zIndex === 'number' ? { zIndex } : {}),
   } as CSSProperties
 
@@ -274,7 +286,7 @@ export function NetAppWindow({
       data-maximized={isMaximized ? 'true' : 'false'}
       data-snapped={isSnapped ? 'true' : 'false'}
       data-focused={isFocused ? 'true' : 'false'}
-      data-interacting={transientRect ? 'true' : 'false'}
+      data-interacting={transientFrame ? 'true' : 'false'}
       role="dialog"
       aria-label={title}
       aria-hidden={isMinimized ? 'true' : 'false'}

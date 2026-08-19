@@ -1866,11 +1866,21 @@
   border-radius: 12px;
 }
 
-/* backdrop-filter is expensive to recomposite on a moving element; hinting
-   the compositor only while a drag/resize is actually in progress (not
-   permanently) keeps the blur without paying for a standing GPU layer. */
+/* Dragging rich app surfaces should stay compositor-bound. While a window is
+   actively moving/resizing, trade a little temporary visual richness for much
+   lower per-frame paint cost. */
 .net-app-window[data-interacting='true'] {
-  will-change: left, top, width, height;
+  backdrop-filter: none;
+  transition: none;
+  will-change: transform, width, height;
+}
+
+.net-app-window[data-interacting='true'] .net-app-window__body,
+.net-app-window[data-interacting='true'] .net-app-window__body * {
+  animation-play-state: paused !important;
+  backdrop-filter: none !important;
+  filter: none !important;
+  transition: none !important;
 }
 
 .net-app-window[data-minimized='true'] {
