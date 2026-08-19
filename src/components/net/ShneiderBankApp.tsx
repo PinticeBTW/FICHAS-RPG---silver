@@ -12,6 +12,7 @@ import {
   RefreshCw,
   Send,
   ShieldCheck,
+  UserCog,
 } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 
@@ -22,6 +23,8 @@ import {
   type NetShneiderBankDirection,
 } from '../../lib/netShneiderBankTypes'
 import { BankPaySurface, BankReceiveSurface } from './BankPaymentSurface'
+import { NetAppProfileEditor } from './profile/NetAppProfileEditor'
+import { useNetAppPresentation } from './profile/useNetAppIdentityPresentation'
 import { useNetShneiderBank } from './useNetShneiderBank'
 
 import '../../styles/shneiderBank.css'
@@ -36,6 +39,76 @@ interface ShneiderBankAppProps {
 }
 
 type ShneiderBankSection = 'overview' | 'move' | 'pay' | 'receive' | 'activity'
+
+function initials(value: string) {
+  return value
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('') || 'S'
+}
+
+function ShneiderBankProfileAvatar({
+  displayName,
+  avatarUrl,
+}: {
+  readonly displayName: string
+  readonly avatarUrl?: string
+}) {
+  const [failedUrl, setFailedUrl] = useState<string>()
+  const visibleAvatarUrl = avatarUrl && avatarUrl !== failedUrl
+    ? avatarUrl
+    : undefined
+
+  return (
+    <span className="shneider-bank-profile-avatar" aria-hidden="true">
+      {visibleAvatarUrl
+        ? <img src={visibleAvatarUrl} alt="" onError={() => setFailedUrl(visibleAvatarUrl)} />
+        : initials(displayName)}
+    </span>
+  )
+}
+
+function ShneiderBankProfileBadge({
+  displayName,
+  avatarUrl,
+  networkAuthorityLabel,
+  statusLabel,
+  showAppProfile,
+  onToggleAppProfile,
+}: {
+  readonly displayName: string
+  readonly avatarUrl?: string
+  readonly networkAuthorityLabel: string
+  readonly statusLabel: string
+  readonly showAppProfile: boolean
+  readonly onToggleAppProfile: () => void
+}) {
+  return (
+    <div className="shneider-bank-header-profile">
+      <div className="shneider-bank-header-profile__identity">
+        <ShneiderBankProfileAvatar displayName={displayName} avatarUrl={avatarUrl} />
+        <div className="shneider-bank-header-profile__copy">
+          <strong>{displayName}</strong>
+          <span>PRIVATE CLIENT</span>
+          <small><i /> {networkAuthorityLabel} // {statusLabel}</small>
+        </div>
+      </div>
+      <button
+        type="button"
+        className="shneider-bank-profile-toggle"
+        title="APP PROFILE"
+        aria-label={showAppProfile ? 'Close SHNEIDER BANK app profile' : 'Edit SHNEIDER BANK app profile'}
+        aria-expanded={showAppProfile}
+        onClick={onToggleAppProfile}
+      >
+        <UserCog size={14} aria-hidden="true" />
+      </button>
+    </div>
+  )
+}
 
 function benefitLabel(category: string) {
   if (category === 'hospital') return 'Hospitals'
@@ -91,12 +164,19 @@ export function ShneiderBankApp({
 }: ShneiderBankAppProps) {
   const controller = useNetShneiderBank(isWindowOpen, expectedIdentityLinkId ?? null, identitySessionKey)
   const [section, setSection] = useState<ShneiderBankSection>('overview')
+  const [showAppProfile, setShowAppProfile] = useState(false)
   const [direction, setDirection] = useState<NetShneiderBankDirection>('deposit')
   const [amount, setAmount] = useState('')
   const [review, setReview] = useState<{ direction: NetShneiderBankDirection; amount: number; requestKey: string } | null>(null)
   const [actionError, setActionError] = useState<string>()
   const payload = controller.payload
   const bank = payload?.bank ?? null
+  const presentation = useNetAppPresentation({
+    appId: 'shneider-bank',
+    identityLinkId: expectedIdentityLinkId,
+    enabled: isWindowOpen,
+    fallbackDisplayName: payload?.identity.displayName,
+  })
 
   const availableSource = direction === 'deposit'
     ? payload?.wallet.balanceAmount ?? 0
@@ -140,17 +220,62 @@ export function ShneiderBankApp({
   }
 
   if (!bank) {
+    const holderDisplayName = presentation.displayName
     return (
       <div className="shneider-bank-app shneider-bank-onboarding">
-        <header className="shneider-bank-header"><div><HeartPulse size={24} /><h1>SHNEIDER BANK</h1><span>SHNEIDER // PRIVATE HEALTH BANKING</span></div><small><i /> {networkAuthorityLabel} // AUTHENTICATED</small></header>
+        <header className="shneider-bank-header">
+          <div><HeartPulse size={24} /><h1>SHNEIDER BANK</h1><span>SHNEIDER // PRIVATE HEALTH BANKING</span></div>
+          <ShneiderBankProfileBadge
+            displayName={holderDisplayName}
+            avatarUrl={presentation.avatarUrl}
+            networkAuthorityLabel={networkAuthorityLabel}
+            statusLabel="AUTHENTICATED"
+            showAppProfile={showAppProfile}
+            onToggleAppProfile={() => setShowAppProfile((current) => !current)}
+          />
+        </header>
+        {showAppProfile ? (
+          <div className="shneider-bank-app-profile">
+            <NetAppProfileEditor
+              appId="shneider-bank"
+              appLabel="SHNEIDER BANK"
+              identityLinkId={expectedIdentityLinkId}
+              onClose={() => setShowAppProfile(false)}
+              onSaved={() => { void presentation.reload() }}
+            />
+          </div>
+        ) : null}
         <main><div className="shneider-bank-seal"><ShieldCheck size={39} /><span>SB</span></div><div><h2>Open a SHNEIDER BANK account</h2><p>Private banking with preferred access across the SHNEIDER medical network.</p><dl><div><dt>Opening balance</dt><dd>0 vG</dd></div><div><dt>Payments</dt><dd>Direct SHNEIDER routing</dd></div><div><dt>Account currency</dt><dd>vG only</dd></div></dl>{controller.error ? <div className="shneider-bank-error" role="alert">{controller.error}</div> : null}<button type="button" className="shneider-bank-primary" disabled={controller.mutation === 'open'} onClick={() => void controller.openAccount().then(() => onNotice('SHNEIDER BANK // ACCOUNT OPENED')).catch(() => undefined)}>{controller.mutation === 'open' ? <LoaderCircle className="shneider-bank-spin" size={15} /> : <ShieldCheck size={15} />}{controller.mutation === 'open' ? 'Opening account…' : 'Open account'}</button></div></main>
       </div>
     )
   }
 
+  const holderDisplayName = presentation.displayName
+
   return (
     <div className="shneider-bank-app">
-      <header className="shneider-bank-header"><div><HeartPulse size={24} /><h1>SHNEIDER BANK</h1><span>SHNEIDER // PRIVATE HEALTH BANKING</span></div><div className="shneider-bank-holder"><span>PRIVATE CLIENT</span><strong>{payload.identity.displayName}</strong><small><i /> {networkAuthorityLabel} // VERIFIED</small></div></header>
+      <header className="shneider-bank-header">
+        <div><HeartPulse size={24} /><h1>SHNEIDER BANK</h1><span>SHNEIDER // PRIVATE HEALTH BANKING</span></div>
+        <ShneiderBankProfileBadge
+          displayName={holderDisplayName}
+          avatarUrl={presentation.avatarUrl}
+          networkAuthorityLabel={networkAuthorityLabel}
+          statusLabel="VERIFIED"
+          showAppProfile={showAppProfile}
+          onToggleAppProfile={() => setShowAppProfile((current) => !current)}
+        />
+      </header>
+      {showAppProfile ? (
+        <div className="shneider-bank-app-profile">
+          <NetAppProfileEditor
+            appId="shneider-bank"
+            appLabel="SHNEIDER BANK"
+            identityLinkId={expectedIdentityLinkId}
+            onClose={() => setShowAppProfile(false)}
+            onSaved={() => { void presentation.reload() }}
+          />
+        </div>
+      ) : null}
       <nav className="shneider-bank-nav" aria-label="SHNEIDER BANK sections">
         {(['overview', ...(allowVltMoves ? ['move' as const] : []), 'pay', 'receive', 'activity'] as const).map((item) => <button key={item} type="button" aria-current={section === item ? 'page' : undefined} onClick={() => { setSection(item); setActionError(undefined); setReview(null) }}>{item === 'move' ? 'Move vG' : item}</button>)}
         <span data-status={controller.realtimeStatus}>{controller.refreshing ? 'Synchronizing' : controller.realtimeStatus === 'subscribed' ? 'Private link' : controller.realtimeStatus === 'connecting' ? 'Connecting' : 'Link offline'}</span>

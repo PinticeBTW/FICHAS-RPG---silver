@@ -14,6 +14,7 @@ import {
   Search,
   Send,
   ShieldCheck,
+  UserCog,
   UserRound,
   WalletCards,
   X,
@@ -43,6 +44,8 @@ import {
 import type { NetEconomyRealtimeStatus } from '../../../lib/netEconomyRealtimeService'
 import { BankPaySurface, BankReceiveSurface } from '../BankPaymentSurface'
 import { useNetDialog } from '../netDialogStack'
+import { NetAppProfileEditor } from '../profile/NetAppProfileEditor'
+import { useNetAppPresentation } from '../profile/useNetAppIdentityPresentation'
 import { useNetAltaraBank, useNetAltaraBankGm } from './useNetAltaraBank'
 
 import '../../../styles/altaraBank.css'
@@ -63,6 +66,37 @@ function formatDate(value: string) {
   return Number.isNaN(parsed.getTime())
     ? 'Unavailable'
     : parsed.toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+function initials(value: string) {
+  return value
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('') || 'A'
+}
+
+function AltaraBankProfileAvatar({
+  displayName,
+  avatarUrl,
+}: {
+  readonly displayName: string
+  readonly avatarUrl?: string
+}) {
+  const [failedUrl, setFailedUrl] = useState<string>()
+  const visibleAvatarUrl = avatarUrl && avatarUrl !== failedUrl
+    ? avatarUrl
+    : undefined
+
+  return (
+    <div className="altara-bank-profile-avatar" aria-hidden="true">
+      {visibleAvatarUrl
+        ? <img src={visibleAvatarUrl} alt="" onError={() => setFailedUrl(visibleAvatarUrl)} />
+        : initials(displayName)}
+    </div>
+  )
 }
 
 function currencyAmountLabel(amount: number, currency: NetAltaraCurrency): string {
@@ -167,13 +201,19 @@ function AltaraBankActivityList({
 function AltaraBankHeader({
   context,
   holder,
+  holderAvatarUrl,
   realtimeStatus,
   refreshing,
+  showAppProfile,
+  onToggleAppProfile,
 }: {
   readonly context: string
   readonly holder: string
+  readonly holderAvatarUrl?: string
   readonly realtimeStatus?: NetEconomyRealtimeStatus
   readonly refreshing?: boolean
+  readonly showAppProfile?: boolean
+  readonly onToggleAppProfile?: () => void
 }) {
   return (
     <header className="altara-bank-header">
@@ -181,10 +221,24 @@ function AltaraBankHeader({
         <span><Landmark size={21} strokeWidth={1.55} aria-hidden="true" /></span>
         <div><p>ALTARA // GLOBAL FINANCIAL NETWORK</p><h1>ALTARA BANK</h1></div>
       </div>
-      <div className="altara-bank-header__context">
-        <small>{context}</small>
-        <strong>{holder}</strong>
-        <span data-status={realtimeStatus}>{realtimeStatus ? realtimeLabel(realtimeStatus, refreshing) : 'Authoritative access'}</span>
+      <div className="altara-bank-header__context" data-profile={onToggleAppProfile ? 'true' : undefined}>
+        {onToggleAppProfile ? <AltaraBankProfileAvatar displayName={holder} avatarUrl={holderAvatarUrl} /> : null}
+        <div>
+          <small>{context}</small>
+          <strong>{holder}</strong>
+          <span data-status={realtimeStatus}>{realtimeStatus ? realtimeLabel(realtimeStatus, refreshing) : 'Authoritative access'}</span>
+        </div>
+        {onToggleAppProfile ? (
+          <button
+            type="button"
+            className="altara-bank-profile-toggle"
+            aria-label={showAppProfile ? 'Close ALTARA BANK app profile' : 'Edit ALTARA BANK app profile'}
+            aria-expanded={showAppProfile}
+            onClick={onToggleAppProfile}
+          >
+            <UserCog size={14} aria-hidden="true" />
+          </button>
+        ) : null}
       </div>
     </header>
   )
@@ -203,8 +257,15 @@ function AltaraBankPersonal({
 }) {
   const controller = useNetAltaraBank(enabled, identitySessionKey, expectedIdentityLinkId)
   const [section, setSection] = useState<AltaraBankSection>('overview')
+  const [showAppProfile, setShowAppProfile] = useState(false)
   const payload = controller.payload
   const bank = payload?.bank ?? null
+  const presentation = useNetAppPresentation({
+    appId: 'altara-bank',
+    identityLinkId: expectedIdentityLinkId,
+    enabled,
+    fallbackDisplayName: payload?.identity.displayName,
+  })
 
   if (controller.status === 'idle' || controller.status === 'loading') {
     return (
@@ -237,9 +298,27 @@ function AltaraBankPersonal({
         </div>
       )
     }
+    const holderDisplayName = presentation.displayName
     return (
       <div className="altara-bank altara-bank-onboarding">
-        <AltaraBankHeader context="PRIVATE CLIENT ENROLMENT" holder={payload.identity.displayName} />
+        <AltaraBankHeader
+          context="PRIVATE CLIENT ENROLMENT"
+          holder={holderDisplayName}
+          holderAvatarUrl={presentation.avatarUrl}
+          showAppProfile={showAppProfile}
+          onToggleAppProfile={() => setShowAppProfile((current) => !current)}
+        />
+        {showAppProfile ? (
+          <div className="altara-bank-app-profile">
+            <NetAppProfileEditor
+              appId="altara-bank"
+              appLabel="ALTARA BANK"
+              identityLinkId={expectedIdentityLinkId}
+              onClose={() => setShowAppProfile(false)}
+              onSaved={() => { void presentation.reload() }}
+            />
+          </div>
+        ) : null}
         <main>
           <div className="altara-bank-onboarding__seal"><Landmark size={38} strokeWidth={1.3} aria-hidden="true" /><span>{payload.homeCurrency.currencyCode}</span></div>
           <div>
@@ -284,14 +363,30 @@ function AltaraBankPersonal({
     )
   }
 
+  const holderDisplayName = presentation.displayName
+
   return (
     <div className="altara-bank">
       <AltaraBankHeader
         context="PRIVATE ACCOUNT"
-        holder={payload.identity.displayName}
+        holder={holderDisplayName}
+        holderAvatarUrl={presentation.avatarUrl}
         realtimeStatus={controller.realtimeStatus}
         refreshing={controller.refreshing}
+        showAppProfile={showAppProfile}
+        onToggleAppProfile={() => setShowAppProfile((current) => !current)}
       />
+      {showAppProfile ? (
+        <div className="altara-bank-app-profile">
+          <NetAppProfileEditor
+            appId="altara-bank"
+            appLabel="ALTARA BANK"
+            identityLinkId={expectedIdentityLinkId}
+            onClose={() => setShowAppProfile(false)}
+            onSaved={() => { void presentation.reload() }}
+          />
+        </div>
+      ) : null}
       <nav className="altara-bank-nav" aria-label="ALTARA BANK sections">
         {(['overview', 'pay', 'receive', 'activity'] as const).map((item) => (
           <button key={item} type="button" aria-current={section === item ? 'page' : undefined} onClick={() => setSection(item)}>
@@ -322,7 +417,7 @@ function AltaraBankPersonal({
           <aside className="altara-bank-account-register">
             <p>ACCOUNT REGISTER</p>
             <dl>
-              <div><dt>Holder</dt><dd>{payload.identity.displayName}</dd></div>
+              <div><dt>Holder</dt><dd>{holderDisplayName}</dd></div>
               <div><dt>Payment ID</dt><dd>@{bank.paymentIdentifier}</dd></div>
               <div><dt>Status</dt><dd><i /> {bank.status.toUpperCase()}</dd></div>
               <div><dt>Opened</dt><dd>{formatDate(bank.openedAt)}</dd></div>

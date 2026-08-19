@@ -1,5 +1,6 @@
 import { isSharedMediaReference } from './media/mediaReference'
 import { resolveSharedMediaUrl } from './media/mediaStorage'
+import { SHARED_MEDIA_REFERENCE_PREFIX } from './media/mediaTypes'
 import { supabase, SUPABASE_CONFIG_ERROR } from './supabase'
 
 export interface NetAppIdentityProfile {
@@ -11,6 +12,14 @@ export interface NetAppIdentityProfile {
   readonly canonicalAvatarUrl?: string
   readonly effectiveDisplayName: string
   readonly effectiveAvatarUrl?: string
+}
+
+export interface NetAppIdentityPresentation {
+  readonly identityLinkId: string
+  readonly appId: string
+  readonly displayName: string
+  readonly avatarUrl?: string
+  readonly canonicalAvatarUrl?: string
 }
 
 function client() {
@@ -52,6 +61,61 @@ function parseProfile(value: unknown): NetAppIdentityProfile {
   }
 }
 
+function parsePresentation(value: unknown, appId: string): NetAppIdentityPresentation {
+  const row = record(value, 'app presentation')
+  const avatarUrl = optionalString(row, 'avatar_url')
+  const canonicalAvatarUrl = optionalString(row, 'canonical_avatar_url')
+  return {
+    identityLinkId: requiredString(row, 'identity_link_id', 'identity link'),
+    appId,
+    displayName: requiredString(row, 'display_name', 'display name'),
+    ...(avatarUrl ? { avatarUrl } : {}),
+    ...(canonicalAvatarUrl ? { canonicalAvatarUrl } : {}),
+  }
+}
+
+function isSharedMediaAvatarValue(value: string | undefined): boolean {
+  return Boolean(value && (
+    isSharedMediaReference(value) || value.startsWith(SHARED_MEDIA_REFERENCE_PREFIX)
+  ))
+}
+
+export async function resolveNetAppAvatarUrl(value: string | undefined): Promise<string | undefined> {
+  if (!value) return undefined
+  if (!isSharedMediaAvatarValue(value)) return value
+  try {
+    return await resolveSharedMediaUrl(value, 'thumbnail')
+  } catch {
+    return undefined
+  }
+}
+
+async function resolveNetAppAvatarUrlWithFallback(
+  value: string | undefined,
+  fallbackValue: string | undefined,
+): Promise<string | undefined> {
+  const avatarUrl = await resolveNetAppAvatarUrl(value)
+  if (avatarUrl || (value && !isSharedMediaAvatarValue(value))) return avatarUrl
+  return resolveNetAppAvatarUrl(fallbackValue)
+}
+
+async function resolveNetAppPresentationAvatarUrl(
+  appId: string,
+  identityLinkId: string,
+  value: string | undefined,
+  fallbackValue: string | undefined,
+): Promise<string | undefined> {
+  const avatarUrl = await resolveNetAppAvatarUrlWithFallback(value, fallbackValue)
+  if (avatarUrl || !isSharedMediaAvatarValue(value)) return avatarUrl
+
+  try {
+    const profile = await fetchNetAppIdentityProfileEditor(appId, identityLinkId)
+    return await resolveNetAppAvatarUrl(profile.canonicalAvatarUrl)
+  } catch {
+    return undefined
+  }
+}
+
 /**
  * Every app-local avatar field carries the same opaque rpg-media shared
  * reference format used across THE NET (never a raw URL, never base64).
@@ -61,24 +125,64 @@ function parseProfile(value: unknown): NetAppIdentityProfile {
 export async function resolveNetAppProfileAvatarUrls(
   profile: NetAppIdentityProfile,
 ): Promise<{ readonly effectiveAvatarUrl?: string; readonly canonicalAvatarUrl?: string }> {
-  const resolve = async (value: string | undefined) => {
-    if (!value) return undefined
-    if (!isSharedMediaReference(value)) return value
-    try {
-      return await resolveSharedMediaUrl(value, 'thumbnail')
-    } catch {
-      return undefined
-    }
-  }
-
   const [effectiveAvatarUrl, canonicalAvatarUrl] = await Promise.all([
-    resolve(profile.effectiveAvatarUrl),
-    resolve(profile.canonicalAvatarUrl),
+    resolveNetAppAvatarUrl(profile.effectiveAvatarUrl),
+    resolveNetAppAvatarUrl(profile.canonicalAvatarUrl),
   ])
 
   return {
     ...(effectiveAvatarUrl ? { effectiveAvatarUrl } : {}),
     ...(canonicalAvatarUrl ? { canonicalAvatarUrl } : {}),
+  }
+}
+
+/**
+ * Public read path for app-local presentation. This RPC intentionally accepts
+ * any identity within one app, so callers must pass an already-resolved,
+ * legitimate app/runtime identity and keep the result cosmetic-only.
+ */
+export async function fetchNetAppIdentityPresentation(
+  appId: string,
+  identityLinkId: string,
+): Promise<NetAppIdentityPresentation> {
+  const { data, error } = await client().rpc('fetch_net_app_identity_presentation', {
+    requested_app_id: appId,
+    requested_identity_link_id: identityLinkId,
+  })
+  if (error) throw new Error(`APP PROFILE presentation could not be loaded: ${error.message}`)
+  const presentation = parsePresentation(data, appId)
+  const avatarUrl = await resolveNetAppPresentationAvatarUrl(
+    appId,
+    presentation.identityLinkId,
+    presentation.avatarUrl,
+    presentation.canonicalAvatarUrl,
+  )
+  return {
+    identityLinkId: presentation.identityLinkId,
+    appId: presentation.appId,
+    displayName: presentation.displayName,
+    ...(avatarUrl ? { avatarUrl } : {}),
+  }
+}
+
+/**
+ * Browser-facing self presentation read path. The general presentation RPC is
+ * intentionally usable from SECURITY DEFINER app RPCs, but it is not granted
+ * for direct client execution; own/current chrome should use the existing
+ * owner-checked editor RPC and narrow the rich result back to lightweight
+ * display data.
+ */
+export async function fetchNetAppCurrentIdentityPresentation(
+  appId: string,
+  expectedIdentityLinkId: string,
+): Promise<NetAppIdentityPresentation> {
+  const profile = await fetchNetAppIdentityProfileEditor(appId, expectedIdentityLinkId)
+  const avatarUrl = await resolveNetAppAvatarUrlWithFallback(profile.effectiveAvatarUrl, profile.canonicalAvatarUrl)
+  return {
+    identityLinkId: profile.identityLinkId,
+    appId,
+    displayName: profile.effectiveDisplayName,
+    ...(avatarUrl ? { avatarUrl } : {}),
   }
 }
 

@@ -106,10 +106,79 @@
   background: #121313;
 }
 .nova-bank-topbar > div { display: grid; gap: 3px; }
+.nova-bank-topbar > .nova-bank-topbar__identity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+.nova-bank-topbar__identity > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
 .nova-bank-topbar strong { font-size: 0.72rem; font-weight: 720; text-transform: capitalize; }
 .nova-bank-topbar span,
 .nova-bank-topbar small { color: var(--bank-muted); font-size: 0.61rem; }
 .nova-bank-topbar > small { padding: 5px 8px; border-radius: 999px; color: var(--bank-accent-bright); background: rgba(230, 214, 174, 0.08); }
+.nova-bank-profile-avatar {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(230, 214, 174, 0.38);
+  border-radius: 12px;
+  color: var(--bank-accent-bright);
+  background: rgba(230, 214, 174, 0.08);
+  font-size: 0.62rem;
+  font-weight: 760;
+}
+.nova-bank-profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.nova-bank-profile-toggle {
+  display: grid;
+  width: 31px;
+  min-width: 31px;
+  height: 31px;
+  min-height: 31px;
+  place-items: center;
+  margin: 0;
+  padding: 0;
+  border: 1px solid rgba(230, 214, 174, 0.22);
+  border-radius: 10px;
+  color: var(--bank-muted);
+  background: #191a19;
+}
+.nova-bank-profile-toggle[aria-expanded='true'] {
+  border-color: var(--bank-accent);
+  color: var(--bank-accent-bright);
+  background: rgba(230, 214, 174, 0.1);
+}
+.nova-bank-inline-profile {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
+}
+.nova-bank-inline-profile .nova-bank-profile-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  font-size: 0.56rem;
+}
+.nova-bank-inline-profile .nova-bank-profile-toggle {
+  margin: 0;
+}
+.nova-bank-app-profile {
+  padding: 12px clamp(20px, 3cqw, 34px);
+  border-bottom: 1px solid var(--bank-line);
+  background: #121313;
+}
+.nova-bank-app-profile .net-app-profile-editor {
+  --app-profile-accent: 230, 214, 174;
+  max-width: 430px;
+}
 
 .nova-bank-error {
   display: flex;
@@ -273,6 +342,11 @@
 .nova-bank-onboarding dd { margin: 0; font-size: 0.67rem; }
 .nova-bank-onboarding__disclosure { display: flex; align-items: center; gap: 7px; margin: 16px 0 0; color: var(--bank-muted); font-size: 0.62rem; line-height: 1.45; }
 .nova-bank-onboarding .nova-bank-primary { margin-top: 24px; }
+.nova-bank-onboarding .nova-bank-app-profile {
+  padding: 14px 0 0;
+  border-bottom: 0;
+  background: transparent;
+}
 
 .nova-bank-spin { animation: nova-bank-spin 850ms linear infinite; }
 @keyframes nova-bank-spin { to { transform: rotate(360deg); } }

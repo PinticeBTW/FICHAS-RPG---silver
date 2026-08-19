@@ -10,6 +10,7 @@ import {
   RefreshCw,
   Search,
   ShieldCheck,
+  UserCog,
   WalletCards,
   X,
 } from 'lucide-react'
@@ -38,6 +39,8 @@ import {
 } from '../../lib/netEconomyTypes'
 import type { NetAppAccessMode } from './netAppCatalog'
 import { useNetDialog } from './netDialogStack'
+import { NetAppProfileEditor } from './profile/NetAppProfileEditor'
+import { useNetAppPresentation } from './profile/useNetAppIdentityPresentation'
 import { useNetEconomyWallet } from './useNetEconomyWallet'
 
 import '../../styles/vlt.css'
@@ -70,6 +73,37 @@ interface AdjustmentReview {
 
 function requestKey(): string {
   return crypto.randomUUID()
+}
+
+function initials(value: string) {
+  return value
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('') || 'V'
+}
+
+function VltProfileAvatar({
+  displayName,
+  avatarUrl,
+}: {
+  readonly displayName: string
+  readonly avatarUrl?: string
+}) {
+  const [failedUrl, setFailedUrl] = useState<string>()
+  const visibleAvatarUrl = avatarUrl && avatarUrl !== failedUrl
+    ? avatarUrl
+    : undefined
+
+  return (
+    <span className="vlt-profile-avatar" aria-hidden="true">
+      {visibleAvatarUrl
+        ? <img src={visibleAvatarUrl} alt="" onError={() => setFailedUrl(visibleAvatarUrl)} />
+        : initials(displayName)}
+    </span>
+  )
 }
 
 function ActivityList({ items }: { readonly items: readonly NetEconomyActivity[] }) {
@@ -185,7 +219,14 @@ function VltPlayer({ expectedIdentityLinkId, identitySessionKey, enabled, onNoti
   readonly onNotice: (message: string) => void
 }) {
   const wallet = useNetEconomyWallet(enabled, expectedIdentityLinkId ?? null, identitySessionKey)
+  const presentation = useNetAppPresentation({
+    appId: 'vlt',
+    identityLinkId: expectedIdentityLinkId,
+    enabled,
+    fallbackDisplayName: wallet.identity?.displayName,
+  })
   const [section, setSection] = useState<PlayerSection>('wallet')
+  const [showAppProfile, setShowAppProfile] = useState(false)
   const [query, setQuery] = useState('')
   const [searching, setSearching] = useState(false)
   const [searchError, setSearchError] = useState<string>()
@@ -286,12 +327,37 @@ function VltPlayer({ expectedIdentityLinkId, identitySessionKey, enabled, onNoti
     return <div className="vlt-state" data-tone="error"><ShieldCheck size={25} /><strong>Wallet unavailable</strong><span>{wallet.error ?? 'The VLT wallet could not be opened.'}</span><button type="button" onClick={() => void wallet.retry()}><RefreshCw size={14} /> Retry</button></div>
   }
 
+  const holderDisplayName = presentation.displayName
+
   return (
     <div className="vlt-app">
       <header className="vlt-header">
         <div><span className="vlt-kicker">NEW VEGA NETWORK // PAYMENTS</span><h1>VLT</h1><small><i /> VEGA MESH // AUTHENTICATED</small></div>
-        <div className="vlt-header__identity"><span>WALLET HOLDER</span><strong>{wallet.identity.displayName}</strong><small>@{wallet.identity.paymentIdentifier}</small></div>
+        <div className="vlt-header__identity">
+          <VltProfileAvatar displayName={holderDisplayName} avatarUrl={presentation.avatarUrl} />
+          <div className="vlt-header__identity-copy"><span>WALLET HOLDER</span><strong>{holderDisplayName}</strong><small>@{wallet.identity.paymentIdentifier}</small></div>
+          <button
+            type="button"
+            className="vlt-header__profile-toggle"
+            aria-label={showAppProfile ? 'Close VLT app profile' : 'Edit VLT app profile'}
+            aria-expanded={showAppProfile}
+            onClick={() => setShowAppProfile((current) => !current)}
+          >
+            <UserCog size={14} aria-hidden="true" />
+          </button>
+        </div>
       </header>
+      {showAppProfile ? (
+        <div className="vlt-app-profile">
+          <NetAppProfileEditor
+            appId="vlt"
+            appLabel="VLT"
+            identityLinkId={expectedIdentityLinkId}
+            onClose={() => setShowAppProfile(false)}
+            onSaved={() => { void presentation.reload() }}
+          />
+        </div>
+      ) : null}
 
       <nav className="vlt-tabs" aria-label="Wallet sections">
         <button type="button" aria-current={section === 'wallet' ? 'page' : undefined} onClick={() => setSection('wallet')}>Wallet</button>
@@ -324,7 +390,7 @@ function VltPlayer({ expectedIdentityLinkId, identitySessionKey, enabled, onNoti
       </main> : null}
 
       {section === 'pay' ? <main className="vlt-flow">
-        <header><span>PAY</span><h2>Send from {wallet.identity.displayName}</h2><p>Choose one currency. VLT resolves the same payment identity to the matching authoritative balance.</p></header>
+        <header><span>PAY</span><h2>Send from {holderDisplayName}</h2><p>Choose one currency. VLT resolves the same payment identity to the matching authoritative balance.</p></header>
         <form onSubmit={openReview}>
           <label><span>TO</span><div className="vlt-search"><Search size={15} /><input type="search" value={query} maxLength={60} placeholder="Name or VLT payment ID" onChange={(event) => {
             const next = event.target.value
@@ -355,7 +421,7 @@ function VltPlayer({ expectedIdentityLinkId, identitySessionKey, enabled, onNoti
 
       {section === 'receive' ? <main className="vlt-flow vlt-receive">
         <header><span>RECEIVE</span><h2>Your VLT payment identity</h2><p>One public identifier resolves to the payment methods registered for this identity. It reveals no email, login, or internal account UUID.</p></header>
-        <div className="vlt-receive-card"><WalletCards size={27} /><span>PAYMENT IDENTIFIER</span><strong>@{wallet.identity.paymentIdentifier}</strong><small>{wallet.identity.displayName} · accepts {karmaBalance ? 'vG + Karma' : 'vG'}</small><button type="button" onClick={() => {
+        <div className="vlt-receive-card"><WalletCards size={27} /><span>PAYMENT IDENTIFIER</span><strong>@{wallet.identity.paymentIdentifier}</strong><small>{holderDisplayName} · accepts {karmaBalance ? 'vG + Karma' : 'vG'}</small><button type="button" onClick={() => {
           const copy = navigator.clipboard?.writeText(wallet.identity!.paymentIdentifier)
           if (!copy) {
             onNotice('VLT // CLIPBOARD UNAVAILABLE')

@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   Send,
   TrendingUp,
+  UserCog,
   X,
 } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
@@ -25,6 +26,8 @@ import {
 import { useNetDialog } from './netDialogStack'
 import { useNetVoxBank } from './useNetVoxBank'
 import { BankPaySurface, BankReceiveSurface } from './BankPaymentSurface'
+import { NetAppProfileEditor } from './profile/NetAppProfileEditor'
+import { useNetAppPresentation } from './profile/useNetAppIdentityPresentation'
 
 import '../../styles/voxBank.css'
 
@@ -43,6 +46,76 @@ interface TransferReview {
   readonly direction: NetVoxBankDirection
   readonly amount: number
   readonly requestKey: string
+}
+
+function initials(value: string) {
+  return value
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('') || 'V'
+}
+
+function VoxBankProfileAvatar({
+  displayName,
+  avatarUrl,
+}: {
+  readonly displayName: string
+  readonly avatarUrl?: string
+}) {
+  const [failedUrl, setFailedUrl] = useState<string>()
+  const visibleAvatarUrl = avatarUrl && avatarUrl !== failedUrl
+    ? avatarUrl
+    : undefined
+
+  return (
+    <span className="vox-bank-profile-avatar" aria-hidden="true">
+      {visibleAvatarUrl
+        ? <img src={visibleAvatarUrl} alt="" onError={() => setFailedUrl(visibleAvatarUrl)} />
+        : initials(displayName)}
+    </span>
+  )
+}
+
+function VoxBankProfileBadge({
+  displayName,
+  avatarUrl,
+  networkAuthorityLabel,
+  statusLabel,
+  showAppProfile,
+  onToggleAppProfile,
+}: {
+  readonly displayName: string
+  readonly avatarUrl?: string
+  readonly networkAuthorityLabel: string
+  readonly statusLabel: string
+  readonly showAppProfile: boolean
+  readonly onToggleAppProfile: () => void
+}) {
+  return (
+    <div className="vox-bank-header-profile">
+      <div className="vox-bank-header-profile__identity">
+        <VoxBankProfileAvatar displayName={displayName} avatarUrl={avatarUrl} />
+        <div className="vox-bank-header-profile__copy">
+          <strong>{displayName}</strong>
+          <span>ACCOUNT HOLDER</span>
+          <small><i /> {networkAuthorityLabel} // {statusLabel}</small>
+        </div>
+      </div>
+      <button
+        type="button"
+        className="vox-bank-profile-toggle"
+        title="APP PROFILE"
+        aria-label={showAppProfile ? 'Close VOX BANK app profile' : 'Edit VOX BANK app profile'}
+        aria-expanded={showAppProfile}
+        onClick={onToggleAppProfile}
+      >
+        <UserCog size={14} aria-hidden="true" />
+      </button>
+    </div>
+  )
 }
 
 function formatDuration(milliseconds: number): string {
@@ -187,6 +260,7 @@ export function VoxBankApp({
 }: VoxBankAppProps) {
   const controller = useNetVoxBank(isWindowOpen, expectedIdentityLinkId ?? null, identitySessionKey)
   const [section, setSection] = useState<VoxBankSection>('overview')
+  const [showAppProfile, setShowAppProfile] = useState(false)
   const [direction, setDirection] = useState<NetVoxBankDirection>('deposit')
   const [amount, setAmount] = useState('')
   const [review, setReview] = useState<TransferReview | null>(null)
@@ -196,6 +270,12 @@ export function VoxBankApp({
   const payload = controller.payload
   const bank = payload?.bank ?? null
   const bankYield = payload?.yield ?? null
+  const presentation = useNetAppPresentation({
+    appId: 'vox-bank',
+    identityLinkId: expectedIdentityLinkId,
+    enabled: isWindowOpen,
+    fallbackDisplayName: payload?.identity.displayName,
+  })
 
   useEffect(() => {
     if (!isWindowOpen || !bankYield) return
@@ -275,12 +355,31 @@ export function VoxBankApp({
   }
 
   if (!bank || !bankYield) {
+    const holderDisplayName = presentation.displayName
     return (
       <div className="vox-bank-app vox-bank-onboarding">
         <header className="vox-bank-header">
           <div><Landmark size={24} /><h1>VOX BANK</h1><span>VOX NET // DIGITAL BANKING</span></div>
-          <small><i /> {networkAuthorityLabel} // AUTHENTICATED</small>
+          <VoxBankProfileBadge
+            displayName={holderDisplayName}
+            avatarUrl={presentation.avatarUrl}
+            networkAuthorityLabel={networkAuthorityLabel}
+            statusLabel="AUTHENTICATED"
+            showAppProfile={showAppProfile}
+            onToggleAppProfile={() => setShowAppProfile((current) => !current)}
+          />
         </header>
+        {showAppProfile ? (
+          <div className="vox-bank-app-profile">
+            <NetAppProfileEditor
+              appId="vox-bank"
+              appLabel="VOX BANK"
+              identityLinkId={expectedIdentityLinkId}
+              onClose={() => setShowAppProfile(false)}
+              onSaved={() => { void presentation.reload() }}
+            />
+          </div>
+        ) : null}
         <main>
           <div className="vox-bank-onboarding__seal"><Landmark size={38} /><span>VG</span></div>
           <div>
@@ -311,16 +410,32 @@ export function VoxBankApp({
     )
   }
 
+  const holderDisplayName = presentation.displayName
+
   return (
     <div className="vox-bank-app">
       <header className="vox-bank-header">
         <div><Landmark size={24} /><h1>VOX BANK</h1><span>VOX NET // DIGITAL BANKING</span></div>
-        <div className="vox-bank-header__holder">
-          <span>ACCOUNT HOLDER</span>
-          <strong>{payload.identity.displayName}</strong>
-          <small><i /> {networkAuthorityLabel} // VERIFIED</small>
-        </div>
+        <VoxBankProfileBadge
+          displayName={holderDisplayName}
+          avatarUrl={presentation.avatarUrl}
+          networkAuthorityLabel={networkAuthorityLabel}
+          statusLabel="VERIFIED"
+          showAppProfile={showAppProfile}
+          onToggleAppProfile={() => setShowAppProfile((current) => !current)}
+        />
       </header>
+      {showAppProfile ? (
+        <div className="vox-bank-app-profile">
+          <NetAppProfileEditor
+            appId="vox-bank"
+            appLabel="VOX BANK"
+            identityLinkId={expectedIdentityLinkId}
+            onClose={() => setShowAppProfile(false)}
+            onSaved={() => { void presentation.reload() }}
+          />
+        </div>
+      ) : null}
 
       <nav className="vox-bank-nav" aria-label="VOX BANK sections">
         <button type="button" aria-current={section === 'overview' ? 'page' : undefined} onClick={() => { setSection('overview'); setTransferError(undefined) }}>Overview</button>

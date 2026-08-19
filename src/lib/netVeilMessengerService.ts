@@ -15,7 +15,7 @@ import type {
   NetVeilSendMessageResult,
 } from './netVeilMessengerTypes'
 import { isSharedMediaReference } from './media/mediaReference'
-import { resolveSharedMediaUrls } from './media/mediaStorage'
+import { resolveSharedMediaUrl } from './media/mediaStorage'
 import { SHARED_MEDIA_REFERENCE_PREFIX } from './media/mediaTypes'
 import { supabase, SUPABASE_CONFIG_ERROR } from './supabase'
 
@@ -61,10 +61,12 @@ function integer(value: unknown, label: string, max = Number.MAX_SAFE_INTEGER): 
 function parseIdentity(value: unknown): NetVeilMessengerIdentity {
   const row = record(value, 'identity')
   const avatarUrl = optionalString(row, 'avatar_url')
+  const canonicalAvatarUrl = optionalString(row, 'canonical_avatar_url')
   return {
     identityLinkId: requiredString(row, 'identity_link_id', 'identity link'),
     displayName: requiredString(row, 'display_name', 'display name'),
     ...(avatarUrl ? { avatarUrl } : {}),
+    ...(canonicalAvatarUrl ? { canonicalAvatarUrl } : {}),
   }
 }
 
@@ -217,7 +219,21 @@ function collectAvatarReferences(value: unknown, references: Set<string>): void 
 
   const row = value as Record<string, unknown>
   if (typeof row.avatarUrl === 'string' && row.avatarUrl) references.add(row.avatarUrl)
+  if (typeof row.canonicalAvatarUrl === 'string' && row.canonicalAvatarUrl) references.add(row.canonicalAvatarUrl)
   Object.values(row).forEach((item) => collectAvatarReferences(item, references))
+}
+
+function isSharedMediaAvatarValue(value: string | undefined): boolean {
+  return Boolean(value && (
+    isSharedMediaReference(value) || value.startsWith(SHARED_MEDIA_REFERENCE_PREFIX)
+  ))
+}
+
+function resolveAvatarValue(value: string | undefined, resolved: ReadonlyMap<string, string>): string | undefined {
+  if (!value) return undefined
+  const signedUrl = resolved.get(value)
+  if (signedUrl) return signedUrl
+  return isSharedMediaAvatarValue(value) ? undefined : value
 }
 
 function replaceAvatarReferences<T>(value: T, resolved: ReadonlyMap<string, string>): T {
@@ -227,36 +243,50 @@ function replaceAvatarReferences<T>(value: T, resolved: ReadonlyMap<string, stri
   if (!value || typeof value !== 'object') return value
 
   const result: Record<string, unknown> = {}
-  for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
-    if (key === 'avatarUrl' && typeof item === 'string') {
-      const signedUrl = resolved.get(item)
-      if (signedUrl) result[key] = signedUrl
-      else if (!item.startsWith(SHARED_MEDIA_REFERENCE_PREFIX)) result[key] = item
+  const row = value as Record<string, unknown>
+  const avatarValue = typeof row.avatarUrl === 'string' ? row.avatarUrl : undefined
+  const canonicalAvatarValue = typeof row.canonicalAvatarUrl === 'string' ? row.canonicalAvatarUrl : undefined
+  const resolvedAvatarUrl = resolveAvatarValue(avatarValue, resolved)
+    ?? (!avatarValue || isSharedMediaAvatarValue(avatarValue) ? resolveAvatarValue(canonicalAvatarValue, resolved) : undefined)
+
+  for (const [key, item] of Object.entries(row)) {
+    if (key === 'avatarUrl' || key === 'canonicalAvatarUrl') {
       continue
     }
     result[key] = replaceAvatarReferences(item, resolved)
   }
+  if (resolvedAvatarUrl) result.avatarUrl = resolvedAvatarUrl
   return result as T
+}
+
+async function resolveAvatarReferences(sharedReferences: readonly string[]): Promise<Map<string, string>> {
+  const resolved = new Map<string, string>()
+  await Promise.all(sharedReferences.map(async (reference) => {
+    try {
+      const signedUrl = await resolveSharedMediaUrl(reference, 'thumbnail')
+      if (signedUrl) resolved.set(reference, signedUrl)
+    } catch {
+      // Avatar media is cosmetic; one unavailable private object should only
+      // fall back for that identity, not strip every avatar in the RPC payload.
+    }
+  }))
+  return resolved
 }
 
 /**
  * RELAY presentation payloads carry the same private rpg-media descriptors
- * used across NET identity surfaces. Resolve every descriptor in one cached
- * Storage batch per bounded RPC, then fall back to initials if a descriptor
- * or private object is unavailable.
+ * used across NET identity surfaces. Resolve descriptors independently so an
+ * unavailable private object falls back to initials without erasing the rest
+ * of the bounded RPC payload.
  */
 async function resolveMessengerAvatarReferences<T>(value: T): Promise<T> {
   const references = new Set<string>()
   collectAvatarReferences(value, references)
-  const sharedReferences = [...references].filter(isSharedMediaReference)
+  const sharedReferences = [...references].filter(isSharedMediaAvatarValue)
   if (!sharedReferences.length) return replaceAvatarReferences(value, new Map())
 
-  try {
-    const resolved = await resolveSharedMediaUrls(sharedReferences, 'thumbnail')
-    return replaceAvatarReferences(value, resolved)
-  } catch {
-    return replaceAvatarReferences(value, new Map())
-  }
+  const resolved = await resolveAvatarReferences(sharedReferences)
+  return replaceAvatarReferences(value, resolved)
 }
 
 async function rpc<T>(name: string, args: Record<string, unknown>, parse: (value: unknown) => T): Promise<T> {

@@ -75,7 +75,7 @@
 }
 
 .vox-bank-header > small,
-.vox-bank-header__holder small {
+.vox-bank-header-profile small {
   display: flex;
   align-items: center;
   gap: 7px;
@@ -91,16 +91,84 @@
   background: var(--vox-positive);
 }
 
-.vox-bank-header__holder {
+.vox-bank-header-profile {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-  max-width: 42%;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: min(315px, 48%);
+  max-width: min(460px, 54%);
   text-align: right;
 }
 
-.vox-bank-header__holder > span,
+.vox-bank-header-profile__identity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 9px;
+  border: 1px solid rgba(105, 198, 220, 0.16);
+  border-radius: 13px;
+  background: rgba(105, 198, 220, 0.045);
+}
+
+.vox-bank-header-profile__copy {
+  display: grid;
+  min-width: 0;
+  justify-items: end;
+  gap: 3px;
+}
+
+.vox-bank-profile-avatar {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(105, 198, 220, 0.44);
+  border-radius: 12px;
+  color: var(--vox-cyan-bright);
+  background: rgba(105, 198, 220, 0.1);
+  font: 700 0.63rem/1 'JetBrains Mono', monospace;
+  letter-spacing: 0;
+}
+
+.vox-bank-profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+.vox-bank-profile-toggle {
+  display: grid;
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  min-height: 34px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(105, 198, 220, 0.36);
+  border-radius: 11px;
+  color: var(--vox-cyan-bright);
+  background: rgba(105, 198, 220, 0.09);
+}
+
+.vox-bank-profile-toggle[aria-expanded='true'] {
+  border-color: var(--vox-cyan);
+  color: var(--vox-cyan-bright);
+  background: rgba(105, 198, 220, 0.12);
+}
+
+.vox-bank-app-profile {
+  padding: 12px 26px;
+  border-bottom: 1px solid var(--vox-line);
+  background: #081317;
+}
+
+.vox-bank-app-profile .net-app-profile-editor {
+  --app-profile-accent: 105, 198, 220;
+  max-width: 430px;
+  margin-left: auto;
+}
+
+.vox-bank-header-profile__copy > span,
 .vox-bank-balance-register > span,
 .vox-bank-yield-register span,
 .vox-bank-account-line span,
@@ -113,10 +181,11 @@
   text-transform: uppercase;
 }
 
-.vox-bank-header__holder strong {
+.vox-bank-header-profile__copy strong {
   max-width: 100%;
   overflow: hidden;
-  font-size: 0.86rem;
+  color: var(--vox-paper);
+  font-size: 0.9rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -812,12 +881,13 @@
     padding: 15px 18px 11px;
   }
 
-  .vox-bank-header__holder {
-    max-width: 48%;
+  .vox-bank-header-profile {
+    min-width: 0;
+    max-width: 54%;
   }
 
-  .vox-bank-header__holder > span,
-  .vox-bank-header__holder > small,
+  .vox-bank-header-profile__copy > span,
+  .vox-bank-header-profile__copy > small,
   .vox-bank-header > div:first-child > span {
     display: none;
   }

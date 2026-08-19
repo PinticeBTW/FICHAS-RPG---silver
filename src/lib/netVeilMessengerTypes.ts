@@ -2,6 +2,7 @@ export interface NetVeilMessengerIdentity {
   readonly identityLinkId: string
   readonly displayName: string
   readonly avatarUrl?: string
+  readonly canonicalAvatarUrl?: string
 }
 
 export interface NetVeilConversationMember {

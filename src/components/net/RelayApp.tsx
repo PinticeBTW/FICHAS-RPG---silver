@@ -34,6 +34,7 @@ import type {
   NetVeilMessengerIdentity,
 } from '../../lib/netVeilMessengerTypes'
 import { NetAppProfileEditor } from './profile/NetAppProfileEditor'
+import { useNetAppPresentation } from './profile/useNetAppIdentityPresentation'
 import { useNetVeilMessenger } from './useNetVeilMessenger'
 
 import '../../styles/relay.css'
@@ -238,6 +239,14 @@ export function RelayApp({
   const stayAtBottomRef = useRef(true)
 
   const readySession = messenger.session.status === 'ready' ? messenger.session : null
+  const selfIdentityLinkId = readySession?.identity.identityLinkId ?? expectedIdentityLinkId
+  const selfPresentation = useNetAppPresentation({
+    appId: 'relay',
+    identityLinkId: selfIdentityLinkId,
+    enabled,
+    fallbackDisplayName: readySession?.identity.displayName,
+    fallbackAvatarUrl: readySession?.identity.avatarUrl,
+  })
   const readyConversation = messenger.conversation.status === 'ready' ? messenger.conversation : null
   const activeConversationId = readyConversation?.conversation.conversationId
   const newestMessageId = readyConversation?.messages.at(-1)?.messageId
@@ -283,7 +292,16 @@ export function RelayApp({
     )
   }
 
-  const identity = messenger.session.identity
+  const sessionIdentity = messenger.session.identity
+  const effectiveSelfDisplayName = selfPresentation.status === 'ready' && selfPresentation.displayName.trim()
+    ? selfPresentation.displayName
+    : sessionIdentity.displayName
+  const effectiveSelfAvatarUrl = selfPresentation.avatarUrl ?? sessionIdentity.avatarUrl
+  const effectiveSelfIdentity: NetVeilMessengerIdentity = {
+    identityLinkId: sessionIdentity.identityLinkId,
+    displayName: effectiveSelfDisplayName,
+    ...(effectiveSelfAvatarUrl ? { avatarUrl: effectiveSelfAvatarUrl } : {}),
+  }
   const currentConversation = readyConversation?.conversation
   const groupOwner = currentConversation?.kind === 'group' && currentConversation.role === 'owner'
   const groupNonOwnerMember = currentConversation?.kind === 'group' && currentConversation.role !== 'owner'
@@ -351,8 +369,11 @@ export function RelayApp({
     <div className="relay" data-thread-open={messenger.selectedConversationId || flow ? 'true' : 'false'}>
       <aside className="relay-sidebar">
         <header className="relay-identity">
-          <RelayAvatar identity={identity} />
-          <span><small>VEIL IDENTITY</small><strong>{identity.displayName}</strong></span>
+          <RelayAvatar
+            key={`${effectiveSelfIdentity.identityLinkId}:${effectiveSelfIdentity.avatarUrl ?? 'initials'}`}
+            identity={effectiveSelfIdentity}
+          />
+          <span><small>VEIL IDENTITY</small><strong>{effectiveSelfIdentity.displayName}</strong></span>
           <button
             type="button"
             className="relay-identity__edit"
@@ -374,7 +395,10 @@ export function RelayApp({
               appLabel="RELAY"
               identityLinkId={expectedIdentityLinkId}
               onClose={() => setShowAppProfile(false)}
-              onSaved={() => messenger.retry()}
+              onSaved={() => {
+                void selfPresentation.reload()
+                messenger.retry()
+              }}
             />
           </div>
         ) : null}

@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import {
+  fetchNetAppCurrentIdentityPresentation,
   fetchNetAppIdentityProfileEditor,
   resolveNetAppProfileAvatarUrls,
   saveNetAppIdentityPresentation,
+  type NetAppIdentityPresentation,
   type NetAppIdentityProfile,
 } from '../../../lib/netAppIdentityPresentationService'
 import { removeSharedMediaReference, uploadSharedImage } from '../../../lib/media/mediaStorage'
@@ -20,8 +22,138 @@ export type NetAppProfileState =
   | { readonly status: 'identity-required' }
   | { readonly status: 'error'; readonly reason: string }
 
+export type NetAppPresentationState =
+  | {
+      readonly status: 'idle'
+      readonly appId: string
+      readonly identityLinkId?: string
+      readonly displayName: string
+      readonly avatarUrl?: string
+    }
+  | {
+      readonly status: 'loading'
+      readonly appId: string
+      readonly identityLinkId?: string
+      readonly displayName: string
+      readonly avatarUrl?: string
+    }
+  | {
+      readonly status: 'ready'
+      readonly appId: string
+      readonly identityLinkId: string
+      readonly presentation: NetAppIdentityPresentation
+      readonly displayName: string
+      readonly avatarUrl?: string
+    }
+  | {
+      readonly status: 'error'
+      readonly appId: string
+      readonly identityLinkId?: string
+      readonly displayName: string
+      readonly avatarUrl?: string
+      readonly reason: string
+    }
+
 function errorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback
+}
+
+function reportPresentationFallback(
+  appId: string,
+  identityLinkId: string | undefined,
+  error: unknown,
+): void {
+  if (!import.meta.env.DEV) return
+  console.debug('[APP_PROFILE_PRESENTATION_FALLBACK]', {
+    appId,
+    identityLinkId,
+    error: errorMessage(error, 'APP PROFILE presentation could not load.'),
+  })
+}
+
+function fallbackState(
+  status: 'idle' | 'loading',
+  appId: string,
+  identityLinkId: string | undefined,
+  displayName: string,
+  avatarUrl: string | undefined,
+): NetAppPresentationState {
+  return { status, appId, ...(identityLinkId ? { identityLinkId } : {}), displayName, ...(avatarUrl ? { avatarUrl } : {}) }
+}
+
+/**
+ * Read-only presentation adapter for visible account/identity chrome.
+ * It never blocks the host finance app: failures keep the character-sheet
+ * display already returned by that app's own financial payload.
+ */
+export function useNetAppPresentation({
+  appId,
+  identityLinkId,
+  enabled = true,
+  fallbackDisplayName,
+  fallbackAvatarUrl,
+}: {
+  readonly appId: string
+  readonly identityLinkId?: string
+  readonly enabled?: boolean
+  readonly fallbackDisplayName?: string
+  readonly fallbackAvatarUrl?: string
+}) {
+  const fallbackName = fallbackDisplayName?.trim() || 'Identity'
+  const [state, setState] = useState<NetAppPresentationState>(() => (
+    fallbackState('idle', appId, identityLinkId, fallbackName, fallbackAvatarUrl)
+  ))
+  const generationRef = useRef(0)
+
+  const load = useCallback(async () => {
+    generationRef.current += 1
+    const generation = generationRef.current
+    if (!enabled || !identityLinkId) {
+      setState(fallbackState('idle', appId, identityLinkId, fallbackName, fallbackAvatarUrl))
+      return
+    }
+
+    setState(fallbackState('loading', appId, identityLinkId, fallbackName, fallbackAvatarUrl))
+    try {
+      const presentation = await fetchNetAppCurrentIdentityPresentation(appId, identityLinkId)
+      if (generationRef.current !== generation) return
+      const displayName = presentation.displayName.trim() || fallbackName
+      setState({
+        status: 'ready',
+        appId: presentation.appId,
+        identityLinkId: presentation.identityLinkId,
+        presentation,
+        displayName,
+        ...(presentation.avatarUrl ? { avatarUrl: presentation.avatarUrl } : fallbackAvatarUrl ? { avatarUrl: fallbackAvatarUrl } : {}),
+      })
+    } catch (presentationError) {
+      if (generationRef.current !== generation) return
+      reportPresentationFallback(appId, identityLinkId, presentationError)
+      setState({
+        status: 'error',
+        appId,
+        identityLinkId,
+        displayName: fallbackName,
+        ...(fallbackAvatarUrl ? { avatarUrl: fallbackAvatarUrl } : {}),
+        reason: errorMessage(presentationError, 'APP PROFILE presentation could not load.'),
+      })
+    }
+  }, [appId, enabled, fallbackAvatarUrl, fallbackName, identityLinkId])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void load() }, 0)
+    return () => window.clearTimeout(timer)
+  }, [load])
+
+  const scopedState = state.appId === appId && state.identityLinkId === identityLinkId
+    ? state
+    : fallbackState(enabled && identityLinkId ? 'loading' : 'idle', appId, identityLinkId, fallbackName, fallbackAvatarUrl)
+
+  return {
+    ...scopedState,
+    error: scopedState.status === 'error' ? scopedState.reason : undefined,
+    reload: load,
+  }
 }
 
 /**

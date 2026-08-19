@@ -14,6 +14,7 @@ import {
   RefreshCw,
   Send,
   ShieldCheck,
+  UserCog,
   UserRound,
   WalletCards,
 } from 'lucide-react'
@@ -30,6 +31,8 @@ import {
 import type { NetBankPayee } from '../../../lib/netBankPaymentTypes'
 import type { NetEconomyRealtimeStatus } from '../../../lib/netEconomyRealtimeService'
 import { BankPaySurface } from '../BankPaymentSurface'
+import { NetAppProfileEditor } from '../profile/NetAppProfileEditor'
+import { useNetAppPresentation } from '../profile/useNetAppIdentityPresentation'
 import { useNetNovaBank } from './useNetNovaBank'
 
 import '../../../styles/novaBank.css'
@@ -41,6 +44,65 @@ interface NovaBankAppProps {
   readonly identitySessionKey: string
   readonly expectedIdentityLinkId?: string
   readonly onNotice: (message: string) => void
+}
+
+function initials(value: string) {
+  return value
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('') || 'N'
+}
+
+function NovaBankProfileAvatar({
+  displayName,
+  avatarUrl,
+}: {
+  readonly displayName: string
+  readonly avatarUrl?: string
+}) {
+  const [failedUrl, setFailedUrl] = useState<string>()
+  const visibleAvatarUrl = avatarUrl && avatarUrl !== failedUrl
+    ? avatarUrl
+    : undefined
+
+  return (
+    <span className="nova-bank-profile-avatar" aria-hidden="true">
+      {visibleAvatarUrl
+        ? <img src={visibleAvatarUrl} alt="" onError={() => setFailedUrl(visibleAvatarUrl)} />
+        : initials(displayName)}
+    </span>
+  )
+}
+
+function NovaBankInlineProfile({
+  displayName,
+  avatarUrl,
+  showAppProfile,
+  onToggleAppProfile,
+}: {
+  readonly displayName: string
+  readonly avatarUrl?: string
+  readonly showAppProfile: boolean
+  readonly onToggleAppProfile: () => void
+}) {
+  return (
+    <span className="nova-bank-inline-profile">
+      <NovaBankProfileAvatar displayName={displayName} avatarUrl={avatarUrl} />
+      <span>{displayName}</span>
+      <button
+        type="button"
+        className="nova-bank-profile-toggle"
+        aria-label={showAppProfile ? 'Close NOVA BANK app profile' : 'Edit NOVA BANK app profile'}
+        aria-expanded={showAppProfile}
+        onClick={onToggleAppProfile}
+      >
+        <UserCog size={14} aria-hidden="true" />
+      </button>
+    </span>
+  )
 }
 
 function formatDate(value: string, includeTime = false) {
@@ -125,7 +187,14 @@ export function NovaBankApp({
     expectedIdentityLinkId ?? null,
   )
   const [section, setSection] = useState<NovaBankSection>('overview')
+  const [showAppProfile, setShowAppProfile] = useState(false)
   const [copied, setCopied] = useState(false)
+  const presentation = useNetAppPresentation({
+    appId: 'nova-bank',
+    identityLinkId: expectedIdentityLinkId,
+    enabled: enabled && Boolean(expectedIdentityLinkId),
+    fallbackDisplayName: controller.payload?.identity.displayName,
+  })
 
   if (!expectedIdentityLinkId) {
     return (
@@ -160,6 +229,7 @@ export function NovaBankApp({
 
   const payload = controller.payload
   const bank = payload.bank
+  const holderDisplayName = presentation.displayName
 
   if (!bank) {
     if (payload.currencyRequired || !payload.homeCurrency) {
@@ -181,10 +251,21 @@ export function NovaBankApp({
             <p>A separate {payload.homeCurrency.displayName} account for direct NOVA payments across the ALTARA network.</p>
           </div>
           <dl>
-            <div><dt>Account holder</dt><dd>{payload.identity.displayName}</dd></div>
+            <div><dt>Account holder</dt><dd><NovaBankInlineProfile displayName={holderDisplayName} avatarUrl={presentation.avatarUrl} showAppProfile={showAppProfile} onToggleAppProfile={() => setShowAppProfile((current) => !current)} /></dd></div>
             <div><dt>Opening balance</dt><dd>{formatNetNovaBankAmount(0, payload.homeCurrency)}</dd></div>
             <div><dt>Home currency</dt><dd>{payload.homeCurrency.currencyCode}</dd></div>
           </dl>
+          {showAppProfile ? (
+            <div className="nova-bank-app-profile">
+              <NetAppProfileEditor
+                appId="nova-bank"
+                appLabel="NOVA BANK"
+                identityLinkId={expectedIdentityLinkId}
+                onClose={() => setShowAppProfile(false)}
+                onSaved={() => { void presentation.reload() }}
+              />
+            </div>
+          ) : null}
           <p className="nova-bank-onboarding__disclosure"><ShieldCheck size={14} /> Opening creates no funds and never copies an ALTARA BANK balance.</p>
           {controller.error ? <p className="nova-bank-error" role="alert">{controller.error}</p> : null}
           <button type="button" className="nova-bank-primary" disabled={controller.mutation === 'open'} onClick={() => {
@@ -237,9 +318,32 @@ export function NovaBankApp({
 
       <section className="nova-bank-workspace">
         <header className="nova-bank-topbar">
-          <div><strong>{section}</strong><span>{payload.identity.displayName}</span></div>
+          <div className="nova-bank-topbar__identity">
+            <NovaBankProfileAvatar displayName={holderDisplayName} avatarUrl={presentation.avatarUrl} />
+            <div><strong>{section}</strong><span>{holderDisplayName}</span></div>
+            <button
+              type="button"
+              className="nova-bank-profile-toggle"
+              aria-label={showAppProfile ? 'Close NOVA BANK app profile' : 'Edit NOVA BANK app profile'}
+              aria-expanded={showAppProfile}
+              onClick={() => setShowAppProfile((current) => !current)}
+            >
+              <UserCog size={14} aria-hidden="true" />
+            </button>
+          </div>
           <small>{bank.currency.displayName}</small>
         </header>
+        {showAppProfile ? (
+          <div className="nova-bank-app-profile">
+            <NetAppProfileEditor
+              appId="nova-bank"
+              appLabel="NOVA BANK"
+              identityLinkId={expectedIdentityLinkId}
+              onClose={() => setShowAppProfile(false)}
+              onSaved={() => { void presentation.reload() }}
+            />
+          </div>
+        ) : null}
 
         {controller.error ? (
           <div className="nova-bank-error" role="alert"><AlertTriangle size={14} /> {controller.error}<button type="button" onClick={() => void controller.retry()}>Retry</button></div>
@@ -251,7 +355,7 @@ export function NovaBankApp({
               <div className="nova-bank-balance-card__brand"><span>N</span><small>NOVA BANK</small></div>
               <p>Available balance</p>
               <strong>{formatNetNovaBankAmount(bank.balanceAmount, bank.currency)}</strong>
-              <div><span>{payload.identity.displayName}</span><span>{bank.currencyCode}</span></div>
+              <div><span>{holderDisplayName}</span><span>{bank.currencyCode}</span></div>
               <button type="button" onClick={() => setSection('pay')}><Send size={16} /> Make a payment</button>
             </section>
             <section className="nova-bank-overview__account">
@@ -320,7 +424,7 @@ export function NovaBankApp({
           <main className="nova-bank-account">
             <header><h1>Your NOVA account</h1><p>Details for receiving same-bank payments. Private account UUIDs never leave this session.</p></header>
             <dl>
-              <div><dt>Account holder</dt><dd>{payload.identity.displayName}</dd></div>
+              <div><dt>Account holder</dt><dd><NovaBankInlineProfile displayName={holderDisplayName} avatarUrl={presentation.avatarUrl} showAppProfile={showAppProfile} onToggleAppProfile={() => setShowAppProfile((current) => !current)} /></dd></div>
               <div><dt>Payment identifier</dt><dd>@{bank.paymentIdentifier}<button type="button" onClick={() => void copyPaymentId()}>{copied ? <Check size={14} /> : <Copy size={14} />}{copied ? 'Copied' : 'Copy'}</button></dd></div>
               <div><dt>Currency</dt><dd>{bank.currency.displayName} · {bank.currencyCode}</dd></div>
               <div><dt>Status</dt><dd><i /> {bank.status.toUpperCase()}</dd></div>
