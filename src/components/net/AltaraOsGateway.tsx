@@ -36,6 +36,10 @@ import { AltaraWaveApp } from './altara/AltaraWaveApp'
 import { NovaBankApp } from './altara/NovaBankApp'
 import { useAltaraMusicPlayer } from './altara/useAltaraMusicPlayer'
 import {
+  useAltaraMessengerNotifications,
+  type AltaraMessengerIncomingNotification,
+} from './altara/useAltaraMessengerNotifications'
+import {
   altaraAppCatalog,
   getAltaraAppDefinition,
   type AltaraAppDefinition,
@@ -323,6 +327,17 @@ export function AltaraOsGateway({
   const runtimeMutationsAllowed = !gmSystemMode && shellReady && Boolean(systemIdentityLinkId)
   const [launcherOpen, setLauncherOpen] = useState(false)
   const [notice, setNotice] = useState('ALTARA NETWORK // DESKTOP READY')
+  const handleIncomingMessengerMessage = useCallback((notification: AltaraMessengerIncomingNotification) => {
+    const context = notification.incomingConversationCount > 1
+      ? ` // +${notification.incomingConversationCount - 1} MORE`
+      : ` // ${notification.conversationTitle.toLocaleUpperCase()}`
+    setNotice(`ALTARA // NEW MESSAGE FROM ${notification.authorDisplayName.toLocaleUpperCase()}${context}`)
+  }, [])
+  useAltaraMessengerNotifications({
+    enabled: shellReady && Boolean(messengerIdentityLinkId),
+    expectedIdentityLinkId: messengerIdentityLinkId,
+    onIncomingMessage: handleIncomingMessengerMessage,
+  })
   const launcherRef = useRef<HTMLElement | null>(null)
   const launcherButtonRef = useRef<HTMLButtonElement | null>(null)
   const windowManager = useAltaraWindowManager(profile?.id)
