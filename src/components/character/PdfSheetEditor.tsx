@@ -39,11 +39,11 @@ const KARMA_FIELD_ALIASES = ['KARMA', 'Karma', 'karma', 'K4rma', 'K4RMA'] as con
 const PHYSICAL_CASH_FIELD_KEY = 'PHYSICAL_CASH'
 const SHEET_MONEY_SOURCE_STORAGE_PREFIX = 'rpgsilver-sheet-money-source:'
 
-type SheetMoneySourceId = 'cash' | 'vlt' | 'vox-bank' | 'shneider-bank' | 'altara-funds' | 'altara-bank' | 'nova-bank'
+type SheetMoneySourceId = 'cash' | 'vlt' | 'vox-bank' | 'shneider-bank' | 'altara-bank' | 'nova-bank'
 
 interface SheetMoneySourcePresentation {
   readonly id: SheetMoneySourceId
-  readonly label: 'CASH' | 'VLT' | 'VOX BANK' | 'SHNEIDER' | 'FUNDS' | 'ALTARA BANK' | 'NOVA BANK'
+  readonly label: 'CASH' | 'VLT' | 'VOX BANK' | 'SHNEIDER' | 'ALTARA BANK' | 'NOVA BANK'
   readonly value: string
   readonly available: boolean
   readonly status: 'ready' | 'loading' | 'error' | 'unavailable'
@@ -70,7 +70,6 @@ function readStoredMoneySource(storageKey: string): SheetMoneySourceId {
     return stored === 'cash'
       || stored === 'vox-bank'
       || stored === 'shneider-bank'
-      || stored === 'altara-funds'
       || stored === 'altara-bank'
       || stored === 'nova-bank'
       ? stored
@@ -1474,14 +1473,14 @@ function TemplatePdfPage({
               moneySource.status === 'error' ? 'text-rose-200' : 'text-white/70'
             }`}
             style={{
-              fontSize: moneySource.id === 'cash' || moneySource.id === 'vlt' || moneySource.id === 'altara-funds'
+              fontSize: moneySource.id === 'cash' || moneySource.id === 'vlt'
                 ? 'calc(18px * var(--sheet-scale, 1))'
                 : moneySource.id === 'vox-bank'
                   ? 'calc(12px * var(--sheet-scale, 1))'
                   : 'calc(9px * var(--sheet-scale, 1))',
             }}
           >
-            {moneySource.label}{moneySource.id === 'altara-bank' || moneySource.id === 'altara-funds' ? '' : ':'}
+            {moneySource.label}{moneySource.id === 'altara-bank' ? '' : ':'}
           </span>
           <span
             className="pointer-events-none absolute inset-y-0 left-[55%] z-10 w-px bg-white/70"
@@ -2030,35 +2029,10 @@ export function PdfSheetEditor({
       const altaraAccount = sheetEconomy.payload.altaraBank
       const novaAccount = sheetEconomy.payload.novaBank
       const currency = sheetEconomy.payload.homeCurrency
-      const total = sheetEconomy.payload.altaraFundsTotal
-      const activeAccounts = [altaraAccount, novaAccount].filter(Boolean)
-      const currencyLabel = currency && total !== null
-        ? (total === 1 ? currency.singularLabel : currency.pluralLabel)
-        : ''
       const accountLabel = (balance: number) => balance === 1
         ? currency?.singularLabel ?? ''
         : currency?.pluralLabel ?? ''
-      const breakdown = [
-        altaraAccount
-          ? `ALTARA BANK — ${altaraAccount.balanceAmount} ${accountLabel(altaraAccount.balanceAmount)}`
-          : null,
-        novaAccount
-          ? `NOVA BANK — ${novaAccount.balanceAmount} ${accountLabel(novaAccount.balanceAmount)}`
-          : null,
-      ].filter((value): value is string => Boolean(value)).join(' · ')
-      const sources: SheetMoneySourcePresentation[] = [{
-        id: 'altara-funds',
-        label: 'FUNDS',
-        value: currency && total !== null && activeAccounts.length ? `${total} ${currencyLabel}` : '—',
-        available: Boolean(currency && activeAccounts.length),
-        status: currency && activeAccounts.length ? 'ready' : 'unavailable',
-        title: breakdown
-          ? `Read-only active ${currency?.displayName ?? 'home-currency'} funds. ${breakdown}. Use GM Finance Control for explicit institution adjustments.`
-          : currency
-            ? `No active ALTARA financial account exists in ${currency.displayName}.`
-            : 'Currency assignment required. Silver must set a home currency.',
-      }]
-      sources.push(physicalCashSource)
+      const sources: SheetMoneySourcePresentation[] = [physicalCashSource]
       if (altaraAccount) {
         sources.push({
           id: 'altara-bank',
@@ -2066,7 +2040,7 @@ export function PdfSheetEditor({
           value: `${altaraAccount.balanceAmount} ${accountLabel(altaraAccount.balanceAmount)}`,
           available: true,
           status: 'ready',
-          title: 'ALTARA BANK component of FUNDS. Use Finance Control to adjust this exact account.',
+          title: 'Read-only ALTARA BANK balance. Use Finance Control to adjust this exact account.',
         })
       }
       if (novaAccount) {
@@ -2076,7 +2050,7 @@ export function PdfSheetEditor({
           value: `${novaAccount.balanceAmount} ${accountLabel(novaAccount.balanceAmount)}`,
           available: true,
           status: 'ready',
-          title: 'NOVA BANK component of FUNDS. Use Finance Control to adjust this exact account.',
+          title: 'Read-only NOVA BANK balance. Use Finance Control to adjust this exact account.',
         })
       }
       return sources
