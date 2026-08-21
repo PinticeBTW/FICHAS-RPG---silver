@@ -36,26 +36,29 @@ const TEMPLATE_URLS: Record<string, string> = {
 }
 
 const KARMA_FIELD_ALIASES = ['KARMA', 'Karma', 'karma', 'K4rma', 'K4RMA'] as const
+const PHYSICAL_CASH_FIELD_KEY = 'PHYSICAL_CASH'
 const SHEET_MONEY_SOURCE_STORAGE_PREFIX = 'rpgsilver-sheet-money-source:'
 
-type SheetMoneySourceId = 'vlt' | 'vox-bank' | 'shneider-bank' | 'altara-funds' | 'altara-bank' | 'nova-bank'
+type SheetMoneySourceId = 'cash' | 'vlt' | 'vox-bank' | 'shneider-bank' | 'altara-funds' | 'altara-bank' | 'nova-bank'
 
 interface SheetMoneySourcePresentation {
   readonly id: SheetMoneySourceId
-  readonly label: 'CASH' | 'VOX BANK' | 'SHNEIDER' | 'FUNDS' | 'ALTARA BANK' | 'NOVA BANK'
+  readonly label: 'CASH' | 'VLT' | 'VOX BANK' | 'SHNEIDER' | 'FUNDS' | 'ALTARA BANK' | 'NOVA BANK'
   readonly value: string
   readonly available: boolean
   readonly status: 'ready' | 'loading' | 'error' | 'unavailable'
   readonly title: string
+  readonly editable?: boolean
 }
 
 const DEFAULT_SHEET_MONEY_SOURCE: SheetMoneySourcePresentation = {
-  id: 'vlt',
+  id: 'cash',
   label: 'CASH',
   value: '',
   available: true,
   status: 'ready',
-  title: 'Read-only VLT wallet balance',
+  title: 'Editable physical cash carried by this character. Separate from network accounts.',
+  editable: true,
 }
 
 const noopMoneySourceToggle = () => undefined
@@ -64,7 +67,8 @@ function readStoredMoneySource(storageKey: string): SheetMoneySourceId {
   if (!storageKey || typeof window === 'undefined') return 'vlt'
   try {
     const stored = window.localStorage.getItem(storageKey)
-    return stored === 'vox-bank'
+    return stored === 'cash'
+      || stored === 'vox-bank'
       || stored === 'shneider-bank'
       || stored === 'altara-funds'
       || stored === 'altara-bank'
@@ -1470,7 +1474,7 @@ function TemplatePdfPage({
               moneySource.status === 'error' ? 'text-rose-200' : 'text-white/70'
             }`}
             style={{
-              fontSize: moneySource.id === 'vlt' || moneySource.id === 'altara-funds'
+              fontSize: moneySource.id === 'cash' || moneySource.id === 'vlt' || moneySource.id === 'altara-funds'
                 ? 'calc(18px * var(--sheet-scale, 1))'
                 : moneySource.id === 'vox-bank'
                   ? 'calc(12px * var(--sheet-scale, 1))'
@@ -1494,29 +1498,51 @@ function TemplatePdfPage({
                 minWidth: '24px',
                 minHeight: '24px',
               }}
-              aria-label="Show next financial account balance"
-              title="Switch account display"
+              aria-label="Show next money source"
+              title="Switch money source"
             >
               <ChevronsUpDown size="calc(8px * var(--sheet-scale, 1))" strokeWidth={2} />
             </button>
           ) : null}
-          <span
-            className={`${sourceDisplayClassName} select-none`}
-            style={{
-              ...inputStyle,
-              inset: '0 0 0 55%',
-              width: '45%',
-              padding: 'calc(8px * var(--sheet-scale, 1)) calc(2px * var(--sheet-scale, 1)) 0',
-              fontSize: moneySource.status === 'ready'
-                ? 'calc(19px * var(--sheet-scale, 1))'
-                : 'calc(9px * var(--sheet-scale, 1))',
-            }}
-            aria-label={`${moneySource.label} balance`}
-            aria-live="polite"
-            aria-atomic="true"
-          >
-            {moneySource.value}
-          </span>
+          {moneySource.editable ? (
+            <input
+              value={moneySource.value}
+              readOnly={!canEdit}
+              spellCheck={false}
+              autoComplete="off"
+              inputMode="decimal"
+              maxLength={24}
+              onChange={(event) => onFieldChange(PHYSICAL_CASH_FIELD_KEY, event.target.value)}
+              className={getFieldInputClassName(field, canEdit)}
+              style={{
+                ...inputStyle,
+                inset: '0 0 0 55%',
+                width: '45%',
+                padding: 'calc(8px * var(--sheet-scale, 1)) calc(2px * var(--sheet-scale, 1)) 0',
+                fontSize: 'calc(19px * var(--sheet-scale, 1))',
+              }}
+              aria-label="Physical cash carried"
+              title={moneySource.title}
+            />
+          ) : (
+            <span
+              className={`${sourceDisplayClassName} select-none`}
+              style={{
+                ...inputStyle,
+                inset: '0 0 0 55%',
+                width: '45%',
+                padding: 'calc(8px * var(--sheet-scale, 1)) calc(2px * var(--sheet-scale, 1)) 0',
+                fontSize: moneySource.status === 'ready'
+                  ? 'calc(19px * var(--sheet-scale, 1))'
+                  : 'calc(9px * var(--sheet-scale, 1))',
+              }}
+              aria-label={`${moneySource.label} balance`}
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              {moneySource.value}
+            </span>
+          )}
         </div>
       )
     }
@@ -1972,19 +1998,32 @@ export function PdfSheetEditor({
     sheetEconomySubject,
     Boolean(sheetEconomySubject),
   )
+  const physicalCashValue = fieldData[PHYSICAL_CASH_FIELD_KEY] ?? ''
   const moneySources = useMemo<readonly SheetMoneySourcePresentation[]>(() => {
+    const physicalCashSource: SheetMoneySourcePresentation = {
+      id: 'cash',
+      label: 'CASH',
+      value: physicalCashValue,
+      available: true,
+      status: 'ready',
+      title: 'Physical cash carried by this character. Editable on the sheet and independent from VLT or bank balances.',
+      editable: true,
+    }
+
+    if (!sheetEconomySubject) return [physicalCashSource]
+
     if (sheetEconomySubject && !sheetEconomy.payload) {
       const failed = sheetEconomy.status === 'error'
       return [{
         id: 'vlt',
-        label: 'CASH',
+        label: 'VLT',
         value: failed ? 'UNAVAILABLE' : 'SYNC...',
         available: false,
         status: failed ? 'error' : 'loading',
         title: failed
           ? `Financial access could not be resolved: ${sheetEconomy.error ?? 'Try again.'}`
           : 'Resolving the authoritative financial source for this identity.',
-      }]
+      }, physicalCashSource]
     }
 
     if (sheetEconomy.payload?.primaryOsId === 'altara') {
@@ -2019,6 +2058,7 @@ export function PdfSheetEditor({
             ? `No active ALTARA financial account exists in ${currency.displayName}.`
             : 'Currency assignment required. Silver must set a home currency.',
       }]
+      sources.push(physicalCashSource)
       if (altaraAccount) {
         sources.push({
           id: 'altara-bank',
@@ -2042,6 +2082,7 @@ export function PdfSheetEditor({
       return sources
     }
 
+    const vltAccount = sheetEconomy.payload?.vlt ?? null
     const voxAccount = sheetEconomy.payload?.voxBank ?? null
     const shneiderAccount = sheetEconomy.payload?.shneiderBank ?? null
     const voxHasConfirmedValue = Boolean(voxAccount)
@@ -2078,12 +2119,15 @@ export function PdfSheetEditor({
     return [
       {
         id: 'vlt',
-        label: 'CASH',
-        value: fieldData.CASH ?? '',
-        available: true,
-        status: 'ready',
-        title: 'Read-only VLT wallet balance. Use VLT or Economy Control to change it.',
+        label: 'VLT',
+        value: vltAccount ? `${vltAccount.balanceAmount}vG` : 'NO WALLET',
+        available: Boolean(vltAccount),
+        status: vltAccount ? 'ready' : 'unavailable',
+        title: vltAccount
+          ? 'Read-only VLT wallet balance. Use VLT or Economy Control to change it.'
+          : 'No VLT wallet is available for this identity.',
       },
+      physicalCashSource,
       {
         id: 'vox-bank',
         label: 'VOX BANK',
@@ -2110,7 +2154,7 @@ export function PdfSheetEditor({
       },
     ]
   }, [
-    fieldData.CASH,
+    physicalCashValue,
     sheetEconomy.error,
     sheetEconomy.payload,
     sheetEconomySubject,
@@ -2183,7 +2227,7 @@ export function PdfSheetPreview({
         tone={color}
         moneySource={{
           ...DEFAULT_SHEET_MONEY_SOURCE,
-          value: fieldData.CASH ?? '',
+          value: fieldData[PHYSICAL_CASH_FIELD_KEY] ?? '',
         }}
       />
     </div>
