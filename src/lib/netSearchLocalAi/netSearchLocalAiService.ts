@@ -30,6 +30,19 @@ import type {
   NetSearchLocalAiState,
 } from './netSearchLocalAiTypes'
 
+export type NetSearchLocalAiProductName = 'VEIL Search' | 'ALTARA Search'
+export type NetSearchLocalAiBackendLabel = 'VEIL backend' | 'ALTARA Search backend'
+
+export interface NetSearchLocalAiGenerationPresentation {
+  readonly productName: NetSearchLocalAiProductName
+  readonly backendLabel: NetSearchLocalAiBackendLabel
+}
+
+const DEFAULT_GENERATION_PRESENTATION: NetSearchLocalAiGenerationPresentation = {
+  productName: 'VEIL Search',
+  backendLabel: 'VEIL backend',
+}
+
 interface NavigatorWithWebGpu extends Navigator {
   readonly gpu?: {
     requestAdapter(): Promise<unknown | null>
@@ -427,7 +440,10 @@ class NetSearchLocalAiService {
     })
   }
 
-  async generate(query: string): Promise<boolean> {
+  async generate(
+    query: string,
+    presentation: NetSearchLocalAiGenerationPresentation = DEFAULT_GENERATION_PRESENTATION,
+  ): Promise<boolean> {
     const normalizedQuery = query.trim()
     const engine = this.engine
     if (!engine || normalizedQuery.length === 0) return false
@@ -441,7 +457,7 @@ class NetSearchLocalAiService {
     this.update({
       phase: 'retrieving',
       progress: 1,
-      statusText: 'Retrieving verified public context from the VEIL backend…',
+      statusText: `Retrieving verified public context from the ${presentation.backendLabel}…`,
       answer: '',
       sources: [],
       activeQuery: normalizedQuery,
@@ -482,7 +498,10 @@ class NetSearchLocalAiService {
         await engine.resetChat()
         if (operationId !== this.operationId) return false
 
-        const systemPrompt = `${NET_SEARCH_LOCAL_AI_SYSTEM_PROMPT}\n\n${netSearchLocalAiLanguageDirective(outputLanguage, attempt === 1)}`
+        const brandedSystemPrompt = presentation.productName === 'VEIL Search'
+          ? NET_SEARCH_LOCAL_AI_SYSTEM_PROMPT
+          : NET_SEARCH_LOCAL_AI_SYSTEM_PROMPT.replace("VEIL Search's", `${presentation.productName}'s`)
+        const systemPrompt = `${brandedSystemPrompt}\n\n${netSearchLocalAiLanguageDirective(outputLanguage, attempt === 1)}`
         const stream = await engine.chat.completions.create({
           messages: [
             { role: 'system', content: systemPrompt },
@@ -636,8 +655,11 @@ export function setNetSearchLocalAiLanguagePreference(
   localAiService.setLanguagePreference(preference)
 }
 
-export function generateNetSearchLocalAiOverview(query: string): Promise<boolean> {
-  return localAiService.generate(query)
+export function generateNetSearchLocalAiOverview(
+  query: string,
+  presentation: NetSearchLocalAiGenerationPresentation = DEFAULT_GENERATION_PRESENTATION,
+): Promise<boolean> {
+  return localAiService.generate(query, presentation)
 }
 
 export function cancelNetSearchLocalAiForNewSearch(): void {

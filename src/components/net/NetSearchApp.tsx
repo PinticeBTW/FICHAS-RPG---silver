@@ -23,6 +23,7 @@ import {
   checkNetSearchLocalAiCapability,
   generateNetSearchLocalAiOverview,
   releaseNetSearchLocalAi,
+  type NetSearchLocalAiGenerationPresentation,
 } from '../../lib/netSearchLocalAi/netSearchLocalAiService'
 import {
   NET_SEARCH_QUERY_MAX_LENGTH,
@@ -43,6 +44,32 @@ interface NetSearchAppProps {
   readonly enabled: boolean
   readonly historyOwnerKey: string
   readonly onNotice: (message: string) => void
+  readonly surface?: 'veil' | 'altara'
+}
+
+interface NetSearchPresentation {
+  readonly productName: string
+  readonly knowledgeIndexName: string
+  readonly heroNetworkLabel: string
+  readonly historyNamespace: string
+  readonly localAi: NetSearchLocalAiGenerationPresentation
+}
+
+const NET_SEARCH_PRESENTATIONS: Record<'veil' | 'altara', NetSearchPresentation> = {
+  veil: {
+    productName: 'VEIL SEARCH',
+    knowledgeIndexName: 'VEIL',
+    heroNetworkLabel: 'VEGA MESH // VERIFIED INDEX',
+    historyNamespace: 'veil-search',
+    localAi: { productName: 'VEIL Search', backendLabel: 'VEIL backend' },
+  },
+  altara: {
+    productName: 'ALTARA SEARCH',
+    knowledgeIndexName: 'ALTARA',
+    heroNetworkLabel: 'ALTARA NETWORK // VERIFIED INDEX',
+    historyNamespace: 'altara-search',
+    localAi: { productName: 'ALTARA Search', backendLabel: 'ALTARA Search backend' },
+  },
 }
 
 const MAX_RECENT_SEARCHES = 8
@@ -117,8 +144,10 @@ export function NetSearchApp({
   enabled,
   historyOwnerKey,
   onNotice,
+  surface = 'veil',
 }: NetSearchAppProps) {
-  const historyStorageKey = `rpgsilver:veil-search:recent:v1:${historyOwnerKey}`
+  const presentation = NET_SEARCH_PRESENTATIONS[surface]
+  const historyStorageKey = `rpgsilver:${presentation.historyNamespace}:recent:v1:${historyOwnerKey}`
   const [query, setQuery] = useState('')
   const [submittedQuery, setSubmittedQuery] = useState('')
   const [recentSearches, setRecentSearches] = useState<readonly string[]>([])
@@ -147,10 +176,10 @@ export function NetSearchApp({
       setPhase('ready')
     } catch (loadError) {
       if (requestGenerationRef.current !== generation) return
-      setError(loadError instanceof Error ? loadError.message : 'The VEIL knowledge index is unavailable.')
+      setError(loadError instanceof Error ? loadError.message : `The ${presentation.knowledgeIndexName} knowledge index is unavailable.`)
       setPhase('failed')
     }
-  }, [])
+  }, [presentation.knowledgeIndexName])
 
   useEffect(() => {
     if (!enabled || accessMode === 'gm-system') return
@@ -204,17 +233,17 @@ export function NetSearchApp({
       setResults(nextResults)
       setPhase('ready')
       rememberSearch(normalized)
-      onNotice(`VEIL SEARCH // ${nextResults.length} INDEX MATCH${nextResults.length === 1 ? '' : 'ES'}`)
+      onNotice(`${presentation.productName} // ${nextResults.length} INDEX MATCH${nextResults.length === 1 ? '' : 'ES'}`)
       if (canGenerateNetSearchLocalAiOverview()) {
-        void generateNetSearchLocalAiOverview(normalized)
+        void generateNetSearchLocalAiOverview(normalized, presentation.localAi)
       }
     } catch (searchError) {
       if (requestGenerationRef.current !== generation) return
       setResults([])
-      setError(searchError instanceof Error ? searchError.message : 'The VEIL knowledge index is unavailable.')
+      setError(searchError instanceof Error ? searchError.message : `The ${presentation.knowledgeIndexName} knowledge index is unavailable.`)
       setPhase('failed')
     }
-  }, [onNotice, rememberSearch])
+  }, [onNotice, presentation, rememberSearch])
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -253,13 +282,13 @@ export function NetSearchApp({
   }
 
   if (accessMode === 'gm-system') {
-    return <NetSearchKnowledgeControl enabled={enabled} onNotice={onNotice} />
+    return <NetSearchKnowledgeControl enabled={enabled} onNotice={onNotice} productName={presentation.productName} />
   }
 
   return (
     <div className="net-search-app">
       <header className="net-search-topbar">
-        <span><Sparkles size={15} aria-hidden="true" /> VEIL SEARCH</span>
+        <span><Sparkles size={15} aria-hidden="true" /> {presentation.productName}</span>
         <small>NEW VEGA KNOWLEDGE GRID</small>
       </header>
 
@@ -315,7 +344,7 @@ export function NetSearchApp({
             <section className="net-search-hero" data-compact={submittedQuery ? 'true' : 'false'}>
               <div className="net-search-hero__mark"><Search size={30} aria-hidden="true" /></div>
               <div>
-                <p>VEGA MESH // VERIFIED INDEX</p>
+                <p>{presentation.heroNetworkLabel}</p>
                 <h1>Search New Vega</h1>
               </div>
               <form onSubmit={handleSubmit} className="net-search-query">
@@ -354,6 +383,7 @@ export function NetSearchApp({
                   query={submittedQuery}
                   searchReady={phase === 'ready'}
                   onOpenSource={openEntry}
+                  presentation={presentation.localAi}
                 />
 
                 <header className="net-search-section-head">

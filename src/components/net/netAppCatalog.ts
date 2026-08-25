@@ -278,7 +278,7 @@ export const netAppCatalog: readonly NetAppDefinition[] = [
   },
   {
     id: 'net-search',
-    scope: 'veil-only',
+    scope: 'global',
     name: 'VEIL SEARCH',
     owner: 'VEIL OS',
     category: 'KNOWLEDGE',

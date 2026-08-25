@@ -9,6 +9,7 @@ import type { NetWindowConstraints } from '../netWindowGeometry'
 
 export type AltaraAppId =
   | 'altara-messenger'
+  | 'altara-search'
   | 'altara-store'
   | 'altara-bank'
   | 'nova-bank'
@@ -39,6 +40,7 @@ export interface AltaraAppDefinition {
 
 const altaraAppIds = [
   'altara-messenger',
+  'altara-search',
   'altara-store',
   'altara-bank',
   'nova-bank',
@@ -49,17 +51,22 @@ const altaraAppIds = [
 ] as const satisfies readonly AltaraAppId[]
 
 function nativeApp(id: AltaraAppId): AltaraAppDefinition {
-  const source = getNetAppDefinition(id as NetAppId)
+  const sourceId: NetAppId = id === 'altara-search' ? 'net-search' : id
+  const source = getNetAppDefinition(sourceId)
   if (!source || !netAppScopeAllows(source.scope, 'altara')) {
     throw new Error(`ALTARA OS catalogue scope mismatch: ${id}`)
   }
 
+  const isAltaraSearch = id === 'altara-search'
+
   return {
     id,
-    name: source.name,
-    subtitle: source.subtitle ?? `${source.owner} // ${source.category}`,
+    name: isAltaraSearch ? 'ALTARA SEARCH' : source.name,
+    subtitle: isAltaraSearch
+      ? 'ALTARA NETWORK // VERIFIED KNOWLEDGE'
+      : source.subtitle ?? `${source.owner} // ${source.category}`,
     category: source.category,
-    company: source.owner,
+    company: isAltaraSearch ? 'ALTARA' : source.owner,
     description: source.shortDescription,
     accentRgb: source.accentRgb,
     icon: source.icon,

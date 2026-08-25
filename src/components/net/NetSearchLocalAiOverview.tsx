@@ -29,6 +29,7 @@ import {
   requestNetSearchLocalAiEnable,
   setNetSearchLocalAiLanguagePreference,
   subscribeNetSearchLocalAi,
+  type NetSearchLocalAiGenerationPresentation,
 } from '../../lib/netSearchLocalAi/netSearchLocalAiService'
 import type { NetSearchLocalAiLanguagePreference } from '../../lib/netSearchLocalAi/netSearchLocalAiTypes'
 import type { NetSearchSourceKind } from '../../lib/netSearchTypes'
@@ -37,6 +38,12 @@ interface NetSearchLocalAiOverviewProps {
   readonly query: string
   readonly searchReady: boolean
   readonly onOpenSource: (sourceId: string, sourceKind: NetSearchSourceKind) => void
+  readonly presentation?: NetSearchLocalAiGenerationPresentation
+}
+
+const DEFAULT_PRESENTATION: NetSearchLocalAiGenerationPresentation = {
+  productName: 'VEIL Search',
+  backendLabel: 'VEIL backend',
 }
 
 const LANGUAGE_OPTIONS: ReadonlyArray<{
@@ -52,6 +59,7 @@ export function NetSearchLocalAiOverview({
   query,
   searchReady,
   onOpenSource,
+  presentation = DEFAULT_PRESENTATION,
 }: NetSearchLocalAiOverviewProps) {
   const queryRef = useRef(query)
   useEffect(() => {
@@ -65,7 +73,7 @@ export function NetSearchLocalAiOverview({
 
   const generateIfEligible = async (result: string) => {
     if (result === 'ready' && searchReady) {
-      await generateNetSearchLocalAiOverview(queryRef.current)
+      await generateNetSearchLocalAiOverview(queryRef.current, presentation)
     }
   }
 
@@ -79,7 +87,7 @@ export function NetSearchLocalAiOverview({
 
   const retry = async () => {
     if (canGenerateNetSearchLocalAiOverview()) {
-      if (searchReady) await generateNetSearchLocalAiOverview(queryRef.current)
+      if (searchReady) await generateNetSearchLocalAiOverview(queryRef.current, presentation)
       return
     }
     await enable()
@@ -174,7 +182,7 @@ export function NetSearchLocalAiOverview({
           <div className="net-search-ai-overview__status">
             <ShieldCheck size={16} aria-hidden="true" />
             <div><strong>AI READY</strong><p>The cached local model is ready to synthesize verified sources.</p></div>
-            <button type="button" onClick={() => void generateNetSearchLocalAiOverview(queryRef.current)} disabled={!searchReady}>
+            <button type="button" onClick={() => void generateNetSearchLocalAiOverview(queryRef.current, presentation)} disabled={!searchReady}>
               <BrainCircuit size={13} /> Generate overview
             </button>
           </div>
@@ -217,7 +225,7 @@ export function NetSearchLocalAiOverview({
               {state.phase === 'generating' ? (
                 <button type="button" onClick={cancelNetSearchLocalAiOperation}><Square size={11} /> Stop</button>
               ) : (
-                <button type="button" onClick={() => void generateNetSearchLocalAiOverview(queryRef.current)} disabled={!searchReady}><RefreshCw size={11} /> Regenerate</button>
+                <button type="button" onClick={() => void generateNetSearchLocalAiOverview(queryRef.current, presentation)} disabled={!searchReady}><RefreshCw size={11} /> Regenerate</button>
               )}
             </footer>
           </div>
@@ -237,7 +245,7 @@ export function NetSearchLocalAiOverview({
 
         <div className="net-search-ai-overview__privacy">
           <LockKeyhole size={11} aria-hidden="true" />
-          Lore retrieval uses the VEIL backend. AI generation runs on this device.
+          Lore retrieval uses the {presentation.backendLabel}. AI generation runs on this device.
           {isBusy ? <span>LOCAL PROCESS ACTIVE</span> : null}
         </div>
       </div>

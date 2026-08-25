@@ -61,6 +61,7 @@ import { NetSearchMarkdownPreview } from './NetSearchMarkdownPreview'
 interface NetSearchKnowledgeControlProps {
   readonly enabled: boolean
   readonly onNotice: (message: string) => void
+  readonly productName?: string
 }
 
 interface KnowledgeDraft {
@@ -255,7 +256,11 @@ function importedTitle(fileName: string): string {
   return fileName.replace(/\.(?:txt|md)$/i, '').replaceAll(/[-_]+/g, ' ').trim()
 }
 
-export function NetSearchKnowledgeControl({ enabled, onNotice }: NetSearchKnowledgeControlProps) {
+export function NetSearchKnowledgeControl({
+  enabled,
+  onNotice,
+  productName = 'VEIL SEARCH',
+}: NetSearchKnowledgeControlProps) {
   const [directory, setDirectory] = useState<readonly NetSearchGmDirectoryRow[]>([])
   const [directoryLoading, setDirectoryLoading] = useState(false)
   const [detailLoading, setDetailLoading] = useState(false)
@@ -415,7 +420,7 @@ export function NetSearchKnowledgeControl({ enabled, onNotice }: NetSearchKnowle
       setEntryDraft(entryDraftFromDetail(saved))
       setDirty(false)
       await loadDirectory()
-      onNotice(`VEIL SEARCH // ${wasExisting ? 'KNOWLEDGE UPDATED' : 'KNOWLEDGE CREATED'}`)
+      onNotice(`${productName} // ${wasExisting ? 'KNOWLEDGE UPDATED' : 'KNOWLEDGE CREATED'}`)
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'Knowledge entry failed to save.')
     } finally {
@@ -438,7 +443,7 @@ export function NetSearchKnowledgeControl({ enabled, onNotice }: NetSearchKnowle
         documentDraft.rawContent,
       )
       setPreview(sections)
-      onNotice(`VEIL SEARCH // ${sections.length} SEARCHABLE SECTIONS PREVIEWED`)
+      onNotice(`${productName} // ${sections.length} SEARCHABLE SECTIONS PREVIEWED`)
     } catch (previewError) {
       setError(previewError instanceof Error ? previewError.message : 'Lore preview failed.')
     } finally {
@@ -469,7 +474,7 @@ export function NetSearchKnowledgeControl({ enabled, onNotice }: NetSearchKnowle
       setPreview(null)
       setDirty(false)
       await loadDirectory()
-      onNotice(`VEIL SEARCH // LORE DOCUMENT ${wasExisting ? 'UPDATED' : 'IMPORTED'} · ${saved.searchableSections} SECTIONS`)
+      onNotice(`${productName} // LORE DOCUMENT ${wasExisting ? 'UPDATED' : 'IMPORTED'} · ${saved.searchableSections} SECTIONS`)
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'Lore document failed to save.')
     } finally {
@@ -506,7 +511,7 @@ export function NetSearchKnowledgeControl({ enabled, onNotice }: NetSearchKnowle
       }))
       setPreview(null)
       setDirty(true)
-      onNotice(`VEIL SEARCH // ${file.name.toUpperCase()} LOADED FOR PREVIEW`)
+      onNotice(`${productName} // ${file.name.toUpperCase()} LOADED FOR PREVIEW`)
     } catch {
       setError('The selected text file could not be read.')
     }
@@ -526,20 +531,20 @@ export function NetSearchKnowledgeControl({ enabled, onNotice }: NetSearchKnowle
         setDocumentDraft(EMPTY_DOCUMENT_DRAFT)
         setPreview(null)
         setDirty(false)
-        onNotice('VEIL SEARCH // LORE DOCUMENT DELETED')
+        onNotice(`${productName} // LORE DOCUMENT DELETED`)
       } else if (action === 'delete-entry') {
         await deleteNetSearchGmEntry(selectedId)
         setSelectedId(null)
         setEntryDetail(null)
         setEntryDraft(EMPTY_ENTRY_DRAFT)
         setDirty(false)
-        onNotice('VEIL SEARCH // KNOWLEDGE ENTRY DELETED')
+        onNotice(`${productName} // KNOWLEDGE ENTRY DELETED`)
       } else {
         const updated = await setNetSearchGmEntryLifecycle(selectedId, action)
         setEntryDetail(updated)
         setEntryDraft(entryDraftFromDetail(updated))
         setDirty(false)
-        onNotice(`VEIL SEARCH // KNOWLEDGE ${action === 'archive' ? 'ARCHIVED' : 'RESTORED'}`)
+        onNotice(`${productName} // KNOWLEDGE ${action === 'archive' ? 'ARCHIVED' : 'RESTORED'}`)
       }
       await loadDirectory()
     } catch (mutationError) {

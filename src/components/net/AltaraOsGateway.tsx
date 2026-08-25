@@ -25,6 +25,7 @@ import type { NetResolvedOsSession } from '../../lib/netOsService'
 import { ALTARA_NEWS_PRODUCT_NAME } from '../../lib/netAltaraNewsTypes'
 import { wallpaperPositionToCss } from '../../lib/netWallpaperStore'
 import { NetAppWindow } from './NetAppWindow'
+import { NetSearchApp } from './NetSearchApp'
 import { AltaraEconomySettings, AltaraSettingsApp } from './altara/AltaraAppSurfaces'
 import { AltaraBankApp, type AltaraBankMode } from './altara/AltaraBankApp'
 import { AltaraStoreApp } from './altara/AltaraStoreApp'
@@ -879,6 +880,23 @@ export function AltaraOsGateway({
           error={gmSystemMode
             ? 'ADMINISTRATION MODE // Catalogue viewing is available; installation requires a controlled identity.'
               : identitySystem.state.status === 'error' ? identitySystem.state.reason : undefined}
+        />
+      </NetAppWindow>
+
+      <NetAppWindow
+        title="ALTARA SEARCH"
+        subtitle="ALTARA NETWORK // VERIFIED KNOWLEDGE"
+        icon={getAltaraAppDefinition('altara-search').icon}
+        accentRgb={getAltaraAppDefinition('altara-search').accentRgb}
+        {...windowManager.getManagedProps('altara-search')}
+      >
+        <NetSearchApp
+          key={`altara-search:${profile?.id ?? 'anonymous'}:${gmSystemMode ? 'gm-system' : 'player'}`}
+          accessMode={gmSystemMode ? 'gm-system' : 'player'}
+          enabled={Boolean(windowManager.windows['altara-search']?.open && shellReady)}
+          historyOwnerKey={profile?.id ?? 'anonymous'}
+          onNotice={setNotice}
+          surface="altara"
         />
       </NetAppWindow>
 
