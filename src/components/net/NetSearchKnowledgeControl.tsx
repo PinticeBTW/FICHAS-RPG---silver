@@ -10,6 +10,7 @@ import {
   Save,
   Search,
   ShieldAlert,
+  ShieldCheck,
   Trash2,
   Upload,
   X,
@@ -54,12 +55,15 @@ import {
   type NetSearchLorePreviewSection,
   type NetSearchVisibility,
 } from '../../lib/netSearchTypes'
+import type { NetOsId } from '../../lib/netOsTypes'
 
 import { NetSearchMarkdownEditor } from './NetSearchMarkdownEditor'
 import { NetSearchMarkdownPreview } from './NetSearchMarkdownPreview'
 
 interface NetSearchKnowledgeControlProps {
   readonly enabled: boolean
+  readonly workspaceOsId: NetOsId
+  readonly onSwitchWorkspace: (workspaceOsId: NetOsId) => Promise<void>
   readonly onNotice: (message: string) => void
   readonly productName?: string
 }
@@ -258,6 +262,8 @@ function importedTitle(fileName: string): string {
 
 export function NetSearchKnowledgeControl({
   enabled,
+  workspaceOsId,
+  onSwitchWorkspace,
   onNotice,
   productName = 'VEIL SEARCH',
 }: NetSearchKnowledgeControlProps) {
@@ -266,6 +272,7 @@ export function NetSearchKnowledgeControl({
   const [detailLoading, setDetailLoading] = useState(false)
   const [mutating, setMutating] = useState(false)
   const [previewLoading, setPreviewLoading] = useState(false)
+  const [workspaceSwitching, setWorkspaceSwitching] = useState(false)
   const [query, setQuery] = useState('')
   const [sourceFilter, setSourceFilter] = useState<NetSearchGmSourceFilter>('all')
   const [visibility, setVisibility] = useState<NetSearchVisibility | 'all'>('all')
@@ -380,6 +387,30 @@ export function NetSearchKnowledgeControl({
     setPreview(null)
     setDirty(false)
     setError(null)
+  }
+
+  const switchWorkspace = async (nextWorkspaceOsId: NetOsId) => {
+    if (
+      nextWorkspaceOsId === workspaceOsId
+      || workspaceSwitching
+      || mutating
+      || confirmAction
+    ) return
+    if (dirty && !window.confirm('Discard unsaved knowledge changes before switching networks?')) return
+
+    setWorkspaceSwitching(true)
+    setError(null)
+    try {
+      await onSwitchWorkspace(nextWorkspaceOsId)
+      const nextProductName = nextWorkspaceOsId === 'veil' ? 'VEIL SEARCH' : 'ALTARA SEARCH'
+      onNotice(`${nextProductName} // KNOWLEDGE NETWORK ACTIVE`)
+    } catch (workspaceError) {
+      setError(workspaceError instanceof Error
+        ? workspaceError.message
+        : 'The knowledge network could not be changed.')
+    } finally {
+      setWorkspaceSwitching(false)
+    }
   }
 
   const updateEntryDraft = <Key extends keyof KnowledgeDraft>(
@@ -560,14 +591,17 @@ export function NetSearchKnowledgeControl({
       ? documentLifecycleLabel(documentDetail)
       : null
   const directorySummary = `${directory.length} SOURCE${directory.length === 1 ? '' : 'S'}`
+  const workspaceKnowledgeLabel = workspaceOsId === 'veil'
+    ? 'VEIL / NEW VEGA KNOWLEDGE'
+    : 'ALTARA KNOWLEDGE'
   const displayedSectionCount = preview?.length
     ?? documentDetail?.searchableSections
     ?? estimateSearchableSections(documentDraft.rawContent.length)
   const isDocumentMode = editorMode === 'document'
 
   return (
-    <div className="net-search-control">
-      <aside className="net-search-control__directory">
+    <div className="net-search-control" aria-busy={workspaceSwitching}>
+      <aside className="net-search-control__directory" inert={workspaceSwitching ? true : undefined}>
         <header>
           <div><span>GM SYSTEM</span><strong>SEARCH INDEX</strong></div>
           <div className="net-search-control__create-actions">
@@ -575,6 +609,37 @@ export function NetSearchKnowledgeControl({
             <button type="button" onClick={startImportLore}><Upload size={13} /> Import lore</button>
           </div>
         </header>
+
+        <section className="net-search-control__workspace" aria-labelledby="net-search-knowledge-network-label">
+          <div>
+            <span id="net-search-knowledge-network-label">KNOWLEDGE NETWORK</span>
+            <strong>{workspaceKnowledgeLabel}</strong>
+          </div>
+          <div role="group" aria-label="Knowledge network">
+            <button
+              type="button"
+              data-active={workspaceOsId === 'veil' ? 'true' : 'false'}
+              aria-pressed={workspaceOsId === 'veil'}
+              disabled={workspaceSwitching || mutating || Boolean(confirmAction)}
+              onClick={() => { void switchWorkspace('veil') }}
+            >
+              {workspaceOsId === 'veil' ? <ShieldCheck size={12} aria-hidden="true" /> : <span aria-hidden="true" />}
+              <strong>VEIL</strong>
+              <small>NEW VEGA NETWORK</small>
+            </button>
+            <button
+              type="button"
+              data-active={workspaceOsId === 'altara' ? 'true' : 'false'}
+              aria-pressed={workspaceOsId === 'altara'}
+              disabled={workspaceSwitching || mutating || Boolean(confirmAction)}
+              onClick={() => { void switchWorkspace('altara') }}
+            >
+              {workspaceOsId === 'altara' ? <ShieldCheck size={12} aria-hidden="true" /> : <span aria-hidden="true" />}
+              <strong>ALTARA</strong>
+              <small>ALTARA NETWORK</small>
+            </button>
+          </div>
+        </section>
 
         <div className="net-search-control__filters">
           <label className="net-search-control__query">
@@ -597,7 +662,7 @@ export function NetSearchKnowledgeControl({
         </div>
 
         <div className="net-search-control__directory-status">
-          <span>{directorySummary}</span>
+          <span>{workspaceOsId === 'veil' ? 'VEIL KNOWLEDGE' : 'ALTARA KNOWLEDGE'} · {directorySummary}</span>
           <button type="button" onClick={() => void loadDirectory()} disabled={directoryLoading} aria-label="Refresh directory">
             <RefreshCw size={12} className={directoryLoading ? 'net-search-spin' : undefined} />
           </button>
@@ -638,7 +703,7 @@ export function NetSearchKnowledgeControl({
         </div>
       </aside>
 
-      <main className="net-search-control__editor">
+      <main className="net-search-control__editor" inert={workspaceSwitching ? true : undefined}>
         <header className="net-search-control__editor-head">
           <div>
             <span>{isDocumentMode ? (selectedId ? 'LORE DOCUMENT' : 'IMPORT LORE') : (selectedId ? 'CANONICAL ENTRY' : 'NEW ENTRY')}</span>
@@ -762,6 +827,14 @@ export function NetSearchKnowledgeControl({
           )}
         </footer>
       </main>
+
+      {workspaceSwitching ? (
+        <div className="net-search-control__workspace-transition" role="status" aria-live="polite">
+          <LoaderCircle className="net-search-spin" />
+          <strong>SWITCHING KNOWLEDGE NETWORK</strong>
+          <span>Confirming the GM workspace before loading its Search Index…</span>
+        </div>
+      ) : null}
 
       {confirmAction ? (
         <div className="net-search-control__confirm" role="dialog" aria-modal="true" aria-labelledby="net-search-confirm-title">

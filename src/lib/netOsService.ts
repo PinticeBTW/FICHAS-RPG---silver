@@ -159,3 +159,38 @@ export async function setNetGmIdentityPrimaryOs(
   if (error) throw new Error(`Operating-system assignment could not be changed: ${error.message}`)
   return parseGmAssignment(data)
 }
+
+/**
+ * Reads Silver's server-authoritative GM System workspace. The table is
+ * self-only under RLS, so this never accepts a caller-selected profile or
+ * knowledge scope.
+ */
+export async function fetchNetGmSystemWorkspace(): Promise<NetOsId> {
+  const { data, error } = await client()
+    .from('net_gm_persona_sessions')
+    .select('workspace_os_id')
+    .maybeSingle()
+  if (error) throw new Error(`GM System workspace could not be loaded: ${error.message}`)
+
+  const workspaceOsId: unknown = data?.workspace_os_id ?? 'veil'
+  if (!isNetOsId(workspaceOsId)) {
+    throw new Error('THE NET returned an invalid GM System workspace.')
+  }
+  return workspaceOsId
+}
+
+/**
+ * Persists Silver's GM System environment. Scoped applications derive their
+ * authority from this server state; the requested value is a workspace
+ * transition, never a per-request data scope.
+ */
+export async function setNetGmSystemWorkspace(osId: NetOsId): Promise<NetOsId> {
+  const { data, error } = await client().rpc('set_net_gm_system_workspace_v1', {
+    requested_workspace_os_id: osId,
+  })
+  if (error) throw new Error(`GM System workspace could not be changed: ${error.message}`)
+  if (!isNetOsId(data) || data !== osId) {
+    throw new Error('THE NET returned an invalid GM System workspace.')
+  }
+  return data
+}

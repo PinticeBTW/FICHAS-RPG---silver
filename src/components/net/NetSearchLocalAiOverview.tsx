@@ -44,6 +44,7 @@ interface NetSearchLocalAiOverviewProps {
 const DEFAULT_PRESENTATION: NetSearchLocalAiGenerationPresentation = {
   productName: 'VEIL Search',
   backendLabel: 'VEIL backend',
+  networkName: 'New Vega',
 }
 
 const LANGUAGE_OPTIONS: ReadonlyArray<{

@@ -16,6 +16,8 @@ import {
   fetchNetSearchHome,
   searchNetKnowledge,
 } from '../../lib/netSearchService'
+import { fetchNetGmSystemWorkspace, setNetGmSystemWorkspace } from '../../lib/netOsService'
+import type { NetOsId } from '../../lib/netOsTypes'
 import {
   cancelNetSearchLocalAiForNewSearch,
   cancelNetSearchLocalAiOperation,
@@ -61,14 +63,14 @@ const NET_SEARCH_PRESENTATIONS: Record<'veil' | 'altara', NetSearchPresentation>
     knowledgeIndexName: 'VEIL',
     heroNetworkLabel: 'VEGA MESH // VERIFIED INDEX',
     historyNamespace: 'veil-search',
-    localAi: { productName: 'VEIL Search', backendLabel: 'VEIL backend' },
+    localAi: { productName: 'VEIL Search', backendLabel: 'VEIL backend', networkName: 'New Vega' },
   },
   altara: {
     productName: 'ALTARA SEARCH',
     knowledgeIndexName: 'ALTARA',
     heroNetworkLabel: 'ALTARA NETWORK // VERIFIED INDEX',
     historyNamespace: 'altara-search',
-    localAi: { productName: 'ALTARA Search', backendLabel: 'ALTARA Search backend' },
+    localAi: { productName: 'ALTARA Search', backendLabel: 'ALTARA Search backend', networkName: 'ALTARA' },
   },
 }
 
@@ -146,7 +148,9 @@ export function NetSearchApp({
   onNotice,
   surface = 'veil',
 }: NetSearchAppProps) {
-  const presentation = NET_SEARCH_PRESENTATIONS[surface]
+  const [gmWorkspaceOsId, setGmWorkspaceOsId] = useState<NetOsId>(surface)
+  const activeSurface = accessMode === 'gm-system' ? gmWorkspaceOsId : surface
+  const presentation = NET_SEARCH_PRESENTATIONS[activeSurface]
   const historyStorageKey = `rpgsilver:${presentation.historyNamespace}:recent:v1:${historyOwnerKey}`
   const [query, setQuery] = useState('')
   const [submittedQuery, setSubmittedQuery] = useState('')
@@ -157,6 +161,9 @@ export function NetSearchApp({
   const [phase, setPhase] = useState<'idle' | 'loading' | 'ready' | 'failed'>('idle')
   const [detailPhase, setDetailPhase] = useState<'idle' | 'loading' | 'failed'>('idle')
   const [error, setError] = useState<string | null>(null)
+  const [gmScopePhase, setGmScopePhase] = useState<'idle' | 'syncing' | 'ready' | 'failed'>('idle')
+  const [gmScopeError, setGmScopeError] = useState<string | null>(null)
+  const [gmScopeRequestVersion, setGmScopeRequestVersion] = useState(0)
   const requestGenerationRef = useRef(0)
 
   useEffect(() => {
@@ -185,6 +192,40 @@ export function NetSearchApp({
     if (!enabled || accessMode === 'gm-system') return
     void loadHome()
   }, [accessMode, enabled, loadHome])
+
+  useEffect(() => {
+    if (!enabled || accessMode !== 'gm-system') {
+      setGmScopePhase('idle')
+      setGmScopeError(null)
+      return
+    }
+
+    let cancelled = false
+    setGmScopePhase('syncing')
+    setGmScopeError(null)
+    void fetchNetGmSystemWorkspace()
+      .then((workspaceOsId) => {
+        if (cancelled) return
+        setGmWorkspaceOsId(workspaceOsId)
+        setGmScopePhase('ready')
+      })
+      .catch((scopeError: unknown) => {
+        if (cancelled) return
+        setGmScopeError(scopeError instanceof Error
+          ? scopeError.message
+          : 'The Search network scope could not be activated.')
+        setGmScopePhase('failed')
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [accessMode, enabled, gmScopeRequestVersion])
+
+  const switchGmSearchWorkspace = useCallback(async (workspaceOsId: NetOsId) => {
+    const persistedWorkspaceOsId = await setNetGmSystemWorkspace(workspaceOsId)
+    setGmWorkspaceOsId(persistedWorkspaceOsId)
+  }, [])
 
   useEffect(() => {
     if (!enabled || accessMode === 'gm-system') {
@@ -282,7 +323,36 @@ export function NetSearchApp({
   }
 
   if (accessMode === 'gm-system') {
-    return <NetSearchKnowledgeControl enabled={enabled} onNotice={onNotice} productName={presentation.productName} />
+    if (enabled && gmScopePhase === 'failed') {
+      return (
+        <div className="net-search-app">
+          <div className="net-search-error" role="alert">
+            <strong>INDEX AUTHORITY FAILED</strong>
+            <span>{gmScopeError ?? 'The Search network scope could not be activated.'}</span>
+            <button type="button" onClick={() => setGmScopeRequestVersion((version) => version + 1)}>Retry</button>
+          </div>
+        </div>
+      )
+    }
+    if (enabled && gmScopePhase !== 'ready') {
+      return (
+        <div className="net-search-app">
+          <div className="net-search-state" role="status">
+            <LoaderCircle className="net-search-spin" /> Activating the GM Search index…
+          </div>
+        </div>
+      )
+    }
+    return (
+      <NetSearchKnowledgeControl
+        key={`gm-search-index:${gmWorkspaceOsId}`}
+        enabled={enabled && gmScopePhase === 'ready'}
+        workspaceOsId={gmWorkspaceOsId}
+        onSwitchWorkspace={switchGmSearchWorkspace}
+        onNotice={onNotice}
+        productName={presentation.productName}
+      />
+    )
   }
 
   return (

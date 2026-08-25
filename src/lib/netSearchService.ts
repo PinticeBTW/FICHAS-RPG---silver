@@ -144,6 +144,15 @@ function firstRow(value: unknown): Record<string, unknown> | null {
 }
 
 function mapRpcError(prefix: string, error: SupabaseRpcErrorLike): NetSearchRequestError {
+  if (
+    error.message.includes('NET_SEARCH_SCOPE_UNAVAILABLE')
+    || error.message.includes('NET_SEARCH_GM_WORKSPACE_CONTROLLED')
+  ) {
+    return new NetSearchRequestError(
+      'permission-denied',
+      'Search is unavailable in the current system environment.',
+    )
+  }
   if (error.code === '42501' || error.message.includes('Authentication is required')) {
     const isGmFailure = error.message.includes('GM')
     return new NetSearchRequestError(

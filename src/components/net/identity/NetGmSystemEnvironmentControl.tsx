@@ -7,6 +7,7 @@ import {
   readNetGmWorkspace,
   writeNetGmWorkspace,
 } from '../../../lib/netGmWorkspaceStore'
+import { setNetGmSystemWorkspace } from '../../../lib/netOsService'
 import { getNetOsLabel, netOsOptions, type NetOsId } from '../../../lib/netOsTypes'
 import { getNetIdentitySubjectId } from './netIdentitySelectors'
 import type { NetPlayableIdentityCandidate } from './netIdentityTypes'
@@ -52,6 +53,7 @@ export function NetGmSystemEnvironmentControl({
   showControlPicker = false,
 }: NetGmSystemEnvironmentControlProps) {
   const [workspaceOsId, setWorkspaceOsId] = useState<NetOsId>(() => readNetGmWorkspace(profileId))
+  const [workspaceChanging, setWorkspaceChanging] = useState(false)
   const [selectedControlKey, setSelectedControlKey] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
   const controlledIdentity = controller.state.status === 'controlled'
@@ -91,16 +93,20 @@ export function NetGmSystemEnvironmentControl({
     }
   }, [profileId])
 
-  const chooseWorkspace = (osId: NetOsId) => {
-    if (routingOverrideActive || osId === workspaceOsId) return
+  const chooseWorkspace = async (osId: NetOsId) => {
+    if (routingOverrideActive || workspaceChanging || osId === workspaceOsId) return
     try {
       setError(null)
+      setWorkspaceChanging(true)
+      await setNetGmSystemWorkspace(osId)
       writeNetGmWorkspace(profileId, osId)
       setWorkspaceOsId(osId)
     } catch (workspaceError) {
       setError(workspaceError instanceof Error
         ? workspaceError.message
         : 'The GM workspace preference could not be changed.')
+    } finally {
+      setWorkspaceChanging(false)
     }
   }
 
@@ -150,8 +156,8 @@ export function NetGmSystemEnvironmentControl({
             type="button"
             data-active={!routingOverrideActive && workspaceOsId === option.id ? 'true' : 'false'}
             aria-pressed={!routingOverrideActive && workspaceOsId === option.id}
-            disabled={routingOverrideActive}
-            onClick={() => chooseWorkspace(option.id)}
+            disabled={routingOverrideActive || workspaceChanging}
+            onClick={() => { void chooseWorkspace(option.id) }}
           >
             {workspaceOsId === option.id && !routingOverrideActive
               ? <ShieldCheck size={13} aria-hidden="true" />

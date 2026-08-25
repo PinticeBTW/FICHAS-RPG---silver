@@ -32,15 +32,18 @@ import type {
 
 export type NetSearchLocalAiProductName = 'VEIL Search' | 'ALTARA Search'
 export type NetSearchLocalAiBackendLabel = 'VEIL backend' | 'ALTARA Search backend'
+export type NetSearchLocalAiNetworkName = 'New Vega' | 'ALTARA'
 
 export interface NetSearchLocalAiGenerationPresentation {
   readonly productName: NetSearchLocalAiProductName
   readonly backendLabel: NetSearchLocalAiBackendLabel
+  readonly networkName: NetSearchLocalAiNetworkName
 }
 
 const DEFAULT_GENERATION_PRESENTATION: NetSearchLocalAiGenerationPresentation = {
   productName: 'VEIL Search',
   backendLabel: 'VEIL backend',
+  networkName: 'New Vega',
 }
 
 interface NavigatorWithWebGpu extends Navigator {
@@ -173,6 +176,16 @@ function buildGroundedPrompt(
   }).join('\n\n')
 
   return `QUERY:\n${query}\n\nVERIFIED CONTEXT:\n${verifiedContext}\n\nWrite a concise grounded answer in the required ${outputLanguage === 'en' ? 'English' : 'European Portuguese'} output language. Every factual claim must be supported by the numbered sources. If these sources are insufficient, use the verified-information-unavailable fallback instead of guessing.`
+}
+
+function localizedUnavailableFallback(
+  language: NetSearchLocalAiOutputLanguage,
+  presentation: NetSearchLocalAiGenerationPresentation,
+): string {
+  if (presentation.networkName === 'New Vega') return netSearchLocalAiFallback(language)
+  return language === 'en'
+    ? 'No verified information about that is available on the ALTARA network.'
+    : 'Não existe informação verificada disponível sobre isso na rede ALTARA.'
 }
 
 function toAiSources(contexts: readonly RetrievedContext[]): readonly NetSearchLocalAiSource[] {
@@ -475,7 +488,7 @@ class NetSearchLocalAiService {
         this.update({
           phase: 'complete',
           statusText: 'AI OVERVIEW',
-          answer: netSearchLocalAiFallback(outputLanguage),
+          answer: localizedUnavailableFallback(outputLanguage, presentation),
           sources: [],
         })
         return true
@@ -500,7 +513,9 @@ class NetSearchLocalAiService {
 
         const brandedSystemPrompt = presentation.productName === 'VEIL Search'
           ? NET_SEARCH_LOCAL_AI_SYSTEM_PROMPT
-          : NET_SEARCH_LOCAL_AI_SYSTEM_PROMPT.replace("VEIL Search's", `${presentation.productName}'s`)
+          : NET_SEARCH_LOCAL_AI_SYSTEM_PROMPT
+              .replace("VEIL Search's", `${presentation.productName}'s`)
+              .replaceAll('New Vega', presentation.networkName)
         const systemPrompt = `${brandedSystemPrompt}\n\n${netSearchLocalAiLanguageDirective(outputLanguage, attempt === 1)}`
         const stream = await engine.chat.completions.create({
           messages: [
@@ -530,7 +545,8 @@ class NetSearchLocalAiService {
         }
 
         if (operationId !== this.operationId) return false
-        const finalAnswer = answer.trim() || netSearchLocalAiFallback(outputLanguage)
+        const finalAnswer = answer.trim()
+          || localizedUnavailableFallback(outputLanguage, presentation)
         if (!isNetSearchLocalAiLanguageMismatch(finalAnswer, outputLanguage)) {
           this.update({
             phase: 'complete',
@@ -546,7 +562,7 @@ class NetSearchLocalAiService {
       this.update({
         phase: 'complete',
         statusText: 'AI OVERVIEW',
-        answer: netSearchLocalAiFallback(outputLanguage),
+        answer: localizedUnavailableFallback(outputLanguage, presentation),
         sources,
       })
       return true
