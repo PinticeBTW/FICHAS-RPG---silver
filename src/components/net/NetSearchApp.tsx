@@ -36,6 +36,7 @@ import '../../styles/netSearch.css'
 import type { NetAppAccessMode } from './netAppCatalog'
 import { NetSearchKnowledgeControl } from './NetSearchKnowledgeControl'
 import { NetSearchLocalAiOverview } from './NetSearchLocalAiOverview'
+import { NetSearchMarkdownPreview } from './NetSearchMarkdownPreview'
 
 interface NetSearchAppProps {
   readonly accessMode: NetAppAccessMode
@@ -285,9 +286,13 @@ export function NetSearchApp({
               </div>
             ) : null}
             <div className="net-search-detail__content">
-              {selectedEntry.content.split(/\n{2,}/).map((paragraph, index) => (
-                <p key={`${selectedEntry.id}:${index}`}>{paragraph}</p>
-              ))}
+              {selectedEntry.sourceKind === 'lore_document' ? (
+                <NetSearchMarkdownPreview content={selectedEntry.content} />
+              ) : (
+                selectedEntry.content.split(/\n{2,}/).map((paragraph, index) => (
+                  <p key={`${selectedEntry.id}:${index}`}>{paragraph}</p>
+                ))
+              )}
             </div>
             {selectedEntry.aliases.length > 0
               || selectedEntry.tags.length > 0

@@ -387,6 +387,18 @@
 .net-search-ai-overview button:disabled { opacity: 0.45; cursor: default; }
 .net-search-ai-overview button.primary { color: #101016; background: #b59aff; }
 
+.net-search-ai-overview__language {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: -3px;
+}
+.net-search-ai-overview__language > span { margin-right: 3px; color: #81759e; font-size: 8px; font-weight: 850; letter-spacing: 0.12em; }
+.net-search-ai-overview__language > button { min-height: 23px; padding: 3px 7px; font-size: 8px; }
+.net-search-ai-overview__language > button[aria-pressed='true'] { border-color: #b59aff; color: #0d0c12; background: #b59aff; }
+.net-search-ai-overview__language > small { margin-left: 4px; color: #65616e; }
+
 .net-search-ai-overview__consent {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -521,6 +533,42 @@
 .net-search-detail__document-meta strong { color: #8475ab; font-size: 8px; letter-spacing: 0.11em; text-transform: uppercase; }
 .net-search-detail__content { padding-top: 24px; border-top: 1px solid rgba(255, 255, 255, 0.1); }
 .net-search-detail__content p { color: #c7cfd6; font-size: 14px; line-height: 1.75; white-space: pre-wrap; }
+.net-search-markdown { min-width: 0; color: #c7cfd6; overflow-wrap: anywhere; }
+.net-search-markdown > * { content-visibility: auto; contain-intrinsic-size: auto 42px; }
+.net-search-markdown > :first-child { margin-top: 0; }
+.net-search-markdown > :last-child { margin-bottom: 0; }
+.net-search-markdown__segment > :first-child { margin-top: 0; }
+.net-search-markdown__segment > :last-child { margin-bottom: 0; }
+.net-search-markdown h1,
+.net-search-markdown h2,
+.net-search-markdown h3 { color: #f0f3f6; line-height: 1.18; text-wrap: balance; }
+.net-search-markdown h1 { margin: 1.6em 0 0.65em; font-size: clamp(25px, 4vw, 38px); letter-spacing: -0.025em; }
+.net-search-markdown h2 { margin: 1.5em 0 0.6em; padding-bottom: 8px; border-bottom: 1px solid rgba(181, 154, 255, 0.18); font-size: clamp(20px, 3vw, 28px); }
+.net-search-markdown h3 { margin: 1.35em 0 0.55em; color: #d8d0ec; font-size: 17px; }
+.net-search-markdown p { margin: 0.8em 0; color: #c7cfd6; font-size: 14px; line-height: 1.78; white-space: pre-wrap; }
+.net-search-markdown strong { color: #f2effa; }
+.net-search-markdown em { color: #d7d0e8; }
+.net-search-markdown ul,
+.net-search-markdown ol { display: grid; gap: 6px; margin: 0.9em 0; padding-left: 1.7em; color: #c3cbd2; }
+.net-search-markdown li { padding-left: 0.25em; line-height: 1.65; }
+.net-search-markdown li::marker { color: #a990ef; font-weight: 800; }
+.net-search-markdown blockquote { margin: 1.2em 0; padding: 10px 14px; border-left: 3px solid #9274e7; color: #b9b2ca; background: rgba(146, 116, 231, 0.07); }
+.net-search-markdown blockquote p { margin: 0; color: inherit; }
+.net-search-markdown a { color: #88d8ff; text-decoration-color: rgba(136, 216, 255, 0.45); text-underline-offset: 3px; }
+.net-search-markdown a:hover { color: #c4ebff; }
+.net-search-markdown hr { height: 1px; margin: 1.6em 0; border: 0; background: linear-gradient(90deg, transparent, rgba(181, 154, 255, 0.5), transparent); }
+.net-search-markdown code { padding: 0.1em 0.35em; color: #c9b7ff; background: rgba(181, 154, 255, 0.09); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 0.9em; }
+.net-search-markdown pre { max-width: 100%; padding: 12px; overflow: auto; border: 1px solid rgba(181, 154, 255, 0.14); background: #090d12; }
+.net-search-markdown pre code { padding: 0; color: #bdc7d0; background: transparent; }
+.net-search-markdown[data-compact='true'] h1,
+.net-search-markdown[data-compact='true'] h2,
+.net-search-markdown[data-compact='true'] h3 { margin: 0.45em 0 0.3em; padding: 0; border: 0; font-size: 11px; letter-spacing: 0.04em; }
+.net-search-markdown[data-compact='true'] p,
+.net-search-markdown[data-compact='true'] li { margin: 0; color: #aab5be; font-size: 10px; line-height: 1.55; }
+.net-search-markdown[data-compact='true'] ul,
+.net-search-markdown[data-compact='true'] ol { gap: 3px; margin: 5px 0; }
+.net-search-markdown[data-compact='true'] blockquote { margin: 5px 0; padding: 5px 8px; }
+.net-search-markdown__loading { margin: 0; color: #78838d; font-size: 10px; }
 .net-search-detail footer { display: grid; gap: 12px; margin-top: 32px; padding: 18px; border: 1px solid rgba(255, 255, 255, 0.08); background: rgba(255, 255, 255, 0.025); }
 .net-search-detail footer div { display: grid; gap: 4px; }
 .net-search-detail footer strong { color: #7d8994; font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; }
@@ -629,6 +677,9 @@
 .net-search-control__form label { display: grid; align-content: start; gap: 6px; min-width: 0; }
 .net-search-control__form label > span { color: #8e9aa5; font-size: 9px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; }
 .net-search-control__form label > span small { color: #5f6a74; font-size: 8px; font-weight: 650; letter-spacing: 0.03em; text-transform: none; }
+.net-search-control__lore-editor-field { display: grid; align-content: start; gap: 6px; min-width: 0; }
+.net-search-control__lore-editor-field > span { color: #8e9aa5; font-size: 9px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; }
+.net-search-control__lore-editor-field > span small { color: #5f6a74; font-size: 8px; font-weight: 650; letter-spacing: 0.03em; text-transform: none; }
 .net-search-control__form input,
 .net-search-control__form select,
 .net-search-control__form textarea { width: 100%; min-width: 0; box-sizing: border-box; padding: 9px 10px; font: inherit; font-size: 11px; line-height: 1.5; resize: vertical; }
@@ -639,6 +690,17 @@
 .net-search-control__content { min-height: 190px; }
 .net-search-control__form--lore { align-content: start; }
 .net-search-control__lore-content { min-height: 330px; font-family: ui-monospace, SFMono-Regular, Consolas, monospace !important; line-height: 1.65 !important; }
+.net-search-markdown-editor { min-width: 0; border: 1px solid rgba(255, 255, 255, 0.12); background: #0c1218; }
+.net-search-markdown-editor:focus-within { border-color: rgba(181, 154, 255, 0.44); }
+.net-search-markdown-editor__toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; padding: 7px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); background: #090e13; }
+.net-search-markdown-editor__toolbar > div { display: flex; gap: 3px; padding-right: 5px; border-right: 1px solid rgba(255, 255, 255, 0.08); }
+.net-search-markdown-editor__toolbar > div:last-child { margin-left: auto; padding-right: 0; border-right: 0; }
+.net-search-markdown-editor__toolbar button { display: inline-flex; min-width: 28px; min-height: 27px; align-items: center; justify-content: center; gap: 5px; padding: 5px 7px; border: 1px solid transparent; color: #8996a1; background: transparent; font: inherit; font-size: 8px; font-weight: 800; text-transform: uppercase; cursor: pointer; }
+.net-search-markdown-editor__toolbar button:hover,
+.net-search-markdown-editor__toolbar button[aria-pressed='true'] { border-color: rgba(181, 154, 255, 0.3); color: #c8b8f5; background: rgba(181, 154, 255, 0.08); }
+.net-search-markdown-editor__preview-toggle { padding-inline: 9px !important; }
+.net-search-markdown-editor .net-search-control__lore-content { display: block; border: 0; outline: 0; background: transparent; resize: vertical; }
+.net-search-markdown-editor__preview { max-height: 520px; padding: 18px; overflow: auto; border-top: 1px solid rgba(181, 154, 255, 0.18); background: rgba(7, 10, 15, 0.82); }
 .net-search-control__lore-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid rgba(181, 154, 255, 0.2); background: rgba(181, 154, 255, 0.04); }
 .net-search-control__lore-toolbar > div { display: flex; flex-wrap: wrap; gap: 14px; }
 .net-search-control__lore-toolbar span { display: flex; align-items: baseline; gap: 5px; color: #7e8995; font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; }
@@ -713,4 +775,5 @@
   .net-search-control__lore-toolbar,
   .net-search-control__preview > header { align-items: flex-start; flex-direction: column; }
   .net-search-control__preview > header > div:last-child { text-align: left; }
+  .net-search-markdown-editor__toolbar > div:last-child { width: 100%; margin-left: 0; }
 }

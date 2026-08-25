@@ -55,6 +55,9 @@ import {
   type NetSearchVisibility,
 } from '../../lib/netSearchTypes'
 
+import { NetSearchMarkdownEditor } from './NetSearchMarkdownEditor'
+import { NetSearchMarkdownPreview } from './NetSearchMarkdownPreview'
+
 interface NetSearchKnowledgeControlProps {
   readonly enabled: boolean
   readonly onNotice: (message: string) => void
@@ -674,17 +677,15 @@ export function NetSearchKnowledgeControl({ enabled, onNotice }: NetSearchKnowle
               <input ref={fileInputRef} type="file" accept=".txt,.md,text/plain,text/markdown" onChange={(event) => void importTextFile(event)} hidden />
             </div>
 
-            <label>
-              <span>Lore content</span>
-              <textarea
-                className="net-search-control__lore-content"
+            <div className="net-search-control__lore-editor-field">
+              <span>Lore content <small>Markdown source · safe formatted preview</small></span>
+              <NetSearchMarkdownEditor
                 value={documentDraft.rawContent}
-                onChange={(event) => updateDocumentDraft('rawContent', event.target.value)}
+                onChange={(value) => updateDocumentDraft('rawContent', value)}
                 maxLength={NET_SEARCH_LORE_CONTENT_MAX_LENGTH}
-                rows={20}
                 placeholder="Paste Silver/GM lore here. Long documents are automatically divided into searchable sections."
               />
-            </label>
+            </div>
 
             {preview ? (
               <section className="net-search-control__preview" aria-label="Lore import preview">
@@ -696,7 +697,7 @@ export function NetSearchKnowledgeControl({ enabled, onNotice }: NetSearchKnowle
                   {preview.slice(0, 16).map((section) => (
                     <article key={section.index}>
                       <strong>{String(section.index + 1).padStart(2, '0')} — {section.heading || `SECTION ${section.index + 1}`}</strong>
-                      <p>{section.excerpt}</p>
+                      <NetSearchMarkdownPreview content={section.excerpt} compact fallback={section.excerpt} />
                       <small>{section.characterCount.toLocaleString()} characters</small>
                     </article>
                   ))}

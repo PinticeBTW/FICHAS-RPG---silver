@@ -27,8 +27,10 @@ import {
   generateNetSearchLocalAiOverview,
   getNetSearchLocalAiSnapshot,
   requestNetSearchLocalAiEnable,
+  setNetSearchLocalAiLanguagePreference,
   subscribeNetSearchLocalAi,
 } from '../../lib/netSearchLocalAi/netSearchLocalAiService'
+import type { NetSearchLocalAiLanguagePreference } from '../../lib/netSearchLocalAi/netSearchLocalAiTypes'
 import type { NetSearchSourceKind } from '../../lib/netSearchTypes'
 
 interface NetSearchLocalAiOverviewProps {
@@ -36,6 +38,15 @@ interface NetSearchLocalAiOverviewProps {
   readonly searchReady: boolean
   readonly onOpenSource: (sourceId: string, sourceKind: NetSearchSourceKind) => void
 }
+
+const LANGUAGE_OPTIONS: ReadonlyArray<{
+  readonly value: NetSearchLocalAiLanguagePreference
+  readonly label: string
+}> = [
+  { value: 'auto', label: 'Auto' },
+  { value: 'pt-PT', label: 'PT-PT' },
+  { value: 'en', label: 'EN' },
+]
 
 export function NetSearchLocalAiOverview({
   query,
@@ -92,6 +103,21 @@ export function NetSearchLocalAiOverview({
           <span>AI OVERVIEW</span>
           <i>LOCAL DEVICE // OPTIONAL</i>
         </header>
+
+        <div className="net-search-ai-overview__language" role="group" aria-label="AI Overview answer language">
+          <span>LANGUAGE</span>
+          {LANGUAGE_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              aria-pressed={state.languagePreference === option.value}
+              onClick={() => setNetSearchLocalAiLanguagePreference(option.value)}
+            >
+              {option.label}
+            </button>
+          ))}
+          <small>AUTO chooses PT-PT or English; uncertain queries default to PT-PT.</small>
+        </div>
 
         {state.phase === 'checking' ? (
           <div className="net-search-ai-overview__status" role="status">
@@ -165,7 +191,7 @@ export function NetSearchLocalAiOverview({
         {showAnswer ? (
           <div className="net-search-ai-overview__answer" aria-live="polite">
             <div className="net-search-ai-overview__answer-head">
-              <strong>{state.phase === 'generating' ? 'GENERATING LOCALLY' : 'AI OVERVIEW'}</strong>
+              <strong>{state.phase === 'generating' ? `GENERATING LOCALLY · ${state.outputLanguage === 'en' ? 'EN' : 'PT-PT'}` : 'AI OVERVIEW'}</strong>
               {state.phase === 'generating' ? <LoaderCircle className="net-search-spin" size={13} /> : <ShieldCheck size={13} />}
             </div>
             <p>{state.answer || 'Reading the supplied verified sources…'}</p>

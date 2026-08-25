@@ -13,6 +13,8 @@ export type NetSearchLocalAiPhase =
   | 'error'
 
 export type NetSearchLocalAiInitializationStage = 'downloading' | 'loading_gpu'
+export type NetSearchLocalAiLanguagePreference = 'auto' | 'pt-PT' | 'en'
+export type NetSearchLocalAiOutputLanguage = Exclude<NetSearchLocalAiLanguagePreference, 'auto'>
 
 export interface NetSearchLocalAiSource {
   readonly sourceId: string
@@ -29,6 +31,8 @@ export interface NetSearchLocalAiState {
   readonly sources: readonly NetSearchLocalAiSource[]
   readonly activeQuery: string
   readonly modelCached: boolean
+  readonly languagePreference: NetSearchLocalAiLanguagePreference
+  readonly outputLanguage: NetSearchLocalAiOutputLanguage
   readonly initializationStage?: NetSearchLocalAiInitializationStage
 }
 
