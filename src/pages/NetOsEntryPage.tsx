@@ -2,7 +2,6 @@ import { KeyRound, Network, RefreshCw, UserRoundCheck } from 'lucide-react'
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 
 import { AltaraOsGateway } from '../components/net/AltaraOsGateway'
-import { VeilEarlyAccessGate } from '../components/net/VeilEarlyAccessGate'
 import { useNetActiveIdentitySession } from '../components/net/identity/useNetActiveIdentitySession'
 import { useNetPlayableIdentityCandidates } from '../components/net/identity/useNetPlayableIdentityCandidates'
 import { useNetSystemHackingRuntime } from '../components/net/system/useNetSystemHackingRuntime'
@@ -310,10 +309,8 @@ export function NetOsEntryPage() {
   }
 
   return (
-    <VeilEarlyAccessGate>
-      <Suspense fallback={<ResolutionScreen onRetry={resolve} />}>
-        <NetHubPage osSession={state.session} />
-      </Suspense>
-    </VeilEarlyAccessGate>
+    <Suspense fallback={<ResolutionScreen onRetry={resolve} />}>
+      <NetHubPage osSession={state.session} />
+    </Suspense>
   )
 }
