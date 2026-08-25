@@ -4,6 +4,7 @@ import {
   NET_SEARCH_ALIAS_MAX_LENGTH,
   NET_SEARCH_CONTENT_MAX_LENGTH,
   NET_SEARCH_GM_DIRECTORY_MAX_LIMIT,
+  NET_SEARCH_LORE_CONTENT_MAX_LENGTH,
   NET_SEARCH_QUERY_MAX_LENGTH,
   NET_SEARCH_QUERY_MIN_LENGTH,
   NET_SEARCH_REFERENCE_MAX_ITEMS,
@@ -11,6 +12,7 @@ import {
   NET_SEARCH_RESULT_DEFAULT_LIMIT,
   NET_SEARCH_RESULT_MAX_LIMIT,
   NET_SEARCH_SUMMARY_MAX_LENGTH,
+  NET_SEARCH_SOURCE_LABEL_MAX_LENGTH,
   NET_SEARCH_TAG_MAX_ITEMS,
   NET_SEARCH_TAG_MAX_LENGTH,
   NET_SEARCH_TITLE_MAX_LENGTH,
@@ -18,16 +20,23 @@ import {
   netSearchEntryStatuses,
   netSearchEntryTypes,
   netSearchGmLifecycleFilters,
+  netSearchGmSourceFilters,
   netSearchVisibilities,
   type NetSearchEntryDetail,
   type NetSearchEntryStatus,
   type NetSearchEntryType,
   type NetSearchGmDirectoryRow,
+  type NetSearchGmDocumentDetail,
+  type NetSearchGmDocumentInput,
   type NetSearchGmEntryDetail,
   type NetSearchGmEntryInput,
   type NetSearchGmLifecycleFilter,
+  type NetSearchGmSourceFilter,
+  type NetSearchLorePreviewSection,
   type NetSearchResult,
+  type NetSearchSourceKind,
   type NetSearchVisibility,
+  type RetrievedContext,
 } from './netSearchTypes'
 
 interface SupabaseRpcErrorLike {
@@ -55,6 +64,11 @@ function requiredString(value: unknown, maximumLength: number, label: string): s
     return invalidResponse(`Invalid ${label} returned by VEIL Search.`)
   }
   return value
+}
+
+function optionalString(value: unknown, maximumLength: number, label: string): string | undefined {
+  if (value === null || value === undefined) return undefined
+  return requiredString(value, maximumLength, label)
 }
 
 function uuid(value: unknown, label: string): string {
@@ -104,6 +118,19 @@ function numberValue(value: unknown, label: string): number {
   return value
 }
 
+function nonnegativeInteger(value: unknown, label: string): number {
+  const parsed = numberValue(value, label)
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    return invalidResponse(`Invalid ${label} returned by VEIL Search.`)
+  }
+  return parsed
+}
+
+function optionalNonnegativeInteger(value: unknown, label: string): number | undefined {
+  if (value === null || value === undefined) return undefined
+  return nonnegativeInteger(value, label)
+}
+
 function rows(value: unknown): readonly Record<string, unknown>[] {
   if (!Array.isArray(value) || !value.every(isRecord)) {
     return invalidResponse('Invalid row set returned by VEIL Search.')
@@ -133,6 +160,9 @@ function mapRpcError(prefix: string, error: SupabaseRpcErrorLike): NetSearchRequ
   if (error.message.includes('NET_SEARCH_ENTRY_NOT_FOUND')) {
     return new NetSearchRequestError('entry-not-found', 'That knowledge entry no longer exists.')
   }
+  if (error.message.includes('NET_SEARCH_DOCUMENT_NOT_FOUND')) {
+    return new NetSearchRequestError('document-not-found', 'That lore document no longer exists.')
+  }
   if (error.message.includes('NET_SEARCH_LIFECYCLE_INVALID')) {
     return new NetSearchRequestError('invalid-lifecycle', 'That knowledge lifecycle change is not allowed.')
   }
@@ -143,7 +173,20 @@ function mapRpcError(prefix: string, error: SupabaseRpcErrorLike): NetSearchRequ
 }
 
 function parseResult(row: Record<string, unknown>): NetSearchResult {
-  const sourceKind = enumValue(row.source_kind, ['knowledge'] as const, 'source kind')
+  const sourceKind = enumValue(
+    row.source_kind,
+    ['knowledge', 'lore_document'] as const,
+    'source kind',
+  ) as NetSearchSourceKind
+  const sourceLabel = optionalString(
+    row.source_label,
+    NET_SEARCH_SOURCE_LABEL_MAX_LENGTH,
+    'source label',
+  )
+  const searchableSections = optionalNonnegativeInteger(
+    row.searchable_sections,
+    'searchable section count',
+  )
   return {
     id: uuid(row.id, 'entry id'),
     sourceKind,
@@ -154,6 +197,8 @@ function parseResult(row: Record<string, unknown>): NetSearchResult {
     tags: stringArray(row.tags, NET_SEARCH_TAG_MAX_ITEMS, NET_SEARCH_TAG_MAX_LENGTH, 'tag'),
     updatedAt: timestamp(row.updated_at, 'updated timestamp'),
     score: numberValue(row.rank_score, 'rank score'),
+    ...(sourceLabel ? { sourceLabel } : {}),
+    ...(searchableSections !== undefined ? { searchableSections } : {}),
   }
 }
 
@@ -162,7 +207,13 @@ function parseEntryDetail(row: Record<string, unknown>): NetSearchEntryDetail {
   const expiresAt = optionalTimestamp(row.expires_at, 'expiry timestamp')
   return {
     ...parseResult(row),
-    content: requiredString(row.content, NET_SEARCH_CONTENT_MAX_LENGTH, 'content'),
+    content: requiredString(
+      row.content,
+      row.source_kind === 'lore_document'
+        ? NET_SEARCH_LORE_CONTENT_MAX_LENGTH
+        : NET_SEARCH_CONTENT_MAX_LENGTH,
+      'content',
+    ),
     aliases: stringArray(row.aliases, NET_SEARCH_ALIAS_MAX_ITEMS, NET_SEARCH_ALIAS_MAX_LENGTH, 'alias'),
     relatedReferences: stringArray(
       row.related_references,
@@ -178,8 +229,22 @@ function parseEntryDetail(row: Record<string, unknown>): NetSearchEntryDetail {
 function parseGmDirectoryRow(row: Record<string, unknown>): NetSearchGmDirectoryRow {
   const availableFrom = optionalTimestamp(row.available_from, 'availability timestamp')
   const expiresAt = optionalTimestamp(row.expires_at, 'expiry timestamp')
+  const sourceLabel = optionalString(
+    row.source_label,
+    NET_SEARCH_SOURCE_LABEL_MAX_LENGTH,
+    'source label',
+  )
+  const searchableSections = optionalNonnegativeInteger(
+    row.searchable_sections,
+    'searchable section count',
+  )
   return {
     id: uuid(row.id, 'entry id'),
+    sourceKind: enumValue(
+      row.source_kind,
+      ['knowledge', 'lore_document'] as const,
+      'source kind',
+    ) as NetSearchSourceKind,
     title: requiredString(row.title, NET_SEARCH_TITLE_MAX_LENGTH, 'title'),
     entryType: enumValue(row.entry_type, netSearchEntryTypes, 'entry type') as NetSearchEntryType,
     visibility: enumValue(row.visibility, netSearchVisibilities, 'visibility') as NetSearchVisibility,
@@ -187,6 +252,8 @@ function parseGmDirectoryRow(row: Record<string, unknown>): NetSearchGmDirectory
     ...(availableFrom ? { availableFrom } : {}),
     ...(expiresAt ? { expiresAt } : {}),
     updatedAt: timestamp(row.updated_at, 'updated timestamp'),
+    ...(sourceLabel ? { sourceLabel } : {}),
+    ...(searchableSections !== undefined ? { searchableSections } : {}),
   }
 }
 
@@ -218,6 +285,71 @@ function parseGmDetail(row: Record<string, unknown>): NetSearchGmEntryDetail {
   }
 }
 
+function parseGmDocumentDetail(row: Record<string, unknown>): NetSearchGmDocumentDetail {
+  const sourceLabel = optionalString(
+    row.source_label,
+    NET_SEARCH_SOURCE_LABEL_MAX_LENGTH,
+    'source label',
+  )
+  const availableFrom = optionalTimestamp(row.available_from, 'availability timestamp')
+  const expiresAt = optionalTimestamp(row.expires_at, 'expiry timestamp')
+  const searchableSections = nonnegativeInteger(
+    row.searchable_sections,
+    'searchable section count',
+  )
+  if (searchableSections < 1) {
+    return invalidResponse('VEIL Search returned a lore document without searchable sections.')
+  }
+  return {
+    id: uuid(row.id, 'document id'),
+    title: requiredString(row.title, NET_SEARCH_TITLE_MAX_LENGTH, 'title'),
+    ...(sourceLabel ? { sourceLabel } : {}),
+    visibility: enumValue(row.visibility, netSearchVisibilities, 'visibility') as NetSearchVisibility,
+    ...(availableFrom ? { availableFrom } : {}),
+    ...(expiresAt ? { expiresAt } : {}),
+    rawContent: requiredString(
+      row.raw_content,
+      NET_SEARCH_LORE_CONTENT_MAX_LENGTH,
+      'lore content',
+    ),
+    searchableSections,
+    createdAt: timestamp(row.created_at, 'created timestamp'),
+    updatedAt: timestamp(row.updated_at, 'updated timestamp'),
+  }
+}
+
+function parsePreviewSection(row: Record<string, unknown>): NetSearchLorePreviewSection {
+  const heading = optionalString(row.heading, 200, 'section heading')
+  return {
+    index: nonnegativeInteger(row.chunk_index, 'chunk index'),
+    ...(heading ? { heading } : {}),
+    excerpt: requiredString(row.excerpt, 360, 'section excerpt'),
+    characterCount: nonnegativeInteger(row.character_count, 'section character count'),
+  }
+}
+
+function parseRetrievedContext(row: Record<string, unknown>): RetrievedContext {
+  const heading = optionalString(row.heading, 200, 'context heading')
+  const sourceType = enumValue(
+    row.source_type,
+    ['canonical_entry', 'lore_document'] as const,
+    'context source type',
+  )
+  return {
+    sourceId: uuid(row.source_id, 'context source id'),
+    sourceType,
+    title: requiredString(row.title, NET_SEARCH_TITLE_MAX_LENGTH, 'context title'),
+    ...(heading ? { heading } : {}),
+    excerpt: requiredString(row.excerpt, 360, 'context excerpt'),
+    content: requiredString(
+      row.content,
+      sourceType === 'lore_document' ? 3000 : NET_SEARCH_CONTENT_MAX_LENGTH,
+      'context content',
+    ),
+    score: numberValue(row.rank_score, 'context rank score'),
+  }
+}
+
 function validateQuery(query: string): string {
   const normalized = query.trim()
   if (normalized.length < NET_SEARCH_QUERY_MIN_LENGTH || normalized.length > NET_SEARCH_QUERY_MAX_LENGTH) {
@@ -235,7 +367,7 @@ export async function searchNetKnowledge(
 ): Promise<readonly NetSearchResult[]> {
   const normalized = validateQuery(query)
   const boundedLimit = Math.min(Math.max(Math.trunc(limit), 1), NET_SEARCH_RESULT_MAX_LIMIT)
-  const { data, error } = await client().rpc('search_net_knowledge', {
+  const { data, error } = await client().rpc('search_net_knowledge_v2', {
     requested_query: normalized,
     requested_limit: boundedLimit,
   })
@@ -245,25 +377,30 @@ export async function searchNetKnowledge(
 
 export async function fetchNetSearchHome(limit = 8): Promise<readonly NetSearchResult[]> {
   const boundedLimit = Math.min(Math.max(Math.trunc(limit), 1), 12)
-  const { data, error } = await client().rpc('fetch_net_search_home', {
+  const { data, error } = await client().rpc('fetch_net_search_home_v2', {
     requested_limit: boundedLimit,
   })
   if (error) throw mapRpcError('VEIL Search home failed', error)
   return rows(data).map(parseResult)
 }
 
-export async function fetchNetSearchEntry(entryId: string): Promise<NetSearchEntryDetail | null> {
+export async function fetchNetSearchEntry(
+  entryId: string,
+  sourceKind: NetSearchSourceKind,
+): Promise<NetSearchEntryDetail | null> {
   if (!UUID_PATTERN.test(entryId)) return null
-  const { data, error } = await client().rpc('fetch_net_search_entry', {
-    requested_entry_id: entryId,
+  const { data, error } = await client().rpc('fetch_net_search_source_v2', {
+    requested_source_id: entryId,
+    requested_source_kind: sourceKind,
   })
-  if (error) throw mapRpcError('Knowledge entry failed to open', error)
+  if (error) throw mapRpcError('Knowledge source failed to open', error)
   const row = firstRow(data)
   return row ? parseEntryDetail(row) : null
 }
 
 export async function fetchNetSearchGmDirectory(input: {
   readonly query?: string
+  readonly sourceFilter?: NetSearchGmSourceFilter
   readonly visibility?: NetSearchVisibility | 'all'
   readonly lifecycle?: NetSearchGmLifecycleFilter
   readonly limit?: number
@@ -272,12 +409,17 @@ export async function fetchNetSearchGmDirectory(input: {
   if (!netSearchGmLifecycleFilters.includes(lifecycle)) {
     throw new NetSearchRequestError('invalid-input', 'Invalid knowledge lifecycle filter.')
   }
+  const sourceFilter = input.sourceFilter ?? 'all'
+  if (!netSearchGmSourceFilters.includes(sourceFilter)) {
+    throw new NetSearchRequestError('invalid-input', 'Invalid knowledge source filter.')
+  }
   const limit = Math.min(
     Math.max(Math.trunc(input.limit ?? NET_SEARCH_GM_DIRECTORY_MAX_LIMIT), 1),
     NET_SEARCH_GM_DIRECTORY_MAX_LIMIT,
   )
-  const { data, error } = await client().rpc('fetch_net_search_gm_directory', {
+  const { data, error } = await client().rpc('fetch_net_search_gm_directory_v2', {
     requested_query: input.query?.trim() || null,
+    requested_source_filter: sourceFilter,
     requested_visibility: input.visibility === 'all' ? null : input.visibility ?? null,
     requested_lifecycle: lifecycle,
     requested_limit: limit,
@@ -340,4 +482,70 @@ export async function deleteNetSearchGmEntry(entryId: string): Promise<boolean> 
   if (error) throw mapRpcError('Knowledge entry failed to delete', error)
   if (typeof data !== 'boolean') return invalidResponse('VEIL Search returned an invalid deletion result.')
   return data
+}
+
+export async function previewNetSearchGmLoreImport(
+  title: string,
+  rawContent: string,
+): Promise<readonly NetSearchLorePreviewSection[]> {
+  const { data, error } = await client().rpc('preview_net_search_gm_lore_import_v1', {
+    requested_title: title,
+    requested_raw_content: rawContent,
+  })
+  if (error) throw mapRpcError('Lore import preview failed', error)
+  return rows(data).map(parsePreviewSection)
+}
+
+export async function fetchNetSearchGmDocument(
+  documentId: string,
+): Promise<NetSearchGmDocumentDetail | null> {
+  if (!UUID_PATTERN.test(documentId)) return null
+  const { data, error } = await client().rpc('fetch_net_search_gm_document_v1', {
+    requested_document_id: documentId,
+  })
+  if (error) throw mapRpcError('Lore document failed to load', error)
+  const row = firstRow(data)
+  return row ? parseGmDocumentDetail(row) : null
+}
+
+export async function saveNetSearchGmDocument(
+  documentId: string | null,
+  input: NetSearchGmDocumentInput,
+): Promise<NetSearchGmDocumentDetail> {
+  const { data, error } = await client().rpc('save_net_search_gm_document_v1', {
+    requested_document_id: documentId,
+    requested_title: input.title,
+    requested_source_label: input.sourceLabel ?? null,
+    requested_visibility: input.visibility,
+    requested_available_from: input.availableFrom ?? null,
+    requested_expires_at: input.expiresAt ?? null,
+    requested_raw_content: input.rawContent,
+  })
+  if (error) throw mapRpcError('Lore document failed to save', error)
+  const row = firstRow(data)
+  if (!row) return invalidResponse('VEIL Search did not return the saved lore document.')
+  return parseGmDocumentDetail(row)
+}
+
+export async function deleteNetSearchGmDocument(documentId: string): Promise<boolean> {
+  const { data, error } = await client().rpc('delete_net_search_gm_document_v1', {
+    requested_document_id: documentId,
+  })
+  if (error) throw mapRpcError('Lore document failed to delete', error)
+  if (typeof data !== 'boolean') return invalidResponse('VEIL Search returned an invalid deletion result.')
+  return data
+}
+
+export async function retrieveNetSearchContext(
+  query: string,
+  limit = 8,
+): Promise<readonly RetrievedContext[]> {
+  const normalized = validateQuery(query)
+  const boundedLimit = Math.min(Math.max(Math.trunc(limit), 1), 12)
+  const { data, error } = await client().rpc('retrieve_net_search_context_v1', {
+    requested_query: normalized,
+    requested_limit: boundedLimit,
+  })
+  if (error) throw mapRpcError('Knowledge context retrieval failed', error)
+  return rows(data).map(parseRetrievedContext)
 }

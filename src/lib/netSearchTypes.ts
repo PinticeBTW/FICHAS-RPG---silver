@@ -13,6 +13,9 @@ export const NET_SEARCH_TAG_MAX_ITEMS = 20
 export const NET_SEARCH_TAG_MAX_LENGTH = 60
 export const NET_SEARCH_REFERENCE_MAX_ITEMS = 20
 export const NET_SEARCH_REFERENCE_MAX_LENGTH = 160
+export const NET_SEARCH_SOURCE_LABEL_MAX_LENGTH = 240
+export const NET_SEARCH_LORE_CONTENT_MAX_LENGTH = 500_000
+export const NET_SEARCH_LORE_FILE_MAX_BYTES = 2_000_000
 
 export const netSearchEntryTypes = [
   'person',
@@ -35,15 +38,18 @@ export const netSearchGmLifecycleFilters = [
   'expired',
   'archived',
 ] as const
+export const netSearchGmSourceFilters = ['all', 'entries', 'documents'] as const
 
 export type NetSearchEntryType = typeof netSearchEntryTypes[number]
 export type NetSearchVisibility = typeof netSearchVisibilities[number]
 export type NetSearchEntryStatus = typeof netSearchEntryStatuses[number]
 export type NetSearchGmLifecycleFilter = typeof netSearchGmLifecycleFilters[number]
+export type NetSearchGmSourceFilter = typeof netSearchGmSourceFilters[number]
+export type NetSearchSourceKind = 'knowledge' | 'lore_document'
 
 export interface NetSearchResult {
   readonly id: string
-  readonly sourceKind: 'knowledge'
+  readonly sourceKind: NetSearchSourceKind
   readonly entryType: NetSearchEntryType
   readonly title: string
   readonly summary: string
@@ -51,6 +57,8 @@ export interface NetSearchResult {
   readonly tags: readonly string[]
   readonly updatedAt: string
   readonly score: number
+  readonly sourceLabel?: string
+  readonly searchableSections?: number
 }
 
 export interface NetSearchEntryDetail extends NetSearchResult {
@@ -63,13 +71,16 @@ export interface NetSearchEntryDetail extends NetSearchResult {
 
 export interface NetSearchGmDirectoryRow {
   readonly id: string
+  readonly sourceKind: NetSearchSourceKind
   readonly title: string
   readonly entryType: NetSearchEntryType
+  readonly sourceLabel?: string
   readonly visibility: NetSearchVisibility
   readonly status: NetSearchEntryStatus
   readonly availableFrom?: string
   readonly expiresAt?: string
   readonly updatedAt: string
+  readonly searchableSections?: number
 }
 
 export interface NetSearchGmEntryInput {
@@ -93,12 +104,46 @@ export interface NetSearchGmEntryDetail extends NetSearchGmEntryInput {
   readonly archivedAt?: string
 }
 
+export interface NetSearchGmDocumentInput {
+  readonly title: string
+  readonly sourceLabel?: string
+  readonly visibility: NetSearchVisibility
+  readonly availableFrom?: string
+  readonly expiresAt?: string
+  readonly rawContent: string
+}
+
+export interface NetSearchGmDocumentDetail extends NetSearchGmDocumentInput {
+  readonly id: string
+  readonly searchableSections: number
+  readonly createdAt: string
+  readonly updatedAt: string
+}
+
+export interface NetSearchLorePreviewSection {
+  readonly index: number
+  readonly heading?: string
+  readonly excerpt: string
+  readonly characterCount: number
+}
+
+export interface RetrievedContext {
+  readonly sourceId: string
+  readonly sourceType: 'canonical_entry' | 'lore_document'
+  readonly title: string
+  readonly heading?: string
+  readonly excerpt: string
+  readonly content: string
+  readonly score: number
+}
+
 export type NetSearchRequestErrorCode =
   | 'authentication-required'
   | 'permission-denied'
   | 'invalid-query'
   | 'invalid-input'
   | 'entry-not-found'
+  | 'document-not-found'
   | 'invalid-lifecycle'
   | 'invalid-server-response'
   | 'request-failed'

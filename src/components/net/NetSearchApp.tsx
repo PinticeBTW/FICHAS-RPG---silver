@@ -1,9 +1,9 @@
 import {
   ArrowLeft,
   BookOpenText,
-  BrainCircuit,
   Clock3,
   Database,
+  FileText,
   LoaderCircle,
   Search,
   Sparkles,
@@ -17,15 +17,25 @@ import {
   searchNetKnowledge,
 } from '../../lib/netSearchService'
 import {
+  cancelNetSearchLocalAiForNewSearch,
+  cancelNetSearchLocalAiOperation,
+  canGenerateNetSearchLocalAiOverview,
+  checkNetSearchLocalAiCapability,
+  generateNetSearchLocalAiOverview,
+  releaseNetSearchLocalAi,
+} from '../../lib/netSearchLocalAi/netSearchLocalAiService'
+import {
   NET_SEARCH_QUERY_MAX_LENGTH,
   NET_SEARCH_QUERY_MIN_LENGTH,
   type NetSearchEntryDetail,
   type NetSearchResult,
+  type NetSearchSourceKind,
 } from '../../lib/netSearchTypes'
 import '../../styles/netSearch.css'
 
 import type { NetAppAccessMode } from './netAppCatalog'
 import { NetSearchKnowledgeControl } from './NetSearchKnowledgeControl'
+import { NetSearchLocalAiOverview } from './NetSearchLocalAiOverview'
 
 interface NetSearchAppProps {
   readonly accessMode: NetAppAccessMode
@@ -72,14 +82,22 @@ function NetSearchResultCard({
   onOpen,
 }: {
   readonly result: NetSearchResult
-  readonly onOpen: (entryId: string) => void
+  readonly onOpen: (sourceId: string, sourceKind: NetSearchSourceKind) => void
 }) {
+  const isLoreDocument = result.sourceKind === 'lore_document'
   return (
-    <button type="button" className="net-search-result" onClick={() => onOpen(result.id)}>
+    <button
+      type="button"
+      className="net-search-result"
+      data-source-kind={result.sourceKind}
+      onClick={() => onOpen(result.id, result.sourceKind)}
+    >
       <span className="net-search-result__source">
-        <Database size={12} aria-hidden="true" />
-        VEIL KNOWLEDGE
-        <i>{resultTypeLabel(result.entryType)}</i>
+        {isLoreDocument
+          ? <FileText size={12} aria-hidden="true" />
+          : <Database size={12} aria-hidden="true" />}
+        {isLoreDocument ? 'LORE DOCUMENT' : 'CANONICAL ENTRY'}
+        <i>{isLoreDocument ? `${result.searchableSections ?? 0} SECTIONS` : resultTypeLabel(result.entryType)}</i>
       </span>
       <strong>{result.title}</strong>
       <p>{result.summary}</p>
@@ -88,6 +106,7 @@ function NetSearchResultCard({
         <Clock3 size={12} aria-hidden="true" /> Updated {formatSearchDate(result.updatedAt)}
         {result.tags.slice(0, 3).map((tag) => <i key={tag}>#{tag}</i>)}
       </span>
+      {isLoreDocument ? <b className="net-search-result__open">OPEN SOURCE</b> : null}
     </button>
   )
 }
@@ -137,6 +156,18 @@ export function NetSearchApp({
     void loadHome()
   }, [accessMode, enabled, loadHome])
 
+  useEffect(() => {
+    if (!enabled || accessMode === 'gm-system') {
+      void releaseNetSearchLocalAi()
+      return
+    }
+    void checkNetSearchLocalAiCapability()
+  }, [accessMode, enabled])
+
+  useEffect(() => () => {
+    void releaseNetSearchLocalAi()
+  }, [])
+
   const rememberSearch = useCallback((value: string) => {
     setRecentSearches((current) => {
       const next = [
@@ -159,6 +190,7 @@ export function NetSearchApp({
       return
     }
 
+    cancelNetSearchLocalAiForNewSearch()
     const generation = ++requestGenerationRef.current
     setSelectedEntry(null)
     setDetailPhase('idle')
@@ -172,6 +204,9 @@ export function NetSearchApp({
       setPhase('ready')
       rememberSearch(normalized)
       onNotice(`VEIL SEARCH // ${nextResults.length} INDEX MATCH${nextResults.length === 1 ? '' : 'ES'}`)
+      if (canGenerateNetSearchLocalAiOverview()) {
+        void generateNetSearchLocalAiOverview(normalized)
+      }
     } catch (searchError) {
       if (requestGenerationRef.current !== generation) return
       setResults([])
@@ -185,12 +220,13 @@ export function NetSearchApp({
     void runSearch(query)
   }
 
-  const openEntry = useCallback(async (entryId: string) => {
+  const openEntry = useCallback(async (entryId: string, sourceKind: NetSearchSourceKind) => {
+    cancelNetSearchLocalAiOperation()
     const generation = ++requestGenerationRef.current
     setDetailPhase('loading')
     setError(null)
     try {
-      const entry = await fetchNetSearchEntry(entryId)
+      const entry = await fetchNetSearchEntry(entryId, sourceKind)
       if (requestGenerationRef.current !== generation) return
       if (!entry) {
         setError('This knowledge entry is no longer available.')
@@ -233,10 +269,21 @@ export function NetSearchApp({
               <ArrowLeft size={14} aria-hidden="true" /> Back to results
             </button>
             <span className="net-search-detail__source">
-              <Database size={13} aria-hidden="true" /> VEIL KNOWLEDGE · {resultTypeLabel(selectedEntry.entryType)}
+              {selectedEntry.sourceKind === 'lore_document'
+                ? <FileText size={13} aria-hidden="true" />
+                : <Database size={13} aria-hidden="true" />}
+              {selectedEntry.sourceKind === 'lore_document'
+                ? 'LORE DOCUMENT'
+                : `CANONICAL ENTRY · ${resultTypeLabel(selectedEntry.entryType)}`}
             </span>
             <h1>{selectedEntry.title}</h1>
             <p className="net-search-detail__summary">{selectedEntry.summary}</p>
+            {selectedEntry.sourceKind === 'lore_document' ? (
+              <div className="net-search-detail__document-meta">
+                <span><strong>Source</strong>{selectedEntry.sourceLabel || 'GM / Silver lore import'}</span>
+                <span><strong>Searchable sections</strong>{selectedEntry.searchableSections ?? 0}</span>
+              </div>
+            ) : null}
             <div className="net-search-detail__content">
               {selectedEntry.content.split(/\n{2,}/).map((paragraph, index) => (
                 <p key={`${selectedEntry.id}:${index}`}>{paragraph}</p>
@@ -298,15 +345,11 @@ export function NetSearchApp({
 
             {submittedQuery ? (
               <section className="net-search-results-view">
-                <div className="net-search-ai-overview">
-                  <BrainCircuit size={22} aria-hidden="true" />
-                  <div>
-                    <span>AI OVERVIEW</span>
-                    <strong>Local reasoning engine not initialized</strong>
-                    <p>Verified deterministic matches are available below. No generated text is being presented as canon.</p>
-                  </div>
-                  <i>ON-DEVICE // NEXT MODULE</i>
-                </div>
+                <NetSearchLocalAiOverview
+                  query={submittedQuery}
+                  searchReady={phase === 'ready'}
+                  onOpenSource={openEntry}
+                />
 
                 <header className="net-search-section-head">
                   <div><span>INDEX RESULTS</span><h2>“{submittedQuery}”</h2></div>
@@ -317,7 +360,7 @@ export function NetSearchApp({
                   <div className="net-search-state" role="status"><LoaderCircle className="net-search-spin" /> Scanning the bounded knowledge index…</div>
                 ) : results.length > 0 ? (
                   <div className="net-search-results">
-                    {results.map((result) => <NetSearchResultCard key={result.id} result={result} onOpen={openEntry} />)}
+                    {results.map((result) => <NetSearchResultCard key={`${result.sourceKind}:${result.id}`} result={result} onOpen={openEntry} />)}
                   </div>
                 ) : !error ? (
                   <div className="net-search-empty">
@@ -348,7 +391,7 @@ export function NetSearchApp({
                   <div className="net-search-state" role="status"><LoaderCircle className="net-search-spin" /> Synchronizing public knowledge…</div>
                 ) : homeEntries.length > 0 ? (
                   <div className="net-search-home-grid">
-                    {homeEntries.map((entry) => <NetSearchResultCard key={entry.id} result={entry} onOpen={openEntry} />)}
+                    {homeEntries.map((entry) => <NetSearchResultCard key={`${entry.sourceKind}:${entry.id}`} result={entry} onOpen={openEntry} />)}
                   </div>
                 ) : !error ? (
                   <div className="net-search-empty">
