@@ -10,6 +10,7 @@ function isNetWorldAppId(
 ): appId is Extract<NetWorldAppId, NetAppAccount['appId']> {
   return appId !== 'net-store'
     && appId !== 'relay'
+    && appId !== 'net-search'
     && appId !== 'vlt'
     && appId !== 'vox-bank'
     && appId !== 'shneider-bank'

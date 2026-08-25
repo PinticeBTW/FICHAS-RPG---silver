@@ -7,6 +7,7 @@ import {
   MessagesSquare,
   Newspaper,
   Music2,
+  Search,
   Settings2,
   Store,
   Video,
@@ -32,6 +33,7 @@ export type NetAppId =
   | 'nvn'
   | 'net-store'
   | 'relay'
+  | 'net-search'
   | 'loop'
   | 'altara-messenger'
   | 'altara-bank'
@@ -63,6 +65,7 @@ export type NetGmSystemEntryPoint =
   | 'vox-audio-studio'
   | 'economy-control'
   | 'reader'
+  | 'knowledge-control'
 
 export interface NetGmSystemAccessDefinition {
   readonly entryPoint: NetGmSystemEntryPoint
@@ -272,6 +275,35 @@ export const netAppCatalog: readonly NetAppDefinition[] = [
     defaultWindow: { width: 1040, height: 680, minWidth: 460, minHeight: 390 },
     subtitle: 'VEGA MESH // CIVIC COMMUNICATIONS',
     onlineNotice: 'RELAY // CIVIC COMMUNICATIONS ONLINE',
+  },
+  {
+    id: 'net-search',
+    scope: 'veil-only',
+    name: 'VEIL SEARCH',
+    owner: 'VEIL OS',
+    category: 'KNOWLEDGE',
+    description: 'The verified New Vega knowledge index for people, places, organizations, events, technology, and canonical records.',
+    shortDescription: 'Verified New Vega search',
+    searchAliases: ['search', 'find', 'lookup', 'index', 'knowledge', 'lore', 'new vega'],
+    accentRgb: '115, 207, 255',
+    icon: Search,
+    systemApp: true,
+    removable: false,
+    available: true,
+    catalogueStatus: 'available',
+    version: '1.0.0',
+    installSize: 'System image',
+    features: ['Verified knowledge index', 'Private local history', 'Source-first results'],
+    defaultWindow: { width: 1080, height: 720, minWidth: 560, minHeight: 430 },
+    subtitle: 'VEGA MESH // VERIFIED KNOWLEDGE',
+    onlineNotice: 'VEIL SEARCH // VERIFIED INDEX ONLINE',
+    gmSystemAccess: {
+      entryPoint: 'knowledge-control',
+      statusLabel: 'Knowledge Control',
+      actionLabel: 'Open Knowledge Control',
+      description: 'GM System opens the authoritative Search Index without presenting a fictional identity.',
+      onlineNotice: 'VEIL SEARCH // KNOWLEDGE CONTROL ONLINE',
+    },
   },
   {
     id: 'loop',

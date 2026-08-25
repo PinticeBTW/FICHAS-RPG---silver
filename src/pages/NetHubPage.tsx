@@ -59,6 +59,7 @@ import { VoxAudioApp } from '../components/net/VoxAudioApp'
 import { VoxAudioAudioEngine } from '../components/net/VoxAudioAudioEngine'
 import { useVoxAudioPlayer } from '../components/net/useVoxAudioPlayer'
 import { RelayApp } from '../components/net/RelayApp'
+import { NetSearchApp } from '../components/net/NetSearchApp'
 import {
   getNetAppDefinition,
   isNetOptionalAppId,
@@ -142,6 +143,7 @@ const WINDOW_IDS: readonly NetWindowId[] = [
   'vox-audio',
   'net-store',
   'relay',
+  'net-search',
   'wallpaper',
 ]
 
@@ -1217,17 +1219,11 @@ export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSes
     setIsLauncherOpen((open) => !open)
   }
 
-  const openLauncherSystemTool = (toolId: 'settings' | 'net-search') => {
+  const openLauncherSystemTool = (toolId: 'settings') => {
     if (toolId === 'settings') {
       openWallpaperSettings()
       return
     }
-
-    if (toolId === 'net-search') {
-      setNotice('NET SEARCH // INDEXING MODULE COMING SOON')
-      return
-    }
-
   }
 
   const handleWallpaperApply = async (input: WallpaperApplyInput): Promise<void> => {
@@ -1705,15 +1701,11 @@ export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSes
           <div className="net-desktop__system-shortcuts">
             <button
               type="button"
-              onClick={() =>
-                setNotice(
-                  'NET SEARCH // INDEXING MODULE COMING SOON',
-                )
-              }
+              onClick={() => handleOpenAppById('net-search')}
             >
               <Search size={17} />
 
-              <span>NET SEARCH</span>
+              <span>VEIL SEARCH</span>
             </button>
 
             <button
@@ -2109,6 +2101,22 @@ export function NetHubPage({ osSession }: { readonly osSession: NetResolvedOsSes
           key={relayIdentitySessionKey}
           enabled={Boolean(getWindowState('relay').open)}
           expectedIdentityLinkId={relayIdentityLinkId}
+        />
+      </NetAppWindow>
+
+      <NetAppWindow
+        title="VEIL SEARCH"
+        subtitle="VEGA MESH // VERIFIED KNOWLEDGE"
+        icon={Search}
+        accentRgb="115, 207, 255"
+        {...getManagedWindowProps('net-search')}
+      >
+        <NetSearchApp
+          key={`net-search:${profile?.id ?? 'anonymous'}:${shellAppAccessModes.get('net-search') ?? 'player'}`}
+          accessMode={shellAppAccessModes.get('net-search') ?? 'player'}
+          enabled={shellAppIdSet.has('net-search') && getWindowState('net-search').open}
+          historyOwnerKey={profile?.id ?? 'anonymous'}
+          onNotice={setNotice}
         />
       </NetAppWindow>
 

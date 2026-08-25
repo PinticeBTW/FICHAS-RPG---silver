@@ -31,7 +31,7 @@ export interface NetLauncherApp {
   state: NetLauncherAppState
 }
 
-type SystemToolId = 'settings' | 'net-search'
+type SystemToolId = 'settings'
 
 type LauncherItem =
   | { id: string; kind: 'app'; app: NetLauncherApp }
@@ -68,15 +68,6 @@ const SYSTEM_TOOLS: readonly Extract<LauncherItem, { kind: 'system' }>[] = [
     description: 'Personalisation & system',
     icon: Settings,
     aliases: ['wallpaper', 'personalisation', 'personalization', 'system'],
-  },
-  {
-    id: 'net-search',
-    kind: 'system',
-    label: 'NET Search',
-    description: 'Network index · unavailable',
-    icon: Search,
-    aliases: ['find', 'lookup', 'index'],
-    unavailable: true,
   },
 ]
 
