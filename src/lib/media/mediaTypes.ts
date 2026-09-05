@@ -1,6 +1,7 @@
 export type MediaOptimizationProfile = 'avatar' | 'wallpaper' | 'general' | 'small-ui'
 
 export type SharedMediaSubjectKind =
+  | 'lorelink-entity'
   | 'profile-sheet'
   | 'npc-card'
   | 'profile'

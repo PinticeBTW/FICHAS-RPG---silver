@@ -2245,6 +2245,17 @@ export function SheetWorkspacePage() {
             <Network size={14} />
             THE NET
           </button>
+          <button
+            type="button"
+            onClick={() => navigate(selectedProfile && (isOwnSelectedProfile || isOwnerOfSelectedNpcProfile)
+              ? `/app/history?sheet=${encodeURIComponent(selectedProfile.id)}&kind=${isNpcProfile(selectedProfile) ? 'npc-card' : 'profile-sheet'}`
+              : '/app/history')}
+            className="signal-button mt-2 inline-flex w-full items-center justify-center gap-2 px-3 py-2 text-xs"
+            data-variant="ghost"
+          >
+            <BookOpenText size={14} />
+            História
+          </button>
           
           <button
             type="button"

@@ -39,6 +39,7 @@ function mediaResolutionError(sourceError: unknown, fallbackMessage: string): Er
 }
 
 function signedUrlPolicy(path: string) {
+  if (path.startsWith('lorelink-entity/')) return { seconds: 60, cacheMs: 45_000 }
   return path.startsWith('nvn-article/') || path.startsWith('altara-news-article/')
     ? { seconds: NVN_SIGNED_URL_SECONDS, cacheMs: NVN_SIGNED_URL_CACHE_MS }
     : { seconds: SIGNED_URL_SECONDS, cacheMs: SIGNED_URL_CACHE_MS }

@@ -21,6 +21,8 @@ const NetOsEntryPage = lazy(() =>
   })),
 )
 
+const HistoryPage = lazy(() => import('../pages/HistoryPage').then(module => ({ default: module.HistoryPage })))
+
 const LandingPage = lazy(() =>
   import('../pages/LandingPage').then((module) => ({
     default: module.LandingPage,
@@ -64,6 +66,7 @@ export const router = createBrowserRouter([
         element: routeElement(<AppLayout />),
 
         children: [
+          { path: 'history', element: routeElement(<HistoryPage />) },
           {
             index: true,
             element: (

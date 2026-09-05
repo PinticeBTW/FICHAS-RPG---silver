@@ -8,12 +8,18 @@
     "build": "tsc -b && vite build",
     "media:migrate": "node scripts/migrate-legacy-media.mjs",
     "lint": "eslint .",
+    "test:lorelink": "node --test tests/lorelink/database.test.mjs tests/lorelink/queue.test.mjs tests/lorelink/player-database.test.mjs",
+    "test:lorelink:browser": "node --test tests/lorelink/browser.test.mjs",
+    "test:lorelink:browser:players": "node --test tests/lorelink/player-browser.test.mjs",
+    "test:lorelink:browser:reading": "node --test tests/lorelink/reading-graph.test.mjs",
+    "dev:lorelink:isolated": "node tests/lorelink/serve.mjs",
     "preview": "vite preview",
     "sheets:extract": "node scripts/extract-sheet-forms.mjs"
   },
   "dependencies": {
     "@mlc-ai/web-llm": "0.2.84",
     "@supabase/supabase-js": "^2.101.1",
+    "@xyflow/react": "12.11.6",
     "clsx": "^2.1.1",
     "lucide-react": "^1.7.0",
     "pdfjs-dist": "^5.6.205",
@@ -23,7 +29,9 @@
     "react-router-dom": "^7.14.0"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
     "@eslint/js": "^9.39.4",
+    "@playwright/test": "1.63.0",
     "@tailwindcss/vite": "^4.2.2",
     "@types/node": "^24.12.0",
     "@types/react": "^19.2.14",
