@@ -1,0 +1,35 @@
+.gg-player-overview { padding: 30px 34px; min-width: 0; color: var(--gg-text, #e9e8df); }
+.gg-player-overview-heading { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
+.gg-player-overview-heading h1 { font-family: var(--gg-display); font-size: 38px; text-transform: uppercase; margin: 9px 0; }
+.gg-player-overview-heading p:last-child { font-size: 13px; color: #999b8b; }
+.gg-player-overview-heading button { display: inline-flex; align-items: center; gap: 8px; border: 1px solid #36392d; padding: 10px 14px; font-size: 12px; background: #10130e; flex-shrink: 0; }
+.gg-player-overview-heading button:disabled { opacity: .55; }
+.gg-player-overview button:focus-visible, .gg-player-overview a:focus-visible { outline: 2px solid #ded15b; outline-offset: 4px; }
+.gg-player-overview-status { margin: 25px 0 18px; padding: 12px 0; border-top: 1px solid #2c3027; border-bottom: 1px solid #2c3027; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 11px; color: #a9aa9b; }
+.gg-player-overview-status span:first-child { color: #ddd164; }
+.gg-player-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 285px), 1fr)); gap: 16px; }
+.gg-player-card { min-width: 0; border: 1px solid #30352a; background: #0e120d; padding: 18px; border-top: 2px solid #a79e4a; }
+.gg-player-card > header { display: flex; gap: 12px; justify-content: space-between; margin-bottom: 20px; align-items: start; }
+.gg-player-card header p, .gg-player-stats dt, .gg-player-resource > div > span, .gg-player-index { font-family: var(--gg-mono); font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #a2a48e; }
+.gg-player-card h2 { font-size: 19px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; margin: 6px 0 0; }
+.gg-player-index { color: #686b56; border: 1px solid #30352a; padding: 5px; }
+.gg-player-resource { min-width: 0; }
+.gg-player-resource > div:first-child { display: flex; justify-content: space-between; gap: 7px; align-items: baseline; }
+.gg-player-resource > div > span { display: inline-flex; gap: 5px; align-items: center; }
+.gg-player-resource strong { font-size: 22px; font-variant-numeric: tabular-nums; }
+.gg-player-resource small { font-size: 13px; font-weight: 400; color: #929582; }
+.gg-player-bar { height: 5px; margin: 9px 0 0; background: #242a20; overflow: hidden; }
+.gg-player-bar i { display: block; height: 100%; background: #ded15b; }
+.gg-player-resource[data-low="true"] .gg-player-bar i { background: #e17b77; }
+.gg-player-resource[data-low="true"] strong { color: #eaa19b; }
+.gg-player-resources { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin: 20px 0; }
+.gg-player-resources strong { font-size: 17px; }
+.gg-player-resources .gg-player-bar i { background: #a6bfb2; }
+.gg-player-stats { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid #293025; border-bottom: 1px solid #293025; padding: 12px 0; margin: 0; gap: 8px; }
+.gg-player-stats dd { margin: 5px 0 0; font-size: 17px; font-variant-numeric: tabular-nums; }
+.gg-player-card footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; }
+.gg-player-card footer small { font-size: 10px; color: #929582; }
+.gg-player-card footer a { display: inline-flex; align-items: center; gap: 5px; color: #ded15b; font-size: 11px; white-space: nowrap; }
+.gg-player-legend { font-size: 11px; color: #8d907e; margin: 20px 0 0; }
+.gg-player-overview-empty { padding: 35px 0; font-size: 14px; color: #999b8b; }
+@media (max-width: 640px) { .gg-player-overview { padding: 24px 14px; } .gg-player-overview-heading { align-items: start; } .gg-player-overview-heading h1 { font-size: 29px; } .gg-player-overview-heading button { font-size: 11px; padding: 9px; } }

@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "media:migrate": "node scripts/migrate-legacy-media.mjs",
     "lint": "eslint .",
-    "test:lorelink": "node --test tests/lorelink/database.test.mjs tests/lorelink/queue.test.mjs tests/lorelink/player-database.test.mjs",
+    "test:lorelink": "node --test tests/lorelink/database.test.mjs tests/lorelink/queue.test.mjs tests/lorelink/player-database.test.mjs tests/lorelink/periods.test.mjs",
     "test:lorelink:browser": "node --test tests/lorelink/browser.test.mjs",
     "test:lorelink:browser:players": "node --test tests/lorelink/player-browser.test.mjs",
     "test:lorelink:browser:reading": "node --test tests/lorelink/reading-graph.test.mjs",

@@ -8,6 +8,8 @@ import { SubjectSwitcher } from '../components/common/SubjectSwitcher'
 import { QuickNotes } from '../components/common/QuickNotes'
 import { subjectName, useSubjectNames, type SubjectNames } from '../lib/archiveSubjects'
 import { WorkspaceHome } from '../components/dashboard/WorkspaceHome'
+import { PlayerOverview } from '../components/dashboard/PlayerOverview'
+import { newerSnapshot } from '../lib/playerOverview'
 import { rememberSheet } from '../lib/shellRecents'
 import { CyberwareCatalogManager } from '../components/character/CyberwareCatalogManager'
 import { PdfSheetEditor } from '../components/character/PdfSheetEditor'
@@ -18,7 +20,6 @@ import { MasterNotebookPanel } from '../components/notes/MasterNotebookPanel'
 import { PlayerNotebookPanel } from '../components/notes/PlayerNotebookPanel'
 import {
   SilverNotebook,
-  type SilverBoardInsertRequest,
   type SilverBoardProfileSummary,
 } from '../components/notes/SilverNotebook'
 import { useAuth } from '../hooks/useAuth'
@@ -109,50 +110,6 @@ function buildEmptyGlobalCyberwareCatalogRecord(): WebSheetRecord {
       [CYBERWARE_CATALOG_FIELD_KEY]: '[]',
     },
     updatedAt: new Date().toISOString(),
-  }
-}
-
-function extractBoardSheetProfileIds(pagesValue: string) {
-  if (!pagesValue.trim()) {
-    return []
-  }
-
-  try {
-    const parsed = JSON.parse(pagesValue) as unknown
-
-    if (!Array.isArray(parsed)) {
-      return []
-    }
-
-    const profileIds = new Set<string>()
-
-    for (const page of parsed) {
-      if (!page || typeof page !== 'object' || Array.isArray(page)) {
-        continue
-      }
-
-      const stickies = (page as { stickies?: unknown }).stickies
-
-      if (!Array.isArray(stickies)) {
-        continue
-      }
-
-      for (const sticky of stickies) {
-        if (!sticky || typeof sticky !== 'object' || Array.isArray(sticky)) {
-          continue
-        }
-
-        const entry = sticky as { kind?: unknown; linkedProfileId?: unknown }
-
-        if (entry.kind === 'sheet' && typeof entry.linkedProfileId === 'string') {
-          profileIds.add(entry.linkedProfileId)
-        }
-      }
-    }
-
-    return [...profileIds].sort((left, right) => left.localeCompare(right))
-  } catch {
-    return []
   }
 }
 
@@ -440,7 +397,7 @@ function getProfileSecondaryLine(profile: Profile) {
   return isNpcProfile(profile) ? 'NPC' : profile.email
 }
 
-function buildBoardProfileSummary(
+function buildPlayerProfileSummary(
   profile: Profile,
   sheet: WebSheetRecord | null | undefined,
 ): SilverBoardProfileSummary {
@@ -695,7 +652,7 @@ export function SheetWorkspacePage() {
   const directoryQuery = searchParams.get('q') ?? ''
   const navigate = useNavigate()
   const { profile, signOut, updateDisplayName } = useAuth()
-  const workspaceView = profile?.role !== 'gm' && ['cyberware', 'board', 'notes'].includes(requestedView) ? 'sheet' : requestedView
+  const workspaceView = profile?.role !== 'gm' && ['cyberware', 'board', 'notes', 'overview'].includes(requestedView) ? 'sheet' : requestedView === 'board' ? 'overview' : requestedView
   const authProfileId = profile?.id ?? null
   const authProfileRole = profile?.role ?? null
   const sheetContainerRef = useRef<HTMLDivElement | null>(null)
@@ -744,9 +701,11 @@ export function SheetWorkspacePage() {
   const [renamingProfileId, setRenamingProfileId] = useState<string | null>(null)
   const [renamingValue, setRenamingValue] = useState('')
   const [renamingSaving, setRenamingSaving] = useState(false)
-  const [boardSheetSnapshots, setBoardSheetSnapshots] = useState<Record<string, WebSheetRecord | null>>({})
-  const [pendingBoardProfileCard, setPendingBoardProfileCard] =
-    useState<SilverBoardInsertRequest | null>(null)
+  const [playerSheetSnapshots, setPlayerSheetSnapshots] = useState<Record<string, WebSheetRecord | null>>({})
+  const [loadingOverview, setLoadingOverview] = useState(false)
+  const [overviewFailedIds, setOverviewFailedIds] = useState<string[]>([])
+  const [overviewRefresh, setOverviewRefresh] = useState(0)
+  const snapshotActorRef = useRef<string | null>(null)
   const [profileSearchQuery, setProfileSearchQuery] = useState('')
   const [shareViewerIds, setShareViewerIds] = useState<string[]>([])
   const [loadedShareViewerIds, setLoadedShareViewerIds] = useState<string[]>([])
@@ -760,7 +719,7 @@ export function SheetWorkspacePage() {
   const [relationShareError, setRelationShareError] = useState<string | null>(null)
   const [relationShareFeedback, setRelationShareFeedback] = useState<string | null>(null)
   const gmWorkspaceView = workspaceView === 'cyberware' ? 'cyberware' : 'sheet'
-  const silverMasterView = workspaceView === 'notebook' ? 'caderno' : 'quadro'
+  const silverMasterView = workspaceView === 'notebook' ? 'caderno' : 'notas'
 
   const accessibleProfiles = useMemo(() => {
     if (!authProfileId) {
@@ -777,10 +736,17 @@ export function SheetWorkspacePage() {
         .join('|'),
     [accessibleProfiles],
   )
-  const boardLinkedProfileIdSignature = useMemo(
-    () => extractBoardSheetProfileIds(draftFields.GM_NOTE_PAGES ?? '').join('|'),
-    [draftFields.GM_NOTE_PAGES],
+  const overviewProfiles = useMemo(
+    () => {
+      const playerIds = new Set(accessibleProfiles.filter((entry) => entry.role === 'player' && !isNpcProfile(entry)).map((entry) => entry.id))
+      return accessibleProfiles.filter((entry) => playerIds.has(entry.id) || Boolean(entry.ownerProfileId && playerIds.has(entry.ownerProfileId)))
+    },
+    [accessibleProfiles],
   )
+  const snapshotProfileIdSignature = workspaceView === 'overview'
+    ? overviewProfiles.map((entry) => entry.id).sort().join('|')
+    : ''
+  const showingPlayerOverview = profile?.role === 'gm' && workspaceView === 'overview'
 
   const selectedProfile =
     accessibleProfiles.find((entry) => entry.id === profileId) ??
@@ -889,17 +855,14 @@ export function SheetWorkspacePage() {
         .includes(normalizedProfileSearchQuery),
     )
   }, [accessibleProfiles, normalizedProfileSearchQuery, subjectNames])
-  const boardProfiles = useMemo(
-    () =>
-      accessibleProfiles.map((entry) => buildBoardProfileSummary(entry, boardSheetSnapshots[entry.id])),
-    [accessibleProfiles, boardSheetSnapshots],
-  )
-  const boardProfileFieldData = useMemo(
-    () =>
-      Object.fromEntries(
-        accessibleProfiles.map((entry) => [entry.id, boardSheetSnapshots[entry.id]?.fieldData ?? {}]),
-      ) as Record<string, Record<string, string>>,
-    [accessibleProfiles, boardSheetSnapshots],
+  const overviewPlayers = useMemo(
+    () => overviewProfiles.map((entry) => {
+      const snapshot = playerSheetSnapshots[entry.id]
+      const summary = buildPlayerProfileSummary(entry, snapshot)
+      return snapshot ? summary : { ...summary, displayName: subjectName(entry, subjectNames) }
+    })
+      .sort((left, right) => left.displayName.localeCompare(right.displayName, 'pt')),
+    [overviewProfiles, playerSheetSnapshots, subjectNames],
   )
   const sheetSignature = useMemo(
     () => serializeFieldData(sheet?.fieldData ?? {}),
@@ -1210,7 +1173,7 @@ export function SheetWorkspacePage() {
       try {
         const nextSheet = isNpcProfile(activeProfile)
           ? await fetchNpcSheet(selectedProfileId)
-          : canEdit
+          : canEdit && !showingPlayerOverview
             ? await fetchOrCreateSheet(activeProfile)
             : await fetchSheetSnapshot(activeProfile)
 
@@ -1268,7 +1231,7 @@ export function SheetWorkspacePage() {
     return () => {
       cancelled = true
     }
-  }, [canEdit, selectedProfileId])
+  }, [canEdit, selectedProfileId, showingPlayerOverview])
 
   useEffect(() => {
     if (!canEdit || !selectedProfileId || !sheet) {
@@ -1370,12 +1333,14 @@ export function SheetWorkspacePage() {
   }, [selectedProfileId])
 
   useEffect(() => {
-    if (!isSilverWorkspace || !boardLinkedProfileIdSignature) {
-      setBoardSheetSnapshots({})
+    if (!showingPlayerOverview || !snapshotProfileIdSignature) {
+      setPlayerSheetSnapshots({})
+      setLoadingOverview(false)
+      setOverviewFailedIds([])
       return
     }
 
-    const linkedProfileIds = boardLinkedProfileIdSignature.split('|').filter(Boolean)
+    const linkedProfileIds = snapshotProfileIdSignature.split('|').filter(Boolean)
     const linkedProfiles = linkedProfileIds
       .map((profileId) =>
         accessibleProfilesRef.current.find((entry) => entry.id === profileId) ?? null,
@@ -1383,20 +1348,27 @@ export function SheetWorkspacePage() {
       .filter((entry): entry is Profile => Boolean(entry))
 
     if (!linkedProfiles.length) {
-      setBoardSheetSnapshots({})
+      setPlayerSheetSnapshots({})
       return
     }
 
     let cancelled = false
+    const failedIds: string[] = []
+    const sameActor = snapshotActorRef.current === authProfileId
+    snapshotActorRef.current = authProfileId
+    setPlayerSheetSnapshots((current) => sameActor
+      ? Object.fromEntries(linkedProfileIds.map((id) => [id, current[id] ?? null]))
+      : {})
+    setLoadingOverview(true)
+    setOverviewFailedIds([])
 
     void Promise.all(
       linkedProfiles.map(async (entry) => {
         try {
-          const snapshot = await fetchSheetSnapshot(entry, {
-            preferCache: true,
-          })
+          const snapshot = await fetchSheetSnapshot(entry)
           return [entry.id, snapshot] as const
         } catch {
+          failedIds.push(entry.id)
           return [entry.id, null] as const
         }
       }),
@@ -1406,27 +1378,16 @@ export function SheetWorkspacePage() {
       }
 
       const fetchedSnapshots = Object.fromEntries(entries)
+      setLoadingOverview(false)
+      setOverviewFailedIds(failedIds)
 
-      setBoardSheetSnapshots((current) =>
+      setPlayerSheetSnapshots((current) =>
         Object.fromEntries(
           linkedProfileIds.map((profileId) => {
             const currentSnapshot = current[profileId]
             const fetchedSnapshot = fetchedSnapshots[profileId] ?? null
 
-            if (!currentSnapshot) {
-              return [profileId, fetchedSnapshot]
-            }
-
-            if (!fetchedSnapshot) {
-              return [profileId, currentSnapshot]
-            }
-
-            return [
-              profileId,
-              fetchedSnapshot.updatedAt >= currentSnapshot.updatedAt
-                ? fetchedSnapshot
-                : currentSnapshot,
-            ]
+            return [profileId, newerSnapshot(currentSnapshot, fetchedSnapshot)]
           }),
         ),
       )
@@ -1436,9 +1397,11 @@ export function SheetWorkspacePage() {
       const subscribe = isNpcProfile(entry) ? subscribeToNpcSheet : subscribeToSheet
 
       return subscribe(entry.id, (nextSheet) => {
-        setBoardSheetSnapshots((current) => ({
+        if (cancelled) return
+        setOverviewFailedIds((current) => current.filter((id) => id !== entry.id))
+        setPlayerSheetSnapshots((current) => ({
           ...current,
-          [entry.id]: nextSheet,
+          [entry.id]: newerSnapshot(current[entry.id], nextSheet),
         }))
       })
     })
@@ -1447,7 +1410,7 @@ export function SheetWorkspacePage() {
       cancelled = true
       unsubscribeCallbacks.forEach((unsubscribe) => unsubscribe())
     }
-  }, [accessibleProfileIdsSignature, boardLinkedProfileIdSignature, isSilverWorkspace])
+  }, [accessibleProfileIdsSignature, authProfileId, snapshotProfileIdSignature, showingPlayerOverview, overviewRefresh])
 
   useEffect(() => {
     const targetProfile = selectedProfileRef.current
@@ -1507,14 +1470,6 @@ export function SheetWorkspacePage() {
       cancelled = true
     }
   }, [canConfigureShareAccess, selectedProfile?.email, selectedProfile?.id])
-
-  const queueBoardProfileCard = useCallback((profileId: string) => {
-    setPendingBoardProfileCard({
-      profileId,
-      nonce: crypto.randomUUID(),
-    })
-    navigate('?view=board')
-  }, [navigate])
 
   const handleSaveShareAccess = useCallback(async () => {
     if (!selectedProfile) {
@@ -1602,7 +1557,7 @@ export function SheetWorkspacePage() {
         }),
       )
 
-      setBoardSheetSnapshots((current) => {
+      setPlayerSheetSnapshots((current) => {
         const nextSnapshots = { ...current }
 
         savedSheets.forEach((savedSheet) => {
@@ -2081,15 +2036,16 @@ export function SheetWorkspacePage() {
 
       {statusSlot ? createPortal(<>
         <span className="gg-save-state" role="status" data-saved={!showingMasterNotebook && !hasPendingUnsavedChanges && Boolean(activeUpdatedAt) && !error} data-dirty={hasPendingUnsavedChanges}
-          title={activeUpdatedAt ? 'Última gravação: ' + formatTimestamp(activeUpdatedAt) : syncLabel}>
-          {showingMasterNotebook ? (notebookPending ? 'Caderno por guardar…' : 'Gravação no caderno') : activeSaving ? 'A guardar…' : error ? 'Verificar gravação' : hasPendingUnsavedChanges ? 'Alterações por guardar' : activeUpdatedAt ? 'SYNC OK' : 'A carregar…'}
+          title={showingPlayerOverview ? 'Consulta dos valores guardados nas fichas dos jogadores' : activeUpdatedAt ? 'Última gravação: ' + formatTimestamp(activeUpdatedAt) : syncLabel}>
+          {showingPlayerOverview ? (loadingOverview ? 'A atualizar fichas…' : overviewFailedIds.length ? 'Verificar fichas' : 'Visão dos jogadores') : showingMasterNotebook ? (notebookPending ? 'Caderno por guardar…' : 'Gravação no caderno') : activeSaving ? 'A guardar…' : error ? 'Verificar gravação' : hasPendingUnsavedChanges ? 'Alterações por guardar' : activeUpdatedAt ? 'SYNC OK' : 'A carregar…'}
         </span>
-        {canEdit && !showingMasterNotebook ? <button className="gg-save-button" disabled={activeSaveDisabled} onClick={() => { if (showingCyberwareManager) void handleSaveGlobalCyberwareCatalog(); else void handleSave() }}><Save size={14} />Guardar</button> : null}
+        {canEdit && !showingMasterNotebook && !showingPlayerOverview ? <button className="gg-save-button" disabled={activeSaveDisabled} onClick={() => { if (showingCyberwareManager) void handleSaveGlobalCyberwareCatalog(); else void handleSave() }}><Save size={14} />Guardar</button> : null}
       </>, statusSlot) : null}
       {accountSlot ? createPortal(<button className="gg-account-button" title="Sair da conta" aria-label="Sair da conta" onClick={() => void handleSignOut()}><LogOut size={14} /></button>, accountSlot) : null}
       {workspaceView === 'home' ? <WorkspaceHome names={subjectNames} profile={profile} profiles={accessibleProfiles} selectedProfile={selectedProfile} fieldData={isGm || isOwnSelectedProfile || canEditPlayerNpcSheet ? draftFields : {}} onCreate={() => { handleStartCreateFicha(); navigate('?view=operatives') }} /> : null}
       {workspaceView === 'master' && !isGm ? <EmptyState title="Área do Mestre" detail="Esta área está reservada ao Mestre da campanha." /> : null}
-      {workspaceView === 'master' && isGm ? <div className="gg-home"><p className="gg-eyebrow">SILVER / MESTRE</p><h1>Ferramentas da campanha</h1><div className="gg-quick-actions mt-8"><Link to="?view=operatives">Gerir operativos e pastas</Link><Link to="?view=cyberware">Gerir catálogo de cyberware</Link><Link to={`/app/sheets/${profile.id}?view=notebook`}>Caderno do Mestre</Link><Link to={`/app/sheets/${profile.id}?view=board`}>Quadro da campanha</Link></div></div> : null}
+      {workspaceView === 'master' && isGm ? <div className="gg-home"><p className="gg-eyebrow">SILVER / MESTRE</p><h1>Ferramentas da campanha</h1><div className="gg-quick-actions mt-8"><Link to="?view=operatives">Gerir operativos e pastas</Link><Link to="?view=cyberware">Gerir catálogo de cyberware</Link><Link to={`/app/sheets/${profile.id}?view=notebook`}>Caderno do Mestre</Link><Link to={`/app/sheets/${profile.id}?view=overview`}>Visão geral dos jogadores</Link></div></div> : null}
+      {showingPlayerOverview ? <PlayerOverview players={overviewPlayers} loading={loadingProfiles || loadingOverview} failedIds={overviewFailedIds} onRefresh={() => setOverviewRefresh((current) => current + 1)} /> : null}
       <div className="min-w-0">
         {workspaceView === 'operatives' ? (
         <section className="gg-directory" aria-label="Operativos e pastas">
@@ -2444,7 +2400,6 @@ export function SheetWorkspacePage() {
                             onSaveRename={() => void handleSaveRename(entry)}
                             onCancelRename={handleCancelRename}
                             onDeleteNpc={entry.email.startsWith('npc:') ? () => setConfirmDeleteNpcId(entry.id) : undefined}
-                            onPinToBoard={isSilverWorkspace ? () => queueBoardProfileCard(entry.id) : undefined}
                           />
                         ))
                       )}
@@ -2479,7 +2434,6 @@ export function SheetWorkspacePage() {
                   onSaveRename={() => void handleSaveRename(entry)}
                   onCancelRename={handleCancelRename}
                   onDeleteNpc={entry.email.startsWith('npc:') ? () => setConfirmDeleteNpcId(entry.id) : undefined}
-                  onPinToBoard={isSilverWorkspace ? () => queueBoardProfileCard(entry.id) : undefined}
                 />
               ))
             })()}
@@ -2519,19 +2473,19 @@ export function SheetWorkspacePage() {
 
           </> : <EmptyState title="Caderno privado" detail="Escolhe uma ficha tua em Operativos para abrir o caderno." />}
         </section> : null}
-        {!['home', 'operatives', 'master'].includes(workspaceView) && !(workspaceView === 'notebook' && !isGm) ? <section className={`relative min-w-0 space-y-4${isSilverWorkspace && !showingCyberwareManager ? ' gg-native-tools' : ''}`}>
+        {!['home', 'operatives', 'master', 'overview'].includes(workspaceView) && !(workspaceView === 'notebook' && !isGm) ? <section className={`relative min-w-0 space-y-4${isSilverWorkspace && !showingCyberwareManager ? ' gg-native-tools' : ''}`}>
           <div className="gg-context-bar">
             <Link to={isSilverWorkspace || showingCyberwareManager ? '?view=home' : '?view=operatives'}>{isSilverWorkspace || showingCyberwareManager ? 'Arquivo' : 'Operativos'}</Link>
-            <span className="gg-context-subject">/ {showingCyberwareManager ? 'Cyberware' : isSilverWorkspace ? showingMasterNotebook ? 'Caderno' : workspaceView === 'notes' ? 'Notas' : 'Quadro' : selectedProfile ? subjectName(selectedProfile, subjectNames) : 'A carregar…'}</span>
+            <span className="gg-context-subject">/ {showingCyberwareManager ? 'Cyberware' : isSilverWorkspace ? showingMasterNotebook ? 'Caderno' : 'Notas' : selectedProfile ? subjectName(selectedProfile, subjectNames) : 'A carregar…'}</span>
             <div className="gg-context-links"><Link to={`/app/sheets/${isGm ? profile.id : selectedProfile?.id}?view=notebook`}>Caderno</Link><Link to={selectedProfile && (isOwnSelectedProfile || isOwnerOfSelectedNpcProfile) ? `/app/history?sheet=${encodeURIComponent(selectedProfile.id)}&kind=${isNpcProfile(selectedProfile) ? 'npc-card' : 'profile-sheet'}` : '/app/history'}>História</Link></div>
             {!showingMasterNotebook && !showingCyberwareManager && !isSilverWorkspace ? <SubjectSwitcher names={subjectNames} key={selectedProfile?.id} actorId={profile.id} profiles={accessibleProfiles} selectedId={selectedProfile?.id} /> : null}
           </div>
           {workspaceView === 'cyberware' && !isGm ? <p className="gg-context-bar">O teu cyberware está na ficha, com o catálogo autorizado para a tua conta.</p> : null}
           {workspaceView === 'board' && !isGm ? <p className="gg-context-bar">O teu quadro de relações está abaixo da ficha.</p> : null}
           {isSilverWorkspace && !showingCyberwareManager ? <header className="gg-native-heading">
-            <p className="panel-title">{showingMasterNotebook ? 'PRIVATE RECORDS // 06' : workspaceView === 'notes' ? 'PRIVATE RECORDS // 08' : 'CONNECTION ARCHIVE // 07'}</p>
-            <h1>{showingMasterNotebook ? 'CADERNO' : workspaceView === 'notes' ? 'NOTAS' : 'QUADRO'}<span className="gg-terminal-cursor" aria-hidden="true">_</span></h1>
-            <p className="gg-native-description">{showingMasterNotebook ? 'Notas, sessões e pistas da campanha.' : workspaceView === 'notes' ? 'As notas do Silver. Pistas, ideias e rascunhos do quadro.' : 'Pessoas, relações e pistas num único mapa.'}</p>
+            <p className="panel-title">{showingMasterNotebook ? 'PRIVATE RECORDS // 06' : 'PRIVATE RECORDS // 07'}</p>
+            <h1>{showingMasterNotebook ? 'CADERNO' : 'NOTAS'}<span className="gg-terminal-cursor" aria-hidden="true">_</span></h1>
+            <p className="gg-native-description">{showingMasterNotebook ? 'Notas, sessões e pistas da campanha.' : 'As notas do Silver. Pistas, ideias e rascunhos.'}</p>
           </header> : null}
           {showingCyberwareManager ? (
             loadingGlobalCyberwareCatalog ? (
@@ -2563,16 +2517,13 @@ export function SheetWorkspacePage() {
                 />
               ) : (
                 <SilverNotebook
-                  notesOnly={workspaceView === 'notes'}
+                  notesOnly
                   value={draftFields.GM_NOTES ?? ''}
                   pagesValue={draftFields.GM_NOTE_PAGES ?? ''}
                   workspaceStorageKey={selectedProfile.id}
                   onQuickSave={() => void handleSave()}
                   canQuickSave={isDirty}
                   quickSaveBusy={saving}
-                  boardProfiles={boardProfiles}
-                  boardProfileFieldData={boardProfileFieldData}
-                  pendingBoardProfileCard={pendingBoardProfileCard}
                   onChange={(value) => {
                     setDraftFields((current) => ({
                       ...current,
@@ -2580,7 +2531,6 @@ export function SheetWorkspacePage() {
                     }))
                   }}
                   onPagesChange={(value) => {
-                    setPendingBoardProfileCard(null)
                     setDraftFields((current) => ({
                       ...current,
                       GM_NOTE_PAGES: value,

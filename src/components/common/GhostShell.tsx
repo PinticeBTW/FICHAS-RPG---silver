@@ -4,6 +4,7 @@ import {
   ChevronLeft,
   Cpu,
   Home,
+  LayoutGrid,
   Network,
   PanelLeft,
   Search,
@@ -49,7 +50,7 @@ export function GhostShell() {
   const ownPath =
     profile ? `/app/sheets/${profile.id}` : sheetPath;
   const requestedView = new URLSearchParams(location.search).get("view");
-  const view = profile?.role !== "gm" && ["cyberware", "board", "notes"].includes(requestedView ?? "") ? "sheet" : requestedView;
+  const view = profile?.role !== "gm" && ["cyberware", "board", "notes", "overview"].includes(requestedView ?? "") ? "sheet" : requestedView === "board" ? "overview" : requestedView;
   const active = location.pathname.startsWith("/app/history")
     ? "history"
     : location.pathname.startsWith("/app/net")
@@ -91,18 +92,18 @@ export function GhostShell() {
       to: `${ownPath}?view=notebook`,
     },
     {
-      id: "board",
-      label: "Quadro",
-      icon: StickyNote,
-      to: `${ownPath}?view=board`,
-    },
-    {
       id: "notes",
       label: "Notas",
       icon: StickyNote,
       to: `${ownPath}?view=notes`,
     },
-  ].filter((link) => profile?.role === "gm" || !["cyberware", "board", "notes"].includes(link.id));
+    {
+      id: "overview",
+      label: "Visão geral",
+      icon: LayoutGrid,
+      to: `${ownPath}?view=overview`,
+    },
+  ].filter((link) => profile?.role === "gm" || !["cyberware", "overview", "notes"].includes(link.id));
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
     window.addEventListener("online", update);
