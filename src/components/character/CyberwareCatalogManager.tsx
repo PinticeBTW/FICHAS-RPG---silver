@@ -48,12 +48,14 @@ function toggleProfileId(ids: string[], profileId: string, enabled: boolean) {
 
 function CyberwareCatalogCard({
   entry,
+  index,
   groupCount,
   playerOptions,
   onChange,
   onDelete,
 }: {
   entry: Cyberware
+  index: number
   groupCount: number
   playerOptions: Array<{
     id: string
@@ -91,11 +93,11 @@ function CyberwareCatalogCard({
   }
 
   return (
-    <article className="hud-panel rounded-[24px] p-4">
-      <div className="flex items-start justify-between gap-3">
+    <article className="gg-hardware-file">
+      <div className="gg-hardware-file-heading flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="panel-title">Cyberware</p>
-          <p className="mt-2 truncate text-lg font-semibold text-white">{displayName}</p>
+          <p className="panel-title">HARDWARE // {String(index + 1).padStart(3, '0')}</p>
+          <h2>{displayName}</h2>
           <p className="mt-1 text-xs uppercase tracking-[0.18em] text-stone-500">
             {cyberwareZoneOptions.find((option) => option.value === entry.slotType)?.label ?? entry.slotType}
             {' · '}
@@ -172,15 +174,15 @@ function CyberwareCatalogCard({
           />
         </label>
 
-        <label className="space-y-2 xl:col-span-2">
+        <div className="space-y-2 xl:col-span-2">
           <span className="panel-title text-stone-400">Icone opcional</span>
           <div className="grid gap-3 md:grid-cols-[96px_minmax(0,1fr)]">
             <div className="flex h-24 w-24 items-center justify-center overflow-hidden border border-white/10 bg-black/25">
               <CyberwareIcon
                 cyberware={entry}
                 alt={displayName}
-                accentColor="#f3e600"
-                glowFilter="drop-shadow(0 0 4px rgba(243,230,0,0.55))"
+                accentColor="#dccc58"
+                glowFilter="none"
                 className="h-[82%] w-[82%] object-contain"
                 fallbackClassName="flex h-full w-full items-center justify-center font-display text-lg uppercase"
               />
@@ -221,25 +223,25 @@ function CyberwareCatalogCard({
               {iconUploadState !== 'idle' ? <span className="text-xs text-amber-200">{iconUploadState === 'processing' ? 'A PROCESSAR IMAGEM' : 'A ENVIAR IMAGEM'}</span> : null}
               {iconUploadError ? <span role="alert" className="text-xs text-rose-300">{iconUploadError}</span> : null}
 
-              <input
-                type="text"
-                value={entry.icon ?? ''}
-                onChange={(event) => onChange({ icon: event.target.value })}
-                placeholder="Ex.: kikishi-eyes ou cola um caminho"
-                className="input-shell px-3 py-2 text-sm"
-              />
+              <details className="gg-image-source">
+                <summary>Referência da imagem</summary>
+                <input
+                  type="text"
+                  aria-label={`Referência da imagem de ${displayName}`}
+                  value={entry.icon ?? ''}
+                  onChange={(event) => onChange({ icon: event.target.value })}
+                  placeholder="Ex.: kikishi-eyes ou cola um caminho"
+                  className="input-shell px-3 py-2 text-sm"
+                />
+              </details>
             </div>
           </div>
-        </label>
+        </div>
       </div>
 
-      <div className="mt-4 space-y-3">
-        <div>
-          <p className="panel-title text-stone-400">Acesso individual</p>
-          <p className="mt-2 text-sm leading-7 text-stone-400">
-            O Silver escolhe exatamente quem pode ver e quem pode equipar esta cyberware.
-          </p>
-        </div>
+      <details className="gg-hardware-access mt-4 space-y-3">
+        <summary><span>Acesso individual</span><small>{viewerIds.length} podem ver · {equipperIds.length} podem equipar</small></summary>
+        <p className="text-sm text-stone-400">Escolhe quem pode ver e equipar este cyberware.</p>
 
         {!playerOptions.length ? (
           <div className="border border-white/10 bg-black/25 px-4 py-3 text-sm text-stone-300">
@@ -270,6 +272,7 @@ function CyberwareCatalogCard({
                   <label className="flex items-center justify-center">
                     <input
                       type="checkbox"
+                      aria-label={`${person.label}: ver ${displayName}`}
                       checked={canView}
                       onChange={(event) => {
                         const nextViewerIds = toggleProfileId(viewerIds, person.id, event.target.checked)
@@ -289,6 +292,7 @@ function CyberwareCatalogCard({
                   <label className="flex items-center justify-center">
                     <input
                       type="checkbox"
+                      aria-label={`${person.label}: equipar ${displayName}`}
                       checked={canEquip}
                       onChange={(event) => {
                         const nextViewerIds = event.target.checked
@@ -309,7 +313,7 @@ function CyberwareCatalogCard({
             })}
           </div>
         )}
-      </div>
+      </details>
     </article>
   )
 }
@@ -360,18 +364,14 @@ export function CyberwareCatalogManager({
   }
 
   return (
-    <section className="space-y-4">
-      <section className="hud-panel rounded-[28px] p-5">
+    <section className="gg-native-page gg-cyberware">
+      <header className="gg-native-heading">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div>
-            <p className="panel-title">Cyberware</p>
-            <p className="mt-2 text-2xl font-semibold text-white">
-              Catalogo privado de cyberware
-            </p>
-            <p className="mt-2 max-w-4xl text-sm leading-7 text-stone-400">
-              Aqui defines que cyberwares existem nesta ficha, em que slot entram, e se o
-              player as pode ver ou equipar. O page 4 passa a ler esta lista em vez do catalogo
-              fixo.
+            <p className="panel-title">HARDWARE ARCHIVE // 05</p>
+            <h1>CYBERWARE<span className="gg-terminal-cursor" aria-hidden="true">_</span></h1>
+            <p className="gg-native-description">
+              Catálogo de implantes. Configura os módulos e o acesso de cada operativo.
             </p>
           </div>
 
@@ -398,13 +398,15 @@ export function CyberwareCatalogManager({
             </button>
           </div>
         </div>
-      </section>
+        <div className="gg-register-line"><span>{String(entries.length).padStart(2, '0')} MÓDULOS</span><span>ACCESS // MESTRE</span><span aria-hidden="true">GG / HARDWARE</span></div>
+      </header>
 
-      <div className="grid gap-4 2xl:grid-cols-2">
-        {entries.map((entry) => (
+      <div className="gg-hardware-grid">
+        {entries.map((entry, index) => (
           <CyberwareCatalogCard
             key={entry.id}
             entry={entry}
+            index={index}
             groupCount={entriesByGroup[entry.slotType].length}
             playerOptions={playerOptions}
             onChange={(patch) => handleEntryChange(entry.id, patch)}
@@ -414,7 +416,7 @@ export function CyberwareCatalogManager({
       </div>
 
       {!entries.length ? (
-        <div className="hud-panel rounded-[24px] px-5 py-4 text-sm leading-7 text-stone-400">
+        <div className="gg-native-empty px-5 py-4 text-sm leading-7 text-stone-400">
           Este catalogo nao tem cyberwares neste momento. Usa <span className="text-white">Adicionar cyberware</span> para criar uma nova.
         </div>
       ) : null}

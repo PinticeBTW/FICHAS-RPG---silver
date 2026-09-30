@@ -1,18 +1,17 @@
-import { Pin, PinOff, Plus, Search, Trash2 } from 'lucide-react'
+import { Check, Pencil, Pin, PinOff, Plus, Search, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  buildChecklistSearchText,
-  getChecklistProgress,
   parseNoteChecklistItems,
 } from '../../lib/noteChecklist'
 import { HighlightableTextEditor } from '../common/HighlightableTextEditor'
 import { stripRichTextHtml } from '../../lib/noteRichText'
 import type { NotebookPageCore } from '../../types/notebook'
-import { NoteChecklist } from './NoteChecklist'
 
 type PlayerNotebookPage = NotebookPageCore
 
 type PlayerNotebookPanelProps = {
+  compact?: boolean
+  initialPageId?: string
   value: string
   pagesValue: string
   onChange: (value: string) => void
@@ -71,27 +70,12 @@ function serializeNotebookPages(pages: PlayerNotebookPage[]) {
 }
 
 function describePlayerNotebookPage(page: PlayerNotebookPage) {
-  const hasNotes = Boolean(stripRichTextHtml(page.content))
-  const checklistProgress = getChecklistProgress(page.checklistItems)
-
-  if (!hasNotes && !checklistProgress.total) {
-    return 'vazia'
-  }
-
-  const parts: string[] = []
-
-  if (hasNotes) {
-    parts.push('com notas')
-  }
-
-  if (checklistProgress.total) {
-    parts.push(`${checklistProgress.completed}/${checklistProgress.total} tarefas`)
-  }
-
-  return parts.join(' | ')
+  return stripRichTextHtml(page.content) ? "Com notas" : "Página vazia"
 }
 
 export function PlayerNotebookPanel({
+  compact = false,
+  initialPageId,
   value,
   pagesValue,
   onChange,
@@ -99,9 +83,10 @@ export function PlayerNotebookPanel({
   canEdit,
 }: PlayerNotebookPanelProps) {
   const notePages = useMemo(() => parseNotebookPages(pagesValue, value), [pagesValue, value])
-  const [activePageId, setActivePageId] = useState<string>('')
+  const [activePageId, setActivePageId] = useState<string>(initialPageId ?? '')
   const [searchQuery, setSearchQuery] = useState('')
-  const [searchOpen, setSearchOpen] = useState(false)
+  const [renaming, setRenaming] = useState(false)
+  const searchOpen = true
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   const resolvedActivePageId = notePages.some((page) => page.id === activePageId)
@@ -111,12 +96,6 @@ export function PlayerNotebookPanel({
     notePages.find((page) => page.id === resolvedActivePageId) ??
     notePages[0] ??
     buildDefaultPage(value)
-
-  useEffect(() => {
-    if (!activePageId && notePages[0]) {
-      setActivePageId(notePages[0].id)
-    }
-  }, [activePageId, notePages])
 
   useEffect(() => {
     if (searchOpen) {
@@ -129,7 +108,7 @@ export function PlayerNotebookPanel({
 
     const visiblePages = query
       ? notePages.filter((page) =>
-          `${page.title} ${stripRichTextHtml(page.content)} ${buildChecklistSearchText(page.checklistItems)}`
+          `${page.title} ${stripRichTextHtml(page.content)}`
             .toLowerCase()
             .includes(query),
         )
@@ -187,19 +166,26 @@ export function PlayerNotebookPanel({
     )
   }
 
-  const handleToggleSearch = () => {
-    if (searchOpen && !searchQuery.trim()) {
-      setSearchOpen(false)
-      return
-    }
+  const handleToggleSearch = () => searchInputRef.current?.focus()
 
-    setSearchOpen(true)
-    window.setTimeout(() => searchInputRef.current?.focus(), 0)
-  }
+  if (compact) return <section className="gg-pocket-notebook">
+    <div className="gg-pocket-picker">
+      {renaming ? <input autoFocus aria-label="Título da nota" value={activePage.title} readOnly={!canEdit}
+        onChange={(event) => updateActivePage((page) => ({ ...page, title: event.target.value }))}
+        onKeyDown={(event) => { if (event.key === 'Enter' || event.key === 'Escape') setRenaming(false) }} />
+        : <select aria-label="Escolher nota" value={resolvedActivePageId} onChange={(event) => setActivePageId(event.target.value)}>
+          {filteredPages.map((page) => <option key={page.id} value={page.id}>{page.pinned ? '★ ' : ''}{page.title || 'Sem título'}</option>)}
+        </select>}
+      <button type="button" disabled={!canEdit} aria-label={renaming ? 'Concluir título' : 'Renomear nota'} title={renaming ? 'Concluir título' : 'Renomear nota'} onClick={() => setRenaming((current) => !current)}>{renaming ? <Check size={14} /> : <Pencil size={14} />}</button>
+      <button type="button" disabled={!canEdit} aria-label="Nova página" title="Nova página" onClick={() => { createPage(); setRenaming(true) }}><Plus size={15} /></button>
+    </div>
+    <HighlightableTextEditor value={activePage.content} onChange={(content) => updateActivePage((page) => ({ ...page, content }))}
+      canEdit={canEdit} placeholder="Escreve aqui…" className="gg-pocket-editor" editorClassName="gg-pocket-text" />
+  </section>
 
   return (
-    <section className="mt-4 rounded-[22px] border border-white/10 bg-black/25 p-3">
-      <div className="flex items-start justify-between gap-3">
+    <section className="gg-player-notebook">
+      <div className="gg-note-header flex items-start justify-between gap-3">
         <div>
           <p className="panel-title">Bloco de notas</p>
           <p className="mt-2 text-xs leading-6 text-stone-500">
@@ -230,9 +216,10 @@ export function PlayerNotebookPanel({
         </div>
       </div>
 
-      <div className="mt-3 flex items-center gap-2">
+      <div className="gg-note-title flex items-center gap-2">
         <input
           type="text"
+          aria-label="Título da nota"
           value={activePage.title}
           readOnly={!canEdit}
           onChange={(event) =>
@@ -258,7 +245,7 @@ export function PlayerNotebookPanel({
       </div>
 
       {searchOpen || searchQuery.trim() ? (
-        <div className="relative mt-3">
+        <div className="gg-note-search relative">
           <Search
             size={14}
             className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-stone-500"
@@ -274,7 +261,7 @@ export function PlayerNotebookPanel({
         </div>
       ) : null}
 
-      <div className="mt-3 max-h-[180px] space-y-2 overflow-y-auto pr-1">
+      <div className="gg-note-list">
         {filteredPages.length ? (
           filteredPages.map((page) => {
             const selected = page.id === resolvedActivePageId
@@ -282,6 +269,7 @@ export function PlayerNotebookPanel({
             return (
               <div
                 key={page.id}
+                data-selected={selected}
                 className={`border px-3 py-2 transition ${
                   selected
                     ? 'border-[#f3e600] bg-[#f3e600]/10'
@@ -335,21 +323,10 @@ export function PlayerNotebookPanel({
         }
         canEdit={canEdit}
         placeholder="Escreve aqui as tuas notas privadas..."
-        className="mt-3"
-        editorClassName="min-h-[240px] w-full border border-white/10 bg-black/30 px-4 py-4 font-mono text-sm leading-7 text-stone-100 outline-none focus:border-[#f3e600]/45"
+        className="gg-note-editor"
+        editorClassName="min-h-[240px] w-full border border-white/10 bg-black/30 px-4 py-4 font-sans text-sm leading-7 text-stone-100 outline-none focus:border-[#f3e600]/45"
       />
 
-      <NoteChecklist
-        items={activePage.checklistItems}
-        canEdit={canEdit}
-        onChange={(nextItems) =>
-          updateActivePage((page) => ({
-            ...page,
-            checklistItems: nextItems,
-          }))
-        }
-        className="mt-3"
-      />
     </section>
   )
 }

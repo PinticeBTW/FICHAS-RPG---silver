@@ -1,12 +1,19 @@
-import { BookOpenText, ChevronDown, ChevronLeft, ChevronRight, Cpu, Folder, FolderOpen, GripVertical, LogOut, Network, Pencil, Plus, RefreshCcw, Save, Search, Share2, StickyNote, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, Folder, FolderOpen, GripVertical, LogOut, Pencil, Plus, RefreshCcw, Save, Search, Share2, StickyNote, X } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useParams, useSearchParams, useOutletContext } from 'react-router-dom'
+import { createPortal } from 'react-dom'
+import type { ShellSlots } from '../components/common/GhostShell'
+import { SubjectPortrait } from '../components/common/SubjectPortrait'
+import { SubjectSwitcher } from '../components/common/SubjectSwitcher'
+import { QuickNotes } from '../components/common/QuickNotes'
+import { subjectName, useSubjectNames, type SubjectNames } from '../lib/archiveSubjects'
+import { WorkspaceHome } from '../components/dashboard/WorkspaceHome'
+import { rememberSheet } from '../lib/shellRecents'
 import { CyberwareCatalogManager } from '../components/character/CyberwareCatalogManager'
 import { PdfSheetEditor } from '../components/character/PdfSheetEditor'
 import { RelationsBoard } from '../components/character/RelationsBoard'
 import { EmptyState } from '../components/common/EmptyState'
 import { LoadingScreen } from '../components/common/LoadingScreen'
-import { PlayerInboxPanel } from '../components/notes/PlayerMessagesPanel'
 import { MasterNotebookPanel } from '../components/notes/MasterNotebookPanel'
 import { PlayerNotebookPanel } from '../components/notes/PlayerNotebookPanel'
 import {
@@ -46,13 +53,6 @@ import {
   type ProfileGroup,
 } from '../lib/webSheetService'
 import { CYBERWARE_CATALOG_FIELD_KEY } from '../lib/cyberwareSheetLayout'
-import {
-  PLAYER_MESSAGES_FIELD_KEY,
-  buildPlayerInboxMessage,
-  parsePlayerInboxMessages,
-  serializePlayerInboxMessages,
-  type SilverMessageRecipientOption,
-} from '../lib/playerInbox'
 import { mergeSharedRelationsData, parseRelationsData, stringifyRelationsData } from '../lib/relationsTypes'
 import type { Profile, WebSheetRecord } from '../types/domain'
 
@@ -478,6 +478,7 @@ function resolveDefaultAccessibleProfile(viewer: Profile | null, entries: Profil
 }
 
 function ProfileCard({
+  names,
   entry,
   selected,
   isGm,
@@ -497,6 +498,7 @@ function ProfileCard({
   onDeleteNpc,
   onPinToBoard,
 }: {
+  names: SubjectNames
   entry: Profile
   selected: boolean
   isGm: boolean
@@ -523,21 +525,17 @@ function ProfileCard({
   const secondaryLine = getProfileSecondaryLine(entry)
 
   return (
-    <div className="group/card relative">
+    <div className="group/card relative gg-archive-row" data-selected={selected}>
       <button
         type="button"
+        aria-label={`Abrir ficha de ${entry.displayName}`}
         onClick={onNavigate}
-        className={`w-full border px-4 py-3 text-left transition ${
-          selected
-            ? 'border-[#f3e600] bg-[#f3e600]/10'
-            : 'border-white/10 bg-black/25 hover:border-white/20'
-        }`}
+        className="gg-archive-open"
       >
-        <p className="truncate pr-6 text-sm font-semibold text-white">{entry.displayName}</p>
-        <p className="mt-1 truncate text-xs text-stone-400">{secondaryLine}</p>
-        <p className="mt-2 text-[0.68rem] uppercase tracking-[0.22em] text-stone-500">
-          {accessLabel}
-        </p>
+        <SubjectPortrait profile={entry} names={names} />
+        <span className="gg-archive-identity"><strong>{subjectName(entry, names)}</strong><small>{secondaryLine}</small></span>
+        <span className="gg-archive-type">{accessLabel}</span>
+        <span className="gg-archive-arrow">ABRIR →</span>
       </button>
 
       {/* Folder toggle button */}
@@ -691,10 +689,17 @@ function ProfileCard({
 
 export function SheetWorkspacePage() {
   const { profileId } = useParams()
+  const [searchParams] = useSearchParams()
+  const { statusSlot, accountSlot } = useOutletContext<ShellSlots>()
+  const requestedView = searchParams.get('view') ?? (profileId ? 'sheet' : 'home')
+  const directoryQuery = searchParams.get('q') ?? ''
   const navigate = useNavigate()
   const { profile, signOut, updateDisplayName } = useAuth()
+  const workspaceView = profile?.role !== 'gm' && ['cyberware', 'board', 'notes'].includes(requestedView) ? 'sheet' : requestedView
   const authProfileId = profile?.id ?? null
   const authProfileRole = profile?.role ?? null
+  const sheetContainerRef = useRef<HTMLDivElement | null>(null)
+  const relationsContainerRef = useRef<HTMLDivElement | null>(null)
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [sheet, setSheet] = useState<WebSheetRecord | null>(null)
   const [draftFields, setDraftFields] = useState<Record<string, string>>({})
@@ -705,6 +710,7 @@ export function SheetWorkspacePage() {
   const [loadingGlobalCyberwareCatalog, setLoadingGlobalCyberwareCatalog] = useState(false)
   const [saving, setSaving] = useState(false)
   const [savingGlobalCyberwareCatalog, setSavingGlobalCyberwareCatalog] = useState(false)
+  const [notebookPending, setNotebookPending] = useState(false)
   const [syncLabel, setSyncLabel] = useState('Guardar manual')
   const [error, setError] = useState<string | null>(null)
   const sheetRef = useRef<WebSheetRecord | null>(null)
@@ -729,13 +735,6 @@ export function SheetWorkspacePage() {
   const [confirmDeleteNpcId, setConfirmDeleteNpcId] = useState<string | null>(null)
   const [draggingGroupId, setDraggingGroupId] = useState<string | null>(null)
   const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null)
-  const [sidebarWidth, setSidebarWidth] = useState(() => {
-    return parseInt(localStorage.getItem('sidebar-width') ?? '280', 10)
-  })
-  const [sidebarHidden, setSidebarHidden] = useState(() => {
-    return localStorage.getItem('sidebar-hidden') === '1'
-  })
-  const isResizingRef = useRef(false)
   const [newFichaName, setNewFichaName] = useState('')
   const [newFichaViewerId, setNewFichaViewerId] = useState('')
   const [addingFicha, setAddingFicha] = useState(false)
@@ -749,8 +748,6 @@ export function SheetWorkspacePage() {
   const [pendingBoardProfileCard, setPendingBoardProfileCard] =
     useState<SilverBoardInsertRequest | null>(null)
   const [profileSearchQuery, setProfileSearchQuery] = useState('')
-  const [sendingPlayerMessage, setSendingPlayerMessage] = useState(false)
-  const [playerMessageError, setPlayerMessageError] = useState<string | null>(null)
   const [shareViewerIds, setShareViewerIds] = useState<string[]>([])
   const [loadedShareViewerIds, setLoadedShareViewerIds] = useState<string[]>([])
   const [loadingShareAccess, setLoadingShareAccess] = useState(false)
@@ -762,8 +759,8 @@ export function SheetWorkspacePage() {
   const [sharingRelations, setSharingRelations] = useState(false)
   const [relationShareError, setRelationShareError] = useState<string | null>(null)
   const [relationShareFeedback, setRelationShareFeedback] = useState<string | null>(null)
-  const [gmWorkspaceView, setGmWorkspaceView] = useState<'sheet' | 'cyberware'>('sheet')
-  const [silverMasterView, setSilverMasterView] = useState<'quadro' | 'caderno'>('quadro')
+  const gmWorkspaceView = workspaceView === 'cyberware' ? 'cyberware' : 'sheet'
+  const silverMasterView = workspaceView === 'notebook' ? 'caderno' : 'quadro'
 
   const accessibleProfiles = useMemo(() => {
     if (!authProfileId) {
@@ -771,6 +768,7 @@ export function SheetWorkspacePage() {
     }
     return profiles
   }, [authProfileId, profiles])
+  const subjectNames = useSubjectNames(authProfileId, accessibleProfiles)
   const accessibleProfileIdsSignature = useMemo(
     () =>
       accessibleProfiles
@@ -881,6 +879,7 @@ export function SheetWorkspacePage() {
 
     return accessibleProfiles.filter((entry) =>
       [
+        subjectName(entry, subjectNames),
         entry.displayName,
         entry.email,
         entry.handle,
@@ -889,7 +888,7 @@ export function SheetWorkspacePage() {
         .toLowerCase()
         .includes(normalizedProfileSearchQuery),
     )
-  }, [accessibleProfiles, normalizedProfileSearchQuery])
+  }, [accessibleProfiles, normalizedProfileSearchQuery, subjectNames])
   const boardProfiles = useMemo(
     () =>
       accessibleProfiles.map((entry) => buildBoardProfileSummary(entry, boardSheetSnapshots[entry.id])),
@@ -902,23 +901,6 @@ export function SheetWorkspacePage() {
       ) as Record<string, Record<string, string>>,
     [accessibleProfiles, boardSheetSnapshots],
   )
-  const playerMessageRecipients = useMemo<SilverMessageRecipientOption[]>(() => {
-    const players = accessibleProfiles.filter(
-      (entry) => entry.role !== 'gm' && !isNpcProfile(entry),
-    )
-
-    if (!players.length) {
-      return []
-    }
-
-    return [
-      { id: '__all_players__', label: 'Todos os players' },
-      ...players.map((entry) => ({
-        id: entry.id,
-        label: entry.displayName,
-      })),
-    ]
-  }, [accessibleProfiles])
   const sheetSignature = useMemo(
     () => serializeFieldData(sheet?.fieldData ?? {}),
     [sheet],
@@ -940,6 +922,7 @@ export function SheetWorkspacePage() {
     globalCyberwareCatalog !== null &&
     globalCyberwareCatalogSignature !== globalCyberwareDraftSignature
   const hasPendingUnsavedChanges =
+    notebookPending ||
     (canEdit && (isDirty || saving)) ||
     (canManageCyberwareCatalog && (isGlobalCyberwareDirty || savingGlobalCyberwareCatalog))
   const cyberwareViewerRole: 'gm' | 'owner' | 'shared' = profile?.role === 'gm'
@@ -1025,7 +1008,6 @@ export function SheetWorkspacePage() {
   }, [savingGlobalCyberwareCatalog])
 
   useEffect(() => {
-    setPlayerMessageError(null)
   }, [selectedProfile?.id])
 
   useEffect(() => {
@@ -1035,10 +1017,10 @@ export function SheetWorkspacePage() {
     setRelationShareFeedback(null)
   }, [selectedProfile?.id])
 
+  useEffect(() => { setProfileSearchQuery(directoryQuery) }, [directoryQuery])
   useEffect(() => {
-    setGmWorkspaceView('sheet')
-    setSilverMasterView('quadro')
-  }, [authProfileId])
+    if (authProfileId && selectedProfileId && workspaceView === 'sheet' && selectedProfile?.role !== 'gm') rememberSheet(authProfileId, selectedProfileId)
+  }, [authProfileId, selectedProfileId, selectedProfile?.role, workspaceView])
 
   const refreshProfiles = useCallback(async (options?: { showLoading?: boolean }) => {
     const activeProfile = profileRef.current
@@ -1184,9 +1166,9 @@ export function SheetWorkspacePage() {
 
   useEffect(() => {
     if (!loadingProfiles && selectedProfile && selectedProfile.id !== profileId) {
-      navigate(`/app/sheets/${selectedProfile.id}`, { replace: true })
+      navigate(`/app/sheets/${selectedProfile.id}?${searchParams.toString() || 'view=home'}`, { replace: true })
     }
-  }, [loadingProfiles, navigate, profileId, selectedProfile])
+  }, [loadingProfiles, navigate, profileId, selectedProfile, searchParams])
 
   useEffect(() => {
     if (!selectedProfileId) {
@@ -1531,79 +1513,8 @@ export function SheetWorkspacePage() {
       profileId,
       nonce: crypto.randomUUID(),
     })
-  }, [])
-
-  const handleSendPlayerMessage = useCallback(
-    async (recipientId: string, title: string, body: string) => {
-      if (!profile || !isSilverWorkspace) {
-        return
-      }
-
-      const recipients =
-        recipientId === '__all_players__'
-          ? accessibleProfiles.filter((entry) => entry.role !== 'gm' && !isNpcProfile(entry))
-          : accessibleProfiles.filter(
-              (entry) =>
-                entry.id === recipientId && entry.role !== 'gm' && !isNpcProfile(entry),
-            )
-
-      if (!recipients.length) {
-        setPlayerMessageError('Nao encontrei nenhum player valido para receber essa mensagem.')
-        return
-      }
-
-      setSendingPlayerMessage(true)
-      setPlayerMessageError(null)
-
-      try {
-        const senderName = selectedProfile?.displayName || profile.displayName || 'Silver'
-
-        const savedSheets = await Promise.all(
-          recipients.map(async (recipient) => {
-            const currentSheet = await fetchOrCreateSheet(recipient)
-            const currentMessages = parsePlayerInboxMessages(
-              currentSheet.fieldData[PLAYER_MESSAGES_FIELD_KEY] ?? '',
-            )
-            const nextMessage = buildPlayerInboxMessage({
-              title,
-              body,
-              senderProfileId: profile.id,
-              senderName,
-            })
-            const nextFieldData = {
-              ...currentSheet.fieldData,
-              [PLAYER_MESSAGES_FIELD_KEY]: serializePlayerInboxMessages([
-                ...currentMessages,
-                nextMessage,
-              ]),
-            }
-
-            return saveSheetFields(recipient.id, nextFieldData)
-          }),
-        )
-
-        setBoardSheetSnapshots((current) => {
-          const nextSnapshots = { ...current }
-
-          savedSheets.forEach((savedSheet) => {
-            nextSnapshots[savedSheet.profileId] = savedSheet
-          })
-
-          return nextSnapshots
-        })
-      } catch (caughtError) {
-        const message =
-          caughtError instanceof Error
-            ? caughtError.message
-            : 'Nao foi possivel enviar a mensagem para os players.'
-        setPlayerMessageError(message)
-        throw caughtError
-      } finally {
-        setSendingPlayerMessage(false)
-      }
-    },
-    [accessibleProfiles, isSilverWorkspace, profile, selectedProfile],
-  )
+    navigate('?view=board')
+  }, [navigate])
 
   const handleSaveShareAccess = useCallback(async () => {
     if (!selectedProfile) {
@@ -1974,54 +1885,13 @@ export function SheetWorkspacePage() {
     })
   }, [])
 
-  // Resizable sidebar
   useEffect(() => {
-    localStorage.setItem('sidebar-width', String(sidebarWidth))
-  }, [sidebarWidth])
-
-  useEffect(() => {
-    localStorage.setItem('sidebar-hidden', sidebarHidden ? '1' : '0')
-  }, [sidebarHidden])
-
-  const toggleSidebar = useCallback(() => {
-    setSidebarHidden((current) => !current)
-  }, [])
-
-  useEffect(() => {
-    const handleKeydown = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() !== 's' || !event.altKey || event.ctrlKey || event.metaKey) {
-        return
-      }
-
-      event.preventDefault()
-      setSidebarHidden((current) => !current)
-    }
-
-    window.addEventListener('keydown', handleKeydown)
-    return () => {
-      window.removeEventListener('keydown', handleKeydown)
-    }
-  }, [])
-
-  const handleResizeStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-    isResizingRef.current = true
-    const startX = e.clientX
-    const startWidth = sidebarWidth
-
-    const onMove = (ev: MouseEvent) => {
-      if (!isResizingRef.current) return
-      const next = Math.min(500, Math.max(180, startWidth + ev.clientX - startX))
-      setSidebarWidth(next)
-    }
-    const onUp = () => {
-      isResizingRef.current = false
-      document.removeEventListener('mousemove', onMove)
-      document.removeEventListener('mouseup', onUp)
-    }
-    document.addEventListener('mousemove', onMove)
-    document.addEventListener('mouseup', onUp)
-  }, [sidebarWidth])
+    if (loadingSheet || !sheet || profile?.role === 'gm') return
+    const target = workspaceView === 'cyberware' ? sheetContainerRef.current?.firstElementChild?.lastElementChild
+      : workspaceView === 'board' ? relationsContainerRef.current : null
+    const frame = requestAnimationFrame(() => target?.scrollIntoView({ block: 'start' }))
+    return () => cancelAnimationFrame(frame)
+  }, [loadingSheet, sheet, profile?.role, workspaceView])
 
   const handleStartCreateFicha = useCallback(() => {
     const defaultViewer =
@@ -2089,10 +1959,6 @@ export function SheetWorkspacePage() {
     await signOut()
     navigate('/', { replace: true })
   }, [hasPendingUnsavedChanges, navigate, saving, signOut])
-
- const handleOpenNet = useCallback(() => {
-  window.open('/app/net', '_blank', 'noopener,noreferrer')
-}, [])
 
   const applyProfileDisplayName = useCallback((targetProfileId: string, nextDisplayName: string) => {
     setProfiles((current) =>
@@ -2213,71 +2079,26 @@ export function SheetWorkspacePage() {
         </div>
       ) : null}
 
-      <div
-        className="grid gap-3"
-        style={{ gridTemplateColumns: sidebarHidden ? '1fr' : `${sidebarWidth}px 1fr` }}
-      >
-        {!sidebarHidden ? (
-        <aside className="hud-panel relative rounded-[28px] p-4 self-start sticky top-2" style={{ maxHeight: 'calc(100vh - 16px)', overflowY: 'auto' }}>
-          {/* Drag handle */}
-          <div
-            onMouseDown={handleResizeStart}
-            className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize opacity-0 hover:opacity-100 hover:bg-white/20 transition-opacity"
-            title="Arrastar para redimensionar"
-          />
-          {/* Estado da ficha + Sair — topo */}
-          <div className="border border-white/10 bg-black/25 px-4 py-3">
-            <p className="panel-title">Estado da ficha</p>
-            <p className="mt-3 text-sm text-stone-200">{activeSaving ? 'A guardar...' : syncLabel}</p>
-            <p className="mt-2 text-xs text-stone-500">
-              Ultima gravacao:{' '}
-              <span className="text-stone-300">
-                {activeUpdatedAt ? formatTimestamp(activeUpdatedAt) : 'por criar'}
-              </span>
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={handleOpenNet}
-            className="signal-button mt-2 inline-flex w-full items-center justify-center gap-2 px-3 py-2 text-xs"
-            data-variant="ghost"
-          >
-            <Network size={14} />
-            THE NET
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate(selectedProfile && (isOwnSelectedProfile || isOwnerOfSelectedNpcProfile)
-              ? `/app/history?sheet=${encodeURIComponent(selectedProfile.id)}&kind=${isNpcProfile(selectedProfile) ? 'npc-card' : 'profile-sheet'}`
-              : '/app/history')}
-            className="signal-button mt-2 inline-flex w-full items-center justify-center gap-2 px-3 py-2 text-xs"
-            data-variant="ghost"
-          >
-            <BookOpenText size={14} />
-            História
-          </button>
-          
-          <button
-            type="button"
-            onClick={() => void handleSignOut()}
-            className="signal-button mt-2 inline-flex w-full items-center justify-center gap-2 px-3 py-2 text-xs"
-            data-tone="danger"
-          >
-            <LogOut size={14} />
-            Sair
-          </button>
+      {statusSlot ? createPortal(<>
+        <span className="gg-save-state" role="status" data-saved={!showingMasterNotebook && !hasPendingUnsavedChanges && Boolean(activeUpdatedAt) && !error} data-dirty={hasPendingUnsavedChanges}
+          title={activeUpdatedAt ? 'Última gravação: ' + formatTimestamp(activeUpdatedAt) : syncLabel}>
+          {showingMasterNotebook ? (notebookPending ? 'Caderno por guardar…' : 'Gravação no caderno') : activeSaving ? 'A guardar…' : error ? 'Verificar gravação' : hasPendingUnsavedChanges ? 'Alterações por guardar' : activeUpdatedAt ? 'SYNC OK' : 'A carregar…'}
+        </span>
+        {canEdit && !showingMasterNotebook ? <button className="gg-save-button" disabled={activeSaveDisabled} onClick={() => { if (showingCyberwareManager) void handleSaveGlobalCyberwareCatalog(); else void handleSave() }}><Save size={14} />Guardar</button> : null}
+      </>, statusSlot) : null}
+      {accountSlot ? createPortal(<button className="gg-account-button" title="Sair da conta" aria-label="Sair da conta" onClick={() => void handleSignOut()}><LogOut size={14} /></button>, accountSlot) : null}
+      {workspaceView === 'home' ? <WorkspaceHome names={subjectNames} profile={profile} profiles={accessibleProfiles} selectedProfile={selectedProfile} fieldData={isGm || isOwnSelectedProfile || canEditPlayerNpcSheet ? draftFields : {}} onCreate={() => { handleStartCreateFicha(); navigate('?view=operatives') }} /> : null}
+      {workspaceView === 'master' && !isGm ? <EmptyState title="Área do Mestre" detail="Esta área está reservada ao Mestre da campanha." /> : null}
+      {workspaceView === 'master' && isGm ? <div className="gg-home"><p className="gg-eyebrow">SILVER / MESTRE</p><h1>Ferramentas da campanha</h1><div className="gg-quick-actions mt-8"><Link to="?view=operatives">Gerir operativos e pastas</Link><Link to="?view=cyberware">Gerir catálogo de cyberware</Link><Link to={`/app/sheets/${profile.id}?view=notebook`}>Caderno do Mestre</Link><Link to={`/app/sheets/${profile.id}?view=board`}>Quadro da campanha</Link></div></div> : null}
+      <div className="min-w-0">
+        {workspaceView === 'operatives' ? (
+        <section className="gg-directory" aria-label="Operativos e pastas">
+          <header className="gg-archive-heading">
+            <p className="gg-eyebrow">SUBJECT INDEX // GHOST GRID</p>
+            <div><h1>Operativos</h1><span className="gg-list-label">{filteredAccessibleProfiles.filter(entry => entry.role !== 'gm').length.toString().padStart(2, '0')} / FICHEIROS</span></div>
+          </header>
 
-          <div className="mt-4">
-            <p className="panel-title">Operativos</p>
-            <p className="mt-2 text-lg font-semibold text-white">
-              {filteredAccessibleProfiles.length === accessibleProfiles.length
-                ? `${accessibleProfiles.length} ficha(s)`
-                : `${filteredAccessibleProfiles.length}/${accessibleProfiles.length} ficha(s)`}
-            </p>
-          </div>
-
-          {isGm ? (
-            <div className="relative mt-3">
+          <div className="relative mt-3">
               <Search
                 size={14}
                 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-stone-500"
@@ -2286,11 +2107,11 @@ export function SheetWorkspacePage() {
                 type="text"
                 value={profileSearchQuery}
                 onChange={(event) => setProfileSearchQuery(event.target.value)}
-                placeholder="Pesquisar fichas, emails ou handles"
+                aria-label="Pesquisar arquivo"
+                placeholder="SEARCH ARCHIVE / nome, email ou handle"
                 className="w-full border border-white/10 bg-black/30 py-2 pl-9 pr-3 text-xs text-white outline-none focus:border-[#f3e600]/45"
               />
-            </div>
-          ) : null}
+          </div>
 
           <div className="mt-4 space-y-1">
             {!isGm && accessibleProfiles.length > 1 ? (
@@ -2299,7 +2120,7 @@ export function SheetWorkspacePage() {
                   Fichas acessiveis
                 </p>
 
-                {accessibleProfiles.map((entry) => {
+                {filteredAccessibleProfiles.map((entry) => {
                   const isSelected = entry.id === selectedProfile?.id
                   const isOwnEntry = entry.id === profile.id
                   const isAccessibleNpcEntry = isNpcProfile(entry) && (
@@ -2315,13 +2136,14 @@ export function SheetWorkspacePage() {
                       key={entry.id}
                       type="button"
                       onClick={() => navigate(`/app/sheets/${entry.id}`)}
-                      className={`w-full border px-4 py-3 text-left transition ${
+                      data-selected={isSelected}
+                      className={`gg-player-file w-full border px-4 py-3 text-left transition ${
                         isSelected
                           ? 'border-[#f3e600] bg-[#f3e600]/10'
                           : 'border-white/10 bg-black/25 hover:border-white/20'
                       }`}
                     >
-                      <p className="truncate text-sm font-semibold text-white">{entry.displayName}</p>
+                      <p className="gg-player-subject truncate text-sm font-semibold text-white"><SubjectPortrait profile={entry} names={subjectNames} />{subjectName(entry, subjectNames)}</p>
                       <p className="mt-1 truncate text-xs text-stone-400">
                         {isOwnEntry
                           ? entry.email
@@ -2391,39 +2213,12 @@ export function SheetWorkspacePage() {
                       <p className="mt-1 text-[0.62rem] text-stone-500">clica para mudar o nome</p>
                     </button>
                   )}
+                  <Link className="gg-card-open" to={`/app/sheets/${selectedProfile.id}`}>Abrir ficha</Link>
                   <p className="mt-2 truncate text-xs text-stone-400">{selectedProfile.email}</p>
                   <p className="mt-1 text-[0.68rem] uppercase tracking-[0.22em] text-stone-500">Jogador</p>
                   </div>
                 ) : null}
 
-                <PlayerNotebookPanel
-                  value={draftFields.PLAYER_NOTES ?? ''}
-                  pagesValue={draftFields.PLAYER_NOTE_PAGES ?? ''}
-                  onChange={(value) => {
-                    setDraftFields((current) => ({
-                      ...current,
-                      PLAYER_NOTES: value,
-                    }))
-                  }}
-                  onPagesChange={(value) => {
-                    setDraftFields((current) => ({
-                      ...current,
-                      PLAYER_NOTE_PAGES: value,
-                    }))
-                  }}
-                  canEdit={canEdit}
-                />
-
-                <PlayerInboxPanel
-                  value={draftFields[PLAYER_MESSAGES_FIELD_KEY] ?? ''}
-                  onChange={(value) => {
-                    setDraftFields((current) => ({
-                      ...current,
-                      [PLAYER_MESSAGES_FIELD_KEY]: value,
-                    }))
-                  }}
-                  canEdit={canEdit}
-                />
               </>
             )}
 
@@ -2438,6 +2233,7 @@ export function SheetWorkspacePage() {
               </div>
             ) : null}
 
+            <div className="gg-directory-toolbar">
             {/* GM: nova ficha */}
             {isGm && (
               <div className="mb-3">
@@ -2503,129 +2299,7 @@ export function SheetWorkspacePage() {
               </div>
             )}
 
-            {/* GM: botão nova pasta */}
-            
-
-            {/* Se existir role extra de admin no futuro, aplicar aqui junto com GM. */}
-            {isGm && profile ? (
-              <div className="mb-3 space-y-2">
-                <p className="px-1 text-[0.62rem] uppercase tracking-[0.22em] text-stone-600">
-                  PAGINAS
-                </p>
-
-                {canManageCyberwareCatalog ? (
-                  <button
-                    type="button"
-                    onClick={() => setGmWorkspaceView('cyberware')}
-                    className={`w-full border px-3 py-2 text-left transition ${
-                      gmWorkspaceView === 'cyberware'
-                        ? 'border-[#f3e600]/60 bg-[#f3e600]/10'
-                        : 'border-white/10 bg-black/25 hover:border-white/20'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white">
-                          CYBERWARE
-                        </p>
-                        <p className="mt-1 text-[0.68rem] text-stone-400">
-                          Implantes e upgrades
-                        </p>
-                      </div>
-                      <Cpu size={13} className="mt-0.5 shrink-0 text-[#f3e600]" />
-                    </div>
-                  </button>
-                ) : null}
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setGmWorkspaceView('sheet')
-                    setSilverMasterView('caderno')
-                    if (selectedProfile?.id !== profile.id) {
-                      navigate(`/app/sheets/${profile.id}`)
-                    }
-                  }}
-                  className={`w-full border px-3 py-2 text-left transition ${
-                    showingMasterNotebook
-                      ? 'border-[#f3e600]/60 bg-[#f3e600]/10'
-                      : 'border-white/10 bg-black/25 hover:border-white/20'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white">
-                        CADERNO
-                      </p>
-                      <p className="mt-1 text-[0.68rem] text-stone-400">
-                        Notas, lore e sessoes
-                      </p>
-                    </div>
-                    <BookOpenText size={13} className="mt-0.5 shrink-0 text-[#f3e600]" />
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setGmWorkspaceView('sheet')
-                    setSilverMasterView('quadro')
-                    if (selectedProfile?.id !== profile.id) {
-                      navigate(`/app/sheets/${profile.id}`)
-                    }
-                  }}
-                  className={`w-full border px-3 py-2 text-left transition ${
-                    isSilverWorkspace && gmWorkspaceView === 'sheet' && silverMasterView === 'quadro'
-                      ? 'border-[#f3e600]/60 bg-[#f3e600]/10'
-                      : 'border-white/10 bg-black/25 hover:border-white/20'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white">
-                        QUADRO
-                      </p>
-                      <p className="mt-1 text-[0.68rem] text-stone-400">
-                        Mapa livre e stickies
-                      </p>
-                    </div>
-                    <StickyNote size={13} className="mt-0.5 shrink-0 text-[#f3e600]" />
-                  </div>
-                </button>
-              </div>
-            ) : null}
-
-            <div className={`mb-3 grid gap-2 ${canEdit ? 'grid-cols-2' : 'grid-cols-1'}`}>
-              <button
-                type="button"
-                onClick={() => void refreshProfiles()}
-                className="signal-button inline-flex items-center justify-center gap-2 px-3 py-1.5 text-xs"
-                data-variant="ghost"
-                disabled={loadingProfiles || loadingSheet}
-              >
-                <RefreshCcw size={14} />
-                Atualizar
-              </button>
-
-              {canEdit ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (showingCyberwareManager) {
-                      void handleSaveGlobalCyberwareCatalog()
-                    } else {
-                      void handleSave()
-                    }
-                  }}
-                  className="signal-button inline-flex items-center justify-center gap-2 px-3 py-1.5 text-xs"
-                  disabled={activeSaveDisabled}
-                >
-                  <Save size={14} />
-                  {activeSaving ? 'A guardar...' : 'Guardar Ficha'}
-                </button>
-              ) : null}
-            </div>
-
+            <button type="button" onClick={() => void refreshProfiles()} className="gg-account-button mb-4" disabled={loadingProfiles || loadingSheet}><RefreshCcw size={14} />Atualizar lista</button>
             {/* GM: botão nova pasta */}
             {isGm && (
               <div className="mb-2">
@@ -2673,9 +2347,10 @@ export function SheetWorkspacePage() {
               </div>
             )}
 
+            </div>
             {/* GM: pastas e lista */}
             {isGm && groups.map((group) => {
-              const isExpanded = expandedGroups.has(group.id)
+              const isExpanded = expandedGroups.has(group.id) || Boolean(normalizedProfileSearchQuery)
               const membersInGroup = filteredAccessibleProfiles.filter((p) => group.profileIds.includes(p.id))
               const isConfirming = confirmDeleteGroupId === group.id
               const isDragOver = dragOverGroupId === group.id
@@ -2694,7 +2369,7 @@ export function SheetWorkspacePage() {
                   onDragEnd={() => { setDraggingGroupId(null); setDragOverGroupId(null) }}
                   className={`transition ${draggingGroupId === group.id ? 'opacity-40' : ''} ${isDragOver && draggingGroupId !== group.id ? 'border-t border-[#f3e600]/50' : 'border-t border-transparent'}`}
                 >
-                  <div className="group/folder flex items-center gap-1">
+                  <div className="group/folder gg-folder-heading flex items-center gap-1">
                     {isGm && (
                       <span className="shrink-0 cursor-grab p-1 text-stone-700 opacity-0 transition group-hover/folder:opacity-100 active:cursor-grabbing">
                         <GripVertical size={12} />
@@ -2702,6 +2377,7 @@ export function SheetWorkspacePage() {
                     )}
                     <button
                       type="button"
+                      aria-expanded={isExpanded}
                       onClick={() => toggleGroup(group.id)}
                       className="flex min-w-0 flex-1 items-center gap-1.5 px-1 py-1.5 text-left text-[0.68rem] uppercase tracking-[0.18em] text-stone-400 hover:text-stone-200 transition"
                     >
@@ -2743,12 +2419,13 @@ export function SheetWorkspacePage() {
                   </div>
 
                   {isExpanded && (
-                    <div className="ml-2 space-y-1 border-l border-white/10 pl-2">
+                    <div className="gg-folder-contents">
                       {membersInGroup.length === 0 ? (
                         <p className="py-2 text-center text-[0.65rem] text-stone-600">Pasta vazia</p>
                       ) : (
                         membersInGroup.map((entry) => (
                           <ProfileCard
+                  names={subjectNames}
                             key={entry.id}
                             entry={entry}
                             selected={entry.id === selectedProfile?.id}
@@ -2783,6 +2460,7 @@ export function SheetWorkspacePage() {
               const ungrouped = filteredAccessibleProfiles.filter((p) => !assignedIds.has(p.id) && p.id !== profile?.id)
               return ungrouped.map((entry) => (
                 <ProfileCard
+                  names={subjectNames}
                   key={entry.id}
                   entry={entry}
                   selected={entry.id === selectedProfile?.id}
@@ -2806,30 +2484,55 @@ export function SheetWorkspacePage() {
               ))
             })()}
 
-            {isGm && filteredAccessibleProfiles.length === 0 ? (
+            {filteredAccessibleProfiles.length === 0 ? (
               <div className="border border-dashed border-white/10 bg-black/20 px-4 py-4 text-xs leading-6 text-stone-500">
                 Nenhuma ficha bate com essa pesquisa.
               </div>
             ) : null}
           </div>
 
-        </aside>
+        </section>
         ) : null}
 
-        <section className={`relative min-w-0 space-y-4 ${showingMasterNotebook ? 'pt-12' : ''}`}>
-          <button
-            type="button"
-            onClick={toggleSidebar}
-            className="signal-button absolute left-2 top-2 z-20 inline-flex items-center gap-2 px-3 py-2 text-xs"
-            data-variant="ghost"
-            title={sidebarHidden ? 'Mostrar sidebar (Alt+S)' : 'Esconder sidebar (Alt+S)'}
-          >
-            {sidebarHidden ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-            <span className="hidden md:inline">
-              {sidebarHidden ? 'Mostrar sidebar' : 'Esconder sidebar'}
-            </span>
-          </button>
+        {workspaceView === 'notebook' && !isGm ? <section className="gg-notebook gg-native-tools"><header className="gg-native-heading"><p className="panel-title">PRIVATE RECORDS // CADERNO</p><h1>CADERNO<span className="gg-terminal-cursor" aria-hidden="true">_</span></h1><p className="gg-native-description">Notas de {selectedProfile?.displayName}. Pistas, ideias e memórias.</p></header>
+          {loadingSheet ? <LoadingScreen label="A abrir caderno…" /> : selectedProfile && (isOwnSelectedProfile || canEditPlayerNpcSheet) ? <>
+                <PlayerNotebookPanel
+                  key={searchParams.get('page') ?? selectedProfile.id}
+                  initialPageId={searchParams.get('page') ?? undefined}
+                  value={draftFields.PLAYER_NOTES ?? ''}
+                  pagesValue={draftFields.PLAYER_NOTE_PAGES ?? ''}
+                  onChange={(value) => {
+                    setDraftFields((current) => ({
+                      ...current,
+                      PLAYER_NOTES: value,
+                    }))
+                  }}
+                  onPagesChange={(value) => {
+                    setDraftFields((current) => ({
+                      ...current,
+                      PLAYER_NOTE_PAGES: value,
+                    }))
+                  }}
+                  canEdit={canEdit}
+                />
 
+
+          </> : <EmptyState title="Caderno privado" detail="Escolhe uma ficha tua em Operativos para abrir o caderno." />}
+        </section> : null}
+        {!['home', 'operatives', 'master'].includes(workspaceView) && !(workspaceView === 'notebook' && !isGm) ? <section className={`relative min-w-0 space-y-4${isSilverWorkspace && !showingCyberwareManager ? ' gg-native-tools' : ''}`}>
+          <div className="gg-context-bar">
+            <Link to={isSilverWorkspace || showingCyberwareManager ? '?view=home' : '?view=operatives'}>{isSilverWorkspace || showingCyberwareManager ? 'Arquivo' : 'Operativos'}</Link>
+            <span className="gg-context-subject">/ {showingCyberwareManager ? 'Cyberware' : isSilverWorkspace ? showingMasterNotebook ? 'Caderno' : workspaceView === 'notes' ? 'Notas' : 'Quadro' : selectedProfile ? subjectName(selectedProfile, subjectNames) : 'A carregar…'}</span>
+            <div className="gg-context-links"><Link to={`/app/sheets/${isGm ? profile.id : selectedProfile?.id}?view=notebook`}>Caderno</Link><Link to={selectedProfile && (isOwnSelectedProfile || isOwnerOfSelectedNpcProfile) ? `/app/history?sheet=${encodeURIComponent(selectedProfile.id)}&kind=${isNpcProfile(selectedProfile) ? 'npc-card' : 'profile-sheet'}` : '/app/history'}>História</Link></div>
+            {!showingMasterNotebook && !showingCyberwareManager && !isSilverWorkspace ? <SubjectSwitcher names={subjectNames} key={selectedProfile?.id} actorId={profile.id} profiles={accessibleProfiles} selectedId={selectedProfile?.id} /> : null}
+          </div>
+          {workspaceView === 'cyberware' && !isGm ? <p className="gg-context-bar">O teu cyberware está na ficha, com o catálogo autorizado para a tua conta.</p> : null}
+          {workspaceView === 'board' && !isGm ? <p className="gg-context-bar">O teu quadro de relações está abaixo da ficha.</p> : null}
+          {isSilverWorkspace && !showingCyberwareManager ? <header className="gg-native-heading">
+            <p className="panel-title">{showingMasterNotebook ? 'PRIVATE RECORDS // 06' : workspaceView === 'notes' ? 'PRIVATE RECORDS // 08' : 'CONNECTION ARCHIVE // 07'}</p>
+            <h1>{showingMasterNotebook ? 'CADERNO' : workspaceView === 'notes' ? 'NOTAS' : 'QUADRO'}<span className="gg-terminal-cursor" aria-hidden="true">_</span></h1>
+            <p className="gg-native-description">{showingMasterNotebook ? 'Notas, sessões e pistas da campanha.' : workspaceView === 'notes' ? 'As notas do Silver. Pistas, ideias e rascunhos do quadro.' : 'Pessoas, relações e pistas num único mapa.'}</p>
+          </header> : null}
           {showingCyberwareManager ? (
             loadingGlobalCyberwareCatalog ? (
               <LoadingScreen label="A abrir catalogo de cyberware..." />
@@ -2851,23 +2554,22 @@ export function SheetWorkspacePage() {
             isSilverWorkspace ? (
               showingMasterNotebook ? (
                 <MasterNotebookPanel
+                  key={searchParams.get('note') ?? profile.id}
+                  onPendingChange={setNotebookPending}
+                  initialNoteId={searchParams.get('note') ?? undefined}
                   userId={profile?.id ?? selectedProfile.id}
                   viewerProfile={profile ?? selectedProfile}
                   canEdit={canEdit}
                 />
               ) : (
                 <SilverNotebook
+                  notesOnly={workspaceView === 'notes'}
                   value={draftFields.GM_NOTES ?? ''}
                   pagesValue={draftFields.GM_NOTE_PAGES ?? ''}
-                  remindersValue={draftFields.GM_REMINDERS ?? ''}
                   workspaceStorageKey={selectedProfile.id}
                   onQuickSave={() => void handleSave()}
                   canQuickSave={isDirty}
                   quickSaveBusy={saving}
-                  playerMessageRecipients={playerMessageRecipients}
-                  onSendPlayerMessage={handleSendPlayerMessage}
-                  sendingPlayerMessage={sendingPlayerMessage}
-                  playerMessageError={playerMessageError}
                   boardProfiles={boardProfiles}
                   boardProfileFieldData={boardProfileFieldData}
                   pendingBoardProfileCard={pendingBoardProfileCard}
@@ -2878,15 +2580,10 @@ export function SheetWorkspacePage() {
                     }))
                   }}
                   onPagesChange={(value) => {
+                    setPendingBoardProfileCard(null)
                     setDraftFields((current) => ({
                       ...current,
                       GM_NOTE_PAGES: value,
-                    }))
-                  }}
-                  onRemindersChange={(value) => {
-                    setDraftFields((current) => ({
-                      ...current,
-                      GM_REMINDERS: value,
                     }))
                   }}
                   canEdit={canEdit}
@@ -2894,6 +2591,7 @@ export function SheetWorkspacePage() {
               )
             ) : (
               <>
+                <div ref={sheetContainerRef} className="gg-sheet-content">
                 <PdfSheetEditor
                   fieldData={sheetEditorFieldData}
                   mediaScope={{
@@ -2927,6 +2625,8 @@ export function SheetWorkspacePage() {
                   cyberwareViewerProfileId={profile?.id ?? null}
                 />
 
+                </div>
+                <div ref={relationsContainerRef} className="gg-relations-content">
                 <RelationsBoard
                   data={relationsData}
                   mediaScope={{
@@ -2955,8 +2655,9 @@ export function SheetWorkspacePage() {
                   }}
                 />
 
+                </div>
                 {canManageRelationsShare ? (
-                  <section className="hud-panel rounded-[28px] p-4">
+                  <section className="gg-site-section gg-native-tools gg-native-page">
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                       <div>
                         <p className="panel-title">Partilha de amizades</p>
@@ -3052,7 +2753,7 @@ export function SheetWorkspacePage() {
                 ) : null}
 
                 {canConfigureShareAccess ? (
-                  <section className="hud-panel rounded-[28px] p-4">
+                  <section className="gg-site-section gg-native-tools gg-native-page">
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                       <div>
                         <p className="panel-title">Partilha</p>
@@ -3155,7 +2856,7 @@ export function SheetWorkspacePage() {
               detail="Nao foi possivel criar ou carregar esta ficha."
             />
           )}
-        </section>
+        </section> : null}
       </div>
 
       {/* Confirmação apagar NPC */}
@@ -3185,6 +2886,14 @@ export function SheetWorkspacePage() {
           </div>
         </div>
       )}
+      {workspaceView !== 'notebook' && (isGm || (!loadingSheet && selectedProfile && (isOwnSelectedProfile || canEditPlayerNpcSheet))) ? <QuickNotes key={`${profile.id}:${selectedProfile?.id}`}>
+        {isGm ? <MasterNotebookPanel compact userId={profile.id} viewerProfile={profile} canEdit onPendingChange={setNotebookPending} /> : <>
+          <div className="gg-quick-notes-save"><span>{selectedProfile ? subjectName(selectedProfile, subjectNames) : 'Caderno'}</span><button type="button" className="signal-button px-3 py-2" disabled={!isDirty || saving || !canEdit} onClick={() => void handleSave()}>{saving ? 'A guardar…' : 'Guardar'}</button></div>
+          <PlayerNotebookPanel compact value={draftFields.PLAYER_NOTES ?? ''} pagesValue={draftFields.PLAYER_NOTE_PAGES ?? ''}
+            onChange={(value) => setDraftFields((current) => ({ ...current, PLAYER_NOTES: value }))}
+            onPagesChange={(value) => setDraftFields((current) => ({ ...current, PLAYER_NOTE_PAGES: value }))} canEdit={canEdit} />
+        </>}
+      </QuickNotes> : null}
     </main>
   )
 }

@@ -1,0 +1,80 @@
+.gg-login {
+  --terminal-yellow: #dccc58;
+  position: relative; isolation: isolate; min-height: 100dvh; display: flex; flex-direction: column;
+  color: #e8e5dc; background: #090c09; padding: 28px clamp(24px, 6vw, 100px); font-family: Archivo, sans-serif;
+}
+.gg-login::before { content: ''; position: absolute; z-index: -2; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 40% 70%, #77712012, transparent 65%), linear-gradient(#dccc5805 1px, transparent 1px), linear-gradient(90deg, #dccc5805 1px, transparent 1px); background-size: auto, 64px 64px, 64px 64px; }
+.gg-login::after { content: ''; position: absolute; z-index: 2; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, transparent 0 3px, #00000022 3px 4px); }
+.gg-terminal-backdrop { position: absolute; z-index: -1; inset: 0; overflow: hidden; pointer-events: none; color: var(--terminal-yellow); }
+.gg-terminal-backdrop svg { width: 100%; height: 100%; position: absolute; inset: 0; stroke: currentColor; stroke-width: .7; }
+.gg-terminal-traces { opacity: .34; }
+.gg-terminal-mesh { opacity: .24; }
+.gg-terminal-code { position: absolute; left: 3%; top: 23%; font: 9px/1.9 'JetBrains Mono', Consolas, monospace; color: #dccc5866; }
+.gg-terminal-coordinate { position: absolute; right: 2.5%; top: 42%; writing-mode: vertical-rl; font: 9px 'JetBrains Mono', monospace; letter-spacing: 3px; color: #dccc5877; }
+.gg-login-top, .gg-login-footer { display: flex; align-items: center; gap: 20px; color: #b0ad81; font: 9px/1.6 'JetBrains Mono', Consolas, monospace; letter-spacing: 1.6px; }
+.gg-login-top { padding: 8px 0 20px; border-bottom: 1px solid #dccc5838; }
+.gg-login-top > :last-child { margin-left: auto; }
+.gg-login-mark { color: #e8e5dc; font: 600 32px/1 Teko, sans-serif; letter-spacing: -2px; }
+.gg-login-mark > span { color: var(--terminal-yellow); }
+.gg-login-terminal { width: min(100%, 1080px); margin: auto; border: 1px solid #dccc5866; outline: 1px solid #dccc581c; outline-offset: 5px; background: #090d09f2; box-shadow: 0 0 50px #dccc5806; }
+.gg-terminal-titlebar, .gg-terminal-status { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 20px; color: var(--terminal-yellow); font: 10px/1.6 'JetBrains Mono', Consolas, monospace; letter-spacing: 1px; }
+.gg-terminal-titlebar { border-bottom: 1px solid #dccc584d; background: #dccc5808; }
+.gg-terminal-titlebar > span:first-child { display: flex; align-items: center; gap: 10px; }
+.gg-terminal-titlebar i { display: inline-block; width: 7px; height: 7px; background: currentColor; box-shadow: 0 0 8px #dccc5855; }
+.gg-terminal-status { border-top: 1px dashed #dccc5838; font-size: 8px; color: #a5a06d; }
+.gg-terminal-cursor { color: var(--terminal-yellow); animation: gg-terminal-blink 1.4s steps(1) infinite; }
+.gg-login-layout { display: grid; grid-template-columns: minmax(0, 1fr) 380px; align-items: center; gap: clamp(36px, 5vw, 84px); padding: 48px; }
+.gg-login-meta { color: var(--terminal-yellow); font: 9px/1.8 'JetBrains Mono', Consolas, monospace; letter-spacing: 1.6px; }
+.gg-login-identity { position: relative; padding: 12px 0; }
+.gg-login-identity h1 { font: 600 clamp(85px, 9vw, 130px)/.8 Teko, Impact, sans-serif; letter-spacing: -2px; margin: 32px 0 22px; }
+.gg-login-identity h1 > span { color: transparent; -webkit-text-stroke: 1px var(--terminal-yellow); background: repeating-linear-gradient(0deg, #dccc5866 0 1px, transparent 1px 4px); background-clip: text; }
+.gg-login-identity h1 i { font-style: normal; color: var(--terminal-yellow); }
+.gg-login-identity > p:last-of-type { color: #a9ad98; font-size: 13px; line-height: 1.9; }
+.gg-login-signature { display: flex; align-items: center; gap: 22px; margin-top: 36px; font: 9px 'JetBrains Mono', monospace; color: #a5a06d; }
+.gg-login-bars { width: 96px; height: 20px; opacity: .6; background: repeating-linear-gradient(90deg, #dccc58 0 1px, transparent 1px 4px, #dccc58 4px 7px, transparent 7px 10px); }
+.gg-auth-panel { min-width: 0; padding: 24px 0 24px 32px; border-left: 1px solid #dccc5838; }
+.gg-auth-panel h2 { font: 500 44px/1 Teko, Impact, sans-serif; margin: 17px 0 10px; }
+.gg-auth-intro { font-size: 13px; color: #a9ad98; line-height: 1.7; }
+.gg-auth-panel form { margin-top: 28px; }
+.gg-auth-panel .panel-title { color: #b4b186; font: 9px/1.8 'JetBrains Mono', monospace; letter-spacing: 1.5px; }
+.gg-auth-panel .input-shell { width: 100%; border: 1px solid #dccc5840; border-radius: 0; background: #dccc5805; color: #e8e5dc; font: 12px/1.6 'JetBrains Mono', Consolas, monospace; box-shadow: none; }
+.gg-auth-panel .input-shell::placeholder { color: #858a70; }
+.gg-auth-panel .input-shell:focus { outline: 1px solid var(--terminal-yellow); outline-offset: 3px; border-color: var(--terminal-yellow); }
+.gg-auth-panel .signal-button { margin-top: 22px; padding: 14px; background: var(--terminal-yellow); border: 1px solid var(--terminal-yellow); border-radius: 0; color: #15180e; box-shadow: none; text-shadow: none; font: 11px/1.5 'JetBrains Mono', monospace; letter-spacing: 1px; }
+.gg-auth-panel .signal-button::before, .gg-auth-panel .signal-button::after { display: none; }
+.gg-auth-panel .signal-button:hover { background: #eadb78; transform: none; box-shadow: 0 0 16px #dccc581c; }
+.gg-auth-panel button:focus-visible { outline: 2px solid #e8e5dc; outline-offset: 4px; }
+.gg-login-footer { justify-content: space-between; border-top: 1px solid #dccc5838; padding-top: 18px; }
+.gg-login-footer > span:last-child > span { color: var(--terminal-yellow); }
+@keyframes gg-terminal-blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .gg-terminal-cursor { animation: none; } }
+@media (max-width: 1100px) {
+  .gg-terminal-code { display: none; }
+  .gg-login-layout { padding: 32px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; }
+}
+@media (max-width: 760px) {
+  .gg-login { padding: 20px 24px; gap: 32px; }
+  .gg-login-terminal { max-width: 420px; }
+  .gg-login-layout { grid-template-columns: minmax(0, 1fr); gap: 24px; padding: 24px; }
+  .gg-login-identity { padding: 0; }
+  .gg-login-identity h1 { font-size: 70px; margin: 20px 0 12px; }
+  .gg-login-identity h1 br { display: none; }
+  .gg-login-identity h1 > span { margin-left: 10px; }
+  .gg-login-signature { display: none; }
+  .gg-login-top { gap: 12px; font-size: 8px; }
+  .gg-login-top > :last-child { display: none; }
+  .gg-auth-panel { padding: 24px 0 0; border-left: 0; border-top: 1px dashed #dccc584d; }
+  .gg-auth-panel h2 { font-size: 40px; }
+  .gg-terminal-titlebar { padding: 10px 14px; font-size: 8px; }
+  .gg-terminal-status { padding: 10px 14px; font-size: 7px; letter-spacing: .5px; }
+  .gg-terminal-status > :last-child { display: none; }
+  .gg-login-footer { font-size: 8px; }
+  .gg-login-footer > :last-child { display: none; }
+}
+@media (max-width: 380px) {
+  .gg-login { padding-inline: 16px; }
+  .gg-login-layout { padding: 20px; }
+  .gg-login-identity h1 { font-size: 60px; }
+  .gg-login-identity h1 > span { margin-left: 6px; }
+  .gg-login-meta { font-size: 8px; letter-spacing: 1px; }
+}

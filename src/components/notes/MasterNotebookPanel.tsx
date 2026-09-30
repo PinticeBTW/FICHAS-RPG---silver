@@ -93,6 +93,9 @@ type NormalizedNoteDraft = {
 }
 
 type MasterNotebookPanelProps = {
+  compact?: boolean
+  initialNoteId?: string
+  onPendingChange?: (pending: boolean) => void
   userId: string
   viewerProfile: Profile
   canEdit: boolean
@@ -419,7 +422,7 @@ function logMasterNotesDebug(event: string, payload: Record<string, unknown>) {
   console.debug(`[MASTER_NOTES] ${event}`, payload)
 }
 
-export function MasterNotebookPanel({ userId, viewerProfile, canEdit }: MasterNotebookPanelProps) {
+export function MasterNotebookPanel({ userId, viewerProfile, canEdit, initialNoteId, onPendingChange, compact = false }: MasterNotebookPanelProps) {
   const [visibleNotes, setVisibleNotes] = useState<MasterNoteListItem[]>([])
   const [allNotes, setAllNotes] = useState<MasterNoteListItem[]>([])
   const [folders, setFolders] = useState<MasterNoteFolder[]>([])
@@ -562,6 +565,9 @@ export function MasterNotebookPanel({ userId, viewerProfile, canEdit }: MasterNo
       !areNormalizedDraftsEqual(normalizedEditorDraft, normalizedSavedSnapshot) &&
       (userHasEdited || draftRestored),
   )
+
+  useEffect(() => { onPendingChange?.(hasUnsavedChanges || saveStatus === 'saving') }, [hasUnsavedChanges, saveStatus, onPendingChange])
+  useEffect(() => () => onPendingChange?.(false), [onPendingChange])
 
   const selectedPlayersCount = editorDraft
     ? normalizeRecipientUserIds(
@@ -1028,7 +1034,7 @@ export function MasterNotebookPanel({ userId, viewerProfile, canEdit }: MasterNo
   useEffect(() => {
     cancelAutosave()
     queuedPersistRef.current = null
-    const restoredSelectedNoteId = readSelectedNoteId(userId)
+    const restoredSelectedNoteId = initialNoteId ?? readSelectedNoteId(userId)
     setSelectedNoteId(restoredSelectedNoteId)
     setSelectedNote(null)
     setEditorDraft(null)
@@ -1041,7 +1047,7 @@ export function MasterNotebookPanel({ userId, viewerProfile, canEdit }: MasterNo
     savedSnapshotRef.current = null
     isHydratingRef.current = false
     lastLoadedNoteIdRef.current = null
-  }, [cancelAutosave, userId])
+  }, [cancelAutosave, userId, initialNoteId])
 
   useEffect(() => {
     void refreshFolders()
@@ -1079,14 +1085,14 @@ export function MasterNotebookPanel({ userId, viewerProfile, canEdit }: MasterNo
         return current
       }
 
-      const restored = readSelectedNoteId(userId)
+      const restored = initialNoteId ?? readSelectedNoteId(userId)
       if (restored && visibleNotes.some((entry) => entry.id === restored)) {
         return restored
       }
 
       return visibleNotes[0].id
     })
-  }, [clearCurrentEditorState, userId, visibleNotes])
+  }, [clearCurrentEditorState, userId, visibleNotes, initialNoteId])
 
   useEffect(() => {
     writeSelectedNoteId(userId, selectedNoteId)
@@ -1575,7 +1581,7 @@ export function MasterNotebookPanel({ userId, viewerProfile, canEdit }: MasterNo
   )
 
   return (
-    <section className="hud-panel rounded-[28px] p-4">
+    <section className={`hud-panel rounded-[28px] p-4${compact ? ' gg-master-notes-compact' : ''}`}>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-3">
         <div className="min-w-0">
           <p className="panel-title">Caderno do Mestre</p>
@@ -1645,6 +1651,7 @@ export function MasterNotebookPanel({ userId, viewerProfile, canEdit }: MasterNo
         </div>
       ) : null}
 
+      {compact ? <div className="gg-compact-note-picker"><select className="input-shell p-2" aria-label="Escolher nota" value={selectedNoteId ?? ''} onChange={(event) => void handleSelectNote(event.target.value)}><option value="" disabled>Escolher nota…</option>{visibleNotes.map((note) => <option key={note.id} value={note.id}>{note.title}</option>)}</select><button type="button" className="signal-button px-3 py-2" disabled={!canEdit || creatingNote} onClick={() => void createNote()} aria-label="Nova nota"><Plus size={14} /></button></div> : null}
       <div className="mt-4 grid gap-4 xl:grid-cols-[260px_minmax(0,1fr)_290px]">
         <aside className="space-y-3">
           <button

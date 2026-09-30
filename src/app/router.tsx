@@ -102,7 +102,7 @@ export const router = createBrowserRouter([
             path: 'archive',
             element: (
               <Navigate
-                to="/app/sheets"
+                to="/app/sheets?view=operatives"
                 replace
               />
             ),
@@ -122,7 +122,7 @@ export const router = createBrowserRouter([
             path: 'gm',
             element: (
               <Navigate
-                to="/app/sheets"
+                to="/app/sheets?view=master"
                 replace
               />
             ),
@@ -132,7 +132,7 @@ export const router = createBrowserRouter([
             path: 'cyberware',
             element: (
               <Navigate
-                to="/app/sheets"
+                to="/app/sheets?view=cyberware"
                 replace
               />
             ),
@@ -142,7 +142,7 @@ export const router = createBrowserRouter([
             path: 'characters/:characterId',
             element: (
               <Navigate
-                to="/app/sheets"
+                to="/app/sheets?view=sheet"
                 replace
               />
             ),

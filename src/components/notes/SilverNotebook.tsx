@@ -1,17 +1,13 @@
 import {
-  BellRing,
-  Check,
   ChevronLeft,
   ChevronRight,
   Eraser,
   Hand,
   ImagePlus,
   Italic,
-  Music4,
   PencilLine,
   Pin,
   PinOff,
-  Play,
   Plus,
   Save,
   Search,
@@ -29,26 +25,12 @@ import {
   type MouseEvent as ReactMouseEvent,
   type WheelEvent as ReactWheelEvent,
 } from 'react'
-import type { SilverMessageRecipientOption } from '../../lib/playerInbox'
 import {
-  buildChecklistSearchText,
-  getChecklistProgress,
   parseNoteChecklistItems,
 } from '../../lib/noteChecklist'
 import type { NotebookPageCore } from '../../types/notebook'
 import { HighlightableTextEditor } from '../common/HighlightableTextEditor'
 import { PdfSheetPreview } from '../character/PdfSheetEditor'
-import { NoteChecklist } from './NoteChecklist'
-import { SilverMessageComposerPanel } from './PlayerMessagesPanel'
-
-type SilverReminder = {
-  id: string
-  title: string
-  when: string
-  notes: string
-  done: boolean
-  triggeredAt?: string
-}
 
 type SilverNotePage = NotebookPageCore & {
   stickies: SilverSticky[]
@@ -159,13 +141,12 @@ type SilverSticky = {
 }
 
 type SilverNotebookProps = {
+  notesOnly?: boolean
   value: string
   pagesValue: string
-  remindersValue: string
   workspaceStorageKey?: string
   onChange: (value: string) => void
   onPagesChange: (value: string) => void
-  onRemindersChange: (value: string) => void
   canEdit: boolean
   onQuickSave?: () => void
   canQuickSave?: boolean
@@ -173,12 +154,7 @@ type SilverNotebookProps = {
   boardProfiles?: SilverBoardProfileSummary[]
   boardProfileFieldData?: Record<string, Record<string, string>>
   pendingBoardProfileCard?: SilverBoardInsertRequest | null
-  playerMessageRecipients?: SilverMessageRecipientOption[]
-  onSendPlayerMessage?: (recipientId: string, title: string, body: string) => Promise<void> | void
-  sendingPlayerMessage?: boolean
-  playerMessageError?: string | null
 }
-const REMINDER_SOUND_URL = '/sounds/silver-alert.mp3'
 const STICKY_WIDTH_PX = 220
 const STICKY_HEIGHT_PX = 164
 const LEGACY_BOARD_WIDTH = 3600
@@ -387,14 +363,7 @@ function buildDefaultPage(content = '', pageNumber = 1): SilverNotePage {
 }
 
 function describeSilverPage(page: SilverNotePage) {
-  const checklistProgress = getChecklistProgress(page.checklistItems)
-  const summaryParts = [`${page.stickies.length} bloco${page.stickies.length === 1 ? '' : 's'}`]
-
-  if (checklistProgress.total) {
-    summaryParts.push(`${checklistProgress.completed}/${checklistProgress.total} tarefas`)
-  }
-
-  return summaryParts.join(' | ')
+  return `${page.stickies.length} blocos`
 }
 
 function buildDefaultSticky(
@@ -659,7 +628,7 @@ function normaliseStoredHtml(html: string) {
   return cleaned
 }
 
-function readStoredPanelPreference(workspaceStorageKey: string | undefined, panel: 'notes' | 'reminders') {
+function readStoredPanelPreference(workspaceStorageKey: string | undefined, panel: 'notes') {
   if (typeof window === 'undefined') {
     return true
   }
@@ -668,105 +637,13 @@ function readStoredPanelPreference(workspaceStorageKey: string | undefined, pane
   return window.localStorage.getItem(storageKey) !== '0'
 }
 
-function parseReminders(value: string): SilverReminder[] {
-  if (!value.trim()) {
-    return []
-  }
-
-  try {
-    const parsed = JSON.parse(value)
-
-    if (!Array.isArray(parsed)) {
-      return []
-    }
-
-    return parsed
-      .filter((entry) => entry && typeof entry === 'object')
-      .map((entry) => ({
-        id: typeof entry.id === 'string' ? entry.id : crypto.randomUUID(),
-        title: typeof entry.title === 'string' ? entry.title : '',
-        when: typeof entry.when === 'string' ? entry.when : '',
-        notes: typeof entry.notes === 'string' ? entry.notes : '',
-        done: Boolean(entry.done),
-        triggeredAt: typeof entry.triggeredAt === 'string' ? entry.triggeredAt : undefined,
-      }))
-  } catch {
-    return []
-  }
-}
-
-function serializeReminders(reminders: SilverReminder[]) {
-  return JSON.stringify(reminders)
-}
-
-function formatReminderWhen(value: string) {
-  if (!value) {
-    return 'Sem hora'
-  }
-
-  const date = new Date(value)
-
-  if (Number.isNaN(date.getTime())) {
-    return value
-  }
-
-  return date.toLocaleString('pt-PT', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-  })
-}
-
-async function playReminderAlert() {
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  try {
-    const audio = new Audio(REMINDER_SOUND_URL)
-    audio.volume = 0.95
-    await audio.play()
-    return
-  } catch {
-    // Fallback para o bip interno se o ficheiro fixo nao existir ou o browser bloquear.
-  }
-
-  const AudioContextCtor =
-    window.AudioContext ||
-    (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
-
-  if (!AudioContextCtor) {
-    return
-  }
-
-  const context = new AudioContextCtor()
-  const gain = context.createGain()
-  gain.connect(context.destination)
-  gain.gain.setValueAtTime(0.0001, context.currentTime)
-  gain.gain.exponentialRampToValueAtTime(0.16, context.currentTime + 0.03)
-  gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.55)
-
-  const oscillator = context.createOscillator()
-  oscillator.type = 'square'
-  oscillator.frequency.setValueAtTime(880, context.currentTime)
-  oscillator.frequency.setValueAtTime(660, context.currentTime + 0.18)
-  oscillator.frequency.setValueAtTime(990, context.currentTime + 0.33)
-  oscillator.connect(gain)
-  oscillator.start()
-  oscillator.stop(context.currentTime + 0.58)
-
-  window.setTimeout(() => {
-    void context.close()
-  }, 900)
-}
-
 export function SilverNotebook({
+  notesOnly = false,
   value,
   pagesValue,
-  remindersValue,
   workspaceStorageKey,
   onChange,
   onPagesChange,
-  onRemindersChange,
   canEdit,
   onQuickSave,
   canQuickSave = false,
@@ -774,24 +651,15 @@ export function SilverNotebook({
   boardProfiles = [],
   boardProfileFieldData = {},
   pendingBoardProfileCard = null,
-  playerMessageRecipients = [],
-  onSendPlayerMessage,
-  sendingPlayerMessage = false,
-  playerMessageError = null,
 }: SilverNotebookProps) {
   const notePages = useMemo(() => parseNotePages(pagesValue, value), [pagesValue, value])
-  const reminders = useMemo(() => parseReminders(remindersValue), [remindersValue])
   const boardProfilesById = useMemo(
     () => new Map(boardProfiles.map((entry) => [entry.profileId, entry])),
     [boardProfiles],
   )
   const [activePageId, setActivePageId] = useState<string>('')
   const [searchQuery, setSearchQuery] = useState('')
-  const [newTitle, setNewTitle] = useState('')
-  const [newWhen, setNewWhen] = useState('')
-  const [newNotes, setNewNotes] = useState('')
-  const [soundMessage, setSoundMessage] = useState('')
-  const [nowTimestamp, setNowTimestamp] = useState(() => Date.now())
+  const [imageMessage, setImageMessage] = useState('')
   const [draggingStickyId, setDraggingStickyId] = useState<string | null>(null)
   const [draggingDrawingId, setDraggingDrawingId] = useState<string | null>(null)
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
@@ -808,7 +676,6 @@ export function SilverNotebook({
     y: 0,
     zoom: DEFAULT_ZOOM,
   })
-  const alertedIdsRef = useRef<Set<string>>(new Set())
   const editorRef = useRef<HTMLDivElement | null>(null)
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const boardImageInputRef = useRef<HTMLInputElement | null>(null)
@@ -857,9 +724,6 @@ export function SilverNotebook({
   const handledBoardInsertRequestRef = useRef<string | null>(null)
   const [showNotesPanel, setShowNotesPanel] = useState(() =>
     readStoredPanelPreference(workspaceStorageKey, 'notes'),
-  )
-  const [showRemindersPanel, setShowRemindersPanel] = useState(() =>
-    readStoredPanelPreference(workspaceStorageKey, 'reminders'),
   )
   const [previewSheetStickyId, setPreviewSheetStickyId] = useState<string | null>(null)
   const drawStateRef = useRef<{
@@ -1147,7 +1011,6 @@ export function SilverNotebook({
 
   useEffect(() => {
     setShowNotesPanel(readStoredPanelPreference(workspaceStorageKey, 'notes'))
-    setShowRemindersPanel(readStoredPanelPreference(workspaceStorageKey, 'reminders'))
   }, [workspaceStorageKey])
 
   useEffect(() => {
@@ -1157,8 +1020,7 @@ export function SilverNotebook({
 
     const storagePrefix = `${SILVER_NOTEBOOK_UI_KEY}:${workspaceStorageKey ?? 'global'}`
     window.localStorage.setItem(`${storagePrefix}:notes`, showNotesPanel ? '1' : '0')
-    window.localStorage.setItem(`${storagePrefix}:reminders`, showRemindersPanel ? '1' : '0')
-  }, [showNotesPanel, showRemindersPanel, workspaceStorageKey])
+  }, [showNotesPanel, workspaceStorageKey])
 
   const pageOrder = useMemo(
     () => new Map(notePages.map((page, index) => [page.id, index])),
@@ -1173,7 +1035,6 @@ export function SilverNotebook({
           const searchable = [
             page.title,
             stripHtml(page.content),
-            buildChecklistSearchText(page.checklistItems),
             ...page.stickies.map((sticky) => `${sticky.title} ${sticky.content}`),
           ]
             .join(' ')
@@ -1192,26 +1053,6 @@ export function SilverNotebook({
     })
   }, [notePages, pageOrder, searchQuery])
 
-  const sortedReminders = useMemo(
-    () =>
-      [...reminders].sort((left, right) => {
-        const leftTime = left.when ? new Date(left.when).getTime() : Number.MAX_SAFE_INTEGER
-        const rightTime = right.when ? new Date(right.when).getTime() : Number.MAX_SAFE_INTEGER
-        return leftTime - rightTime
-      }),
-    [reminders],
-  )
-
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      setNowTimestamp(Date.now())
-    }, 5000)
-
-    return () => {
-      window.clearInterval(timer)
-    }
-  }, [])
-
   useEffect(() => {
     const editor = editorRef.current
 
@@ -1229,78 +1070,6 @@ export function SilverNotebook({
       editor.innerHTML = nextHtml
     }
   }, [activePage.content, activePage.id])
-
-  useEffect(() => {
-    if (!canEdit) {
-      return
-    }
-
-    const checkReminders = () => {
-      const now = Date.now()
-      const dueReminders = reminders.filter((entry) => {
-        if (entry.done || entry.triggeredAt || !entry.when) {
-          return false
-        }
-
-        const when = new Date(entry.when).getTime()
-        return !Number.isNaN(when) && when <= now && !alertedIdsRef.current.has(entry.id)
-      })
-
-      if (!dueReminders.length) {
-        return
-      }
-
-      dueReminders.forEach((entry) => alertedIdsRef.current.add(entry.id))
-      void playReminderAlert()
-
-      const updatedReminders = reminders.map((entry) =>
-        dueReminders.some((dueEntry) => dueEntry.id === entry.id)
-          ? { ...entry, triggeredAt: new Date().toISOString() }
-          : entry,
-      )
-
-      onRemindersChange(serializeReminders(updatedReminders))
-    }
-
-    checkReminders()
-    const timer = window.setInterval(checkReminders, 5000)
-
-    return () => {
-      window.clearInterval(timer)
-    }
-  }, [canEdit, onRemindersChange, reminders])
-
-  const addReminder = () => {
-    const trimmedTitle = newTitle.trim()
-
-    if (!trimmedTitle) {
-      return
-    }
-
-    const nextReminder: SilverReminder = {
-      id: crypto.randomUUID(),
-      title: trimmedTitle,
-      when: newWhen,
-      notes: newNotes.trim(),
-      done: false,
-    }
-
-    onRemindersChange(serializeReminders([...reminders, nextReminder]))
-    setNewTitle('')
-    setNewWhen('')
-    setNewNotes('')
-  }
-
-  const updateReminder = (reminderId: string, updater: (entry: SilverReminder) => SilverReminder) => {
-    onRemindersChange(
-      serializeReminders(reminders.map((entry) => (entry.id === reminderId ? updater(entry) : entry))),
-    )
-  }
-
-  const removeReminder = (reminderId: string) => {
-    onRemindersChange(serializeReminders(reminders.filter((entry) => entry.id !== reminderId)))
-    alertedIdsRef.current.delete(reminderId)
-  }
 
   const applySnapshot = useCallback((snapshot: SilverHistorySnapshot) => {
     const snapshotPages = parseNotePages(snapshot.pagesValue, value)
@@ -1431,11 +1200,6 @@ export function SilverNotebook({
     updatePages(nextPages, pageId)
   }
 
-  const handleTestSound = () => {
-    setSoundMessage('A testar o som do alerta...')
-    void playReminderAlert()
-  }
-
   const handleEditorInput = () => {
     const editor = editorRef.current
 
@@ -1473,7 +1237,7 @@ export function SilverNotebook({
   }
 
   useEffect(() => {
-    if (!canEdit) {
+    if (!canEdit || notesOnly) {
       return
     }
 
@@ -1517,10 +1281,11 @@ export function SilverNotebook({
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [canEdit, redoPages, undoPages])
+  }, [canEdit, notesOnly, redoPages, undoPages])
 
   // Espaço = pan temporário (como Photoshop)
   useEffect(() => {
+    if (notesOnly) return
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space' && !e.repeat) {
         const tag = (e.target as HTMLElement).tagName
@@ -1542,7 +1307,7 @@ export function SilverNotebook({
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
     }
-  }, [])
+  }, [notesOnly])
 
   const buildSpawnSticky = useCallback(
     (
@@ -1808,13 +1573,13 @@ export function SilverNotebook({
     }
 
     if (!workspaceStorageKey) {
-      setSoundMessage('Não foi possível determinar o espaço seguro para a imagem.')
+      setImageMessage('Não foi possível determinar o espaço seguro para a imagem.')
       event.target.value = ''
       return
     }
 
     try {
-      setSoundMessage('A PROCESSAR E ENVIAR IMAGEM…')
+      setImageMessage('A PROCESSAR E ENVIAR IMAGEM…')
       const uploaded = await uploadSharedImage({
         subjectKind: 'gm-profile',
         subjectId: workspaceStorageKey,
@@ -1828,9 +1593,9 @@ export function SilverNotebook({
           buildSpawnSticky('image', uploaded.reference, uploaded.media.display.width, uploaded.media.display.height),
         ],
       }))
-      setSoundMessage('IMAGEM SINCRONIZADA')
+      setImageMessage('IMAGEM SINCRONIZADA')
     } catch (error) {
-      setSoundMessage(error instanceof Error ? error.message : 'Falha ao enviar a imagem.')
+      setImageMessage(error instanceof Error ? error.message : 'Falha ao enviar a imagem.')
     } finally {
       event.target.value = ''
     }
@@ -2591,6 +2356,47 @@ export function SilverNotebook({
   const boardGridDotSize = Math.max(0.42, Number((1.1 * camera.zoom).toFixed(3)))
   const boardGridLineSize = Math.max(0.35, Number((camera.zoom).toFixed(3)))
 
+  if (notesOnly) return (
+    <section className="gg-silver-notes" aria-label="Notas do Silver">
+      <aside className="gg-silver-note-index" aria-label="Páginas de notas">
+        <div className="gg-silver-note-toolbar">
+          <p className="panel-title">PÁGINAS / {String(notePages.length).padStart(2, '0')}</p>
+          <button type="button" className="signal-button" onClick={createPage} disabled={!canEdit} aria-label="Nova página"><Plus size={15} /></button>
+        </div>
+        <label className="gg-silver-note-search">
+          <Search size={14} aria-hidden="true" />
+          <input aria-label="Pesquisar notas" placeholder="Pesquisar notas…" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} />
+        </label>
+        <div className="gg-silver-note-pages">
+          {filteredPages.map((page) => (
+            <button key={page.id} type="button" className={page.id === activePage.id ? 'is-active' : ''} aria-current={page.id === activePage.id ? 'page' : undefined} onClick={() => setActivePageId(page.id)}>
+              <span>{page.title || 'Sem título'} {page.pinned ? <Pin size={12} aria-label="Fixada" /> : null}</span>
+              <small>{stripHtml(page.content).trim() ? 'COM NOTAS' : 'PÁGINA VAZIA'}</small>
+            </button>
+          ))}
+          {!filteredPages.length ? <p className="gg-native-description">Nenhuma nota encontrada.</p> : null}
+        </div>
+      </aside>
+      <div className="gg-silver-note-document">
+        <div className="gg-silver-note-toolbar">
+          <input className="gg-silver-note-title" aria-label="Título da nota" value={activePage.title} readOnly={!canEdit} onChange={(event) => updateActivePage((page) => ({ ...page, title: event.target.value }))} />
+          <button type="button" className="signal-button" data-variant="ghost" onClick={() => togglePinPage(activePage.id)} disabled={!canEdit} aria-label={activePage.pinned ? 'Desafixar nota' : 'Fixar nota'}>{activePage.pinned ? <PinOff size={15} /> : <Pin size={15} />}</button>
+          {onQuickSave ? <button type="button" className="signal-button" disabled={!canEdit || !canQuickSave || quickSaveBusy} onClick={onQuickSave}><Save size={14} />{quickSaveBusy ? 'A guardar…' : 'Guardar'}</button> : null}
+        </div>
+        <HighlightableTextEditor
+          key={activePage.id}
+          ref={editorRef}
+          value={activePage.content}
+          onChange={(content) => updateActivePage((page) => ({ ...page, content }))}
+          canEdit={canEdit}
+          placeholder="Escreve as tuas notas…"
+          editorClassName="gg-silver-note-editor"
+          onKeyDown={handleEditorShortcuts}
+        />
+      </div>
+    </section>
+  )
+
   return (
     <section className="hud-panel rounded-[28px] p-3 md:p-4">
       <div className="relative min-h-[calc(100vh-56px)] overflow-hidden rounded-[28px] border border-white/10 bg-[#050505]">
@@ -2996,11 +2802,12 @@ export function SilverNotebook({
         </div>
 
         <div className="pointer-events-none absolute inset-0">
+          {imageMessage ? <p role="status" className="absolute right-4 top-4 max-w-sm border border-white/10 bg-black/90 p-3 text-xs text-stone-200">{imageMessage}</p> : null}
           {showNotesPanel ? (
           <div className="pointer-events-auto absolute left-4 top-4 flex max-h-[calc(100%-120px)] w-[330px] flex-col rounded-[22px] border border-white/10 bg-[#0b0b0b]/95 p-3 shadow-[0_14px_32px_rgba(0,0,0,0.4)] backdrop-blur">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="panel-title">Quadro do Silver</p>
+                <p className="panel-title">Notas do quadro</p>
                 <p className="mt-2 text-xs leading-6 text-stone-500">
                   Pesquisa paginas, fixa as mais importantes e escreve o rascunho rapido desta pagina.
                 </p>
@@ -3155,169 +2962,6 @@ export function SilverNotebook({
                   onKeyDown={handleEditorShortcuts}
                 />
 
-                <NoteChecklist
-                  items={activePage.checklistItems}
-                  canEdit={canEdit}
-                  onChange={(nextItems) =>
-                    updateActivePage((page) => ({
-                      ...page,
-                      checklistItems: nextItems,
-                    }))
-                  }
-                  className="mt-3"
-                />
-              </div>
-            </div>
-          </div>
-          ) : null}
-
-          {showRemindersPanel ? (
-          <div className="pointer-events-auto absolute right-4 top-4 flex h-[calc(100%-120px)] w-[320px] min-h-0 flex-col gap-3 overflow-y-auto pr-1">
-            <SilverMessageComposerPanel
-              recipients={playerMessageRecipients}
-              onSend={async (recipientId, title, body) => {
-                await onSendPlayerMessage?.(recipientId, title, body)
-              }}
-              canEdit={canEdit}
-              sending={sendingPlayerMessage}
-              error={playerMessageError}
-            />
-
-            <div className="shrink-0 rounded-[22px] border border-white/10 bg-[#0b0b0b]/95 p-3 shadow-[0_14px_32px_rgba(0,0,0,0.4)] backdrop-blur">
-              <div className="flex items-center gap-2">
-                <BellRing size={16} className="text-[#f3e600]" />
-                <p className="panel-title">Lembretes</p>
-              </div>
-
-              <div className="mt-3 border border-white/10 bg-black/30 p-3">
-                <div className="flex items-center gap-2">
-                  <Music4 size={14} className="text-[#f3e600]" />
-                  <p className="text-xs uppercase tracking-[0.18em] text-stone-300">
-                    Som do alerta
-                  </p>
-                </div>
-
-                <p className="mt-2 text-xs leading-6 text-stone-500">
-                  Mete o ficheiro em <span className="text-stone-300">public/sounds</span> com o nome <span className="text-stone-300">silver-alert.mp3</span>.
-                </p>
-
-                <button
-                  type="button"
-                  onClick={handleTestSound}
-                  className="signal-button mt-3 inline-flex items-center gap-2 px-3 py-2 text-xs"
-                  data-variant="ghost"
-                >
-                  <Play size={13} />
-                  Testar som
-                </button>
-
-                <p className="mt-3 text-xs text-stone-400">
-                  {soundMessage || `Som fixo: ${REMINDER_SOUND_URL}`}
-                </p>
-              </div>
-
-              <div className="mt-3 space-y-2">
-                <input
-                  type="text"
-                  value={newTitle}
-                  readOnly={!canEdit}
-                  onChange={(event) => setNewTitle(event.target.value)}
-                  placeholder="Titulo do lembrete"
-                  className="w-full border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none focus:border-[#f3e600]/45"
-                />
-
-                <input
-                  type="datetime-local"
-                  value={newWhen}
-                  readOnly={!canEdit}
-                  onChange={(event) => setNewWhen(event.target.value)}
-                  className="w-full border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none focus:border-[#f3e600]/45"
-                />
-
-                <textarea
-                  value={newNotes}
-                  readOnly={!canEdit}
-                  onChange={(event) => setNewNotes(event.target.value)}
-                  placeholder="Notas rapidas"
-                  className="min-h-[90px] w-full resize-none border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none focus:border-[#f3e600]/45"
-                />
-
-                <button
-                  type="button"
-                  onClick={addReminder}
-                  disabled={!canEdit}
-                  className="signal-button inline-flex items-center gap-2 px-3 py-2 text-xs"
-                >
-                  <Plus size={13} />
-                  Adicionar lembrete
-                </button>
-              </div>
-            </div>
-            <div className="shrink-0 rounded-[22px] border border-white/10 bg-[#0b0b0b]/95 p-3 shadow-[0_14px_32px_rgba(0,0,0,0.4)] backdrop-blur">
-              <p className="panel-title">Agenda</p>
-
-              <div className="mt-3 space-y-2">
-                {sortedReminders.length ? (
-                  sortedReminders.map((reminder) => {
-                    const due =
-                      !reminder.done &&
-                      reminder.when &&
-                      !Number.isNaN(new Date(reminder.when).getTime()) &&
-                      new Date(reminder.when).getTime() <= nowTimestamp
-
-                    return (
-                      <div
-                        key={reminder.id}
-                        className={`border px-3 py-3 ${
-                          reminder.done
-                            ? 'border-emerald-500/25 bg-emerald-500/10'
-                            : due
-                              ? 'border-amber-400/40 bg-amber-400/10'
-                              : 'border-white/10 bg-black/25'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-white">{reminder.title}</p>
-                            <p className="mt-1 text-xs text-stone-400">
-                              {formatReminderWhen(reminder.when)}
-                            </p>
-                          </div>
-
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                updateReminder(reminder.id, (entry) => ({
-                                  ...entry,
-                                  done: !entry.done,
-                                }))
-                              }
-                              className="signal-button px-2 py-1 text-xs"
-                              data-variant={reminder.done ? undefined : 'ghost'}
-                            >
-                              <Check size={11} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => removeReminder(reminder.id)}
-                              className="signal-button px-2 py-1 text-xs"
-                              data-tone="danger"
-                            >
-                              <Trash2 size={11} />
-                            </button>
-                          </div>
-                        </div>
-
-                        {reminder.notes ? (
-                          <p className="mt-2 text-xs leading-6 text-stone-300">{reminder.notes}</p>
-                        ) : null}
-                      </div>
-                    )
-                  })
-                ) : (
-                  <p className="py-4 text-sm text-stone-500">Ainda nao tens lembretes.</p>
-                )}
               </div>
             </div>
           </div>
@@ -3484,17 +3128,6 @@ export function SilverNotebook({
               title="Mostrar/esconder Quadro"
             >
               Quadro
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setShowRemindersPanel((v) => !v)}
-              className="signal-button inline-flex items-center gap-2 px-3 py-2 text-xs"
-              data-variant={showRemindersPanel ? undefined : 'ghost'}
-              title="Mostrar/esconder Lembretes"
-            >
-              <BellRing size={13} />
-              Lembretes
             </button>
 
           </div>
