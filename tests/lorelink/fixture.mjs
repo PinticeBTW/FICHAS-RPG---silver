@@ -73,6 +73,7 @@ export async function createFixture(path) {
   const controlStart = identity.indexOf('create or replace function public.current_user_controls_net_identity_link(')
   await db.exec(identity.slice(controlStart,identity.indexOf('$$;',controlStart)+3))
   await db.exec(await readFile(new URL('../../supabase/migrations/20260905115239_lorelink_player_stories_v2.sql',import.meta.url),'utf8'))
+  await db.exec(await readFile(new URL('../../supabase/migrations/20261001110206_history_documents_delete_v1.sql',import.meta.url),'utf8'))
   return db
 }
 export async function asActor(db,actor,operation,role='authenticated') {

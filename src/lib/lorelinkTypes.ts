@@ -24,6 +24,7 @@ export interface LoreData {
   entities: LoreEntity[]; nodes: LoreNode[]; relations: LoreRelation[];
 }
 export interface LoreRevision { id: number; saved_at: string; snapshot: LoreEntity }
+export interface LoreDeletion { id: string; workspace_os_id: LoreScope; character_id?: string | null; mutation_id: string; revision: number; deleted: true }
 export interface LoreCharacter {
   character_id: string; character_name: string; scope: LoreScope;
   subject_id: string; subject_kind: 'profile-sheet' | 'npc-card' | 'character';

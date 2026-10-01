@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "media:migrate": "node scripts/migrate-legacy-media.mjs",
     "lint": "eslint .",
-    "test:lorelink": "node --test tests/lorelink/database.test.mjs tests/lorelink/queue.test.mjs tests/lorelink/player-database.test.mjs tests/lorelink/periods.test.mjs",
+    "test:lorelink": "node --test tests/lorelink/database.test.mjs tests/lorelink/queue.test.mjs tests/lorelink/player-database.test.mjs tests/lorelink/periods.test.mjs tests/lorelink/documents.test.mjs tests/lorelink/delete.test.mjs tests/lorelink/errors.test.mjs",
     "test:lorelink:browser": "node --test tests/lorelink/browser.test.mjs",
     "test:lorelink:browser:players": "node --test tests/lorelink/player-browser.test.mjs",
     "test:lorelink:browser:reading": "node --test tests/lorelink/reading-graph.test.mjs",
@@ -19,6 +19,11 @@
   "dependencies": {
     "@mlc-ai/web-llm": "0.2.84",
     "@supabase/supabase-js": "^2.101.1",
+    "@tiptap/extension-list": "3.31.4",
+    "@tiptap/extension-table": "3.31.4",
+    "@tiptap/pm": "3.31.4",
+    "@tiptap/react": "3.31.4",
+    "@tiptap/starter-kit": "3.31.4",
     "@xyflow/react": "12.11.6",
     "clsx": "^2.1.1",
     "lucide-react": "^1.7.0",
@@ -26,7 +31,9 @@
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-markdown": "10.1.0",
-    "react-router-dom": "^7.14.0"
+    "react-router-dom": "^7.14.0",
+    "remark-parse": "11.0.0",
+    "unified": "11.0.5"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8",

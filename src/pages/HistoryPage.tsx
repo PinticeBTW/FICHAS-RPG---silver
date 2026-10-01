@@ -37,7 +37,7 @@ function HistorySession({ actor, character }: { actor: string; character?: strin
       const data = await api.read(ctx.scope, abort.signal)
       if (abort.signal.aborted) return
       if ((data.character_id ?? undefined) !== character) throw new Error('LORELINK_FORBIDDEN')
-      session = new LoreQueue(data, api.save); setQueue(session); setError(null)
+      session = new LoreQueue(data, api.save, api.remove); setQueue(session); setError(null)
     })().catch(reason => { if (!abort.signal.aborted) setError(loreError(reason)) })
     return () => { abort.abort(); session?.dispose() }
   }, [api, reload, character])
@@ -65,10 +65,24 @@ function HistoryWorkspace({ queue, api, actor, onReload }: { queue: LoreQueue; a
   const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [workspaceChanged, setWorkspaceChanged] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<LoreEntity | null>(null)
   const generation = useRef(0)
   const active = useRef(true)
   const selectedId = useRef(selected)
   useEffect(() => { active.current = true; return () => { active.current = false } }, [])
+  useEffect(() => {
+    if (!deleteTarget) return
+    const previous = document.activeElement as HTMLElement | null
+    const controls = [...document.querySelectorAll<HTMLButtonElement>('.history-delete-dialog button')]
+    controls[0]?.focus()
+    const trap = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { event.preventDefault(); setDeleteTarget(null) }
+      if (event.key === 'Tab' && event.shiftKey && document.activeElement === controls[0]) { event.preventDefault(); controls.at(-1)?.focus() }
+      else if (event.key === 'Tab' && !event.shiftKey && document.activeElement === controls.at(-1)) { event.preventDefault(); controls[0]?.focus() }
+    }
+    document.addEventListener('keydown', trap)
+    return () => { document.removeEventListener('keydown', trap); if (previous?.isConnected) previous.focus() }
+  }, [deleteTarget])
   const dirty = queue.dirty || busy
   useBeforeUnload(event => { if (dirty) { event.preventDefault(); event.returnValue = '' } })
   const blocker = useBlocker(dirty)
@@ -115,6 +129,15 @@ function HistoryWorkspace({ queue, api, actor, onReload }: { queue: LoreQueue; a
     if (isDraft) select(value.id)
   }
   const newPage = () => { setDraft(blankPage(data.scope)); setArchived(false); select(null) }
+  const deleting = queue.isDeleting(page.id)
+  const deleteDialog = deleteTarget && <div className="lore-modal-backdrop"><section className="lore-modal history-delete-dialog" role="dialog" aria-modal="true" aria-label="Apagar página">
+    <h2>Apagar «{deleteTarget.name}»?</h2><p>A página e as suas versões anteriores serão apagadas definitivamente. Não podes recuperar este texto depois.</p>
+    <button onClick={() => setDeleteTarget(null)}>Cancelar</button>
+    <button className="history-delete" onClick={() => {
+      const id = deleteTarget.id; setDeleteTarget(null)
+      void run(async () => { setBusy(true); try { await queue.deleteEntity(id); if (active.current && selectedId.current === id) newPage() } finally { if (active.current) setBusy(false) } })
+    }}>Apagar definitivamente</button>
+  </section></div>
   const leaveDialog = blocker.state === 'blocked' && <div className="lore-modal-backdrop"><section className="lore-modal history-leave-dialog" role="dialog" aria-modal="true" aria-label="Alterações por guardar">
     <h2>Guardar antes de sair</h2><p>Há texto que ainda não foi confirmado pelo servidor.</p>
     <button disabled={busy} onClick={() => void run(async () => { await queue.flush(); blocker.proceed() })}>Guardar e sair</button>
@@ -145,10 +168,10 @@ function HistoryWorkspace({ queue, api, actor, onReload }: { queue: LoreQueue; a
       </div></details>
     </header>
     {Boolean(message || queue.error) && <div className="lore-error" role="alert">{message ?? loreError(queue.error)}
-      <button onClick={() => void run(() => queue.flush())}>Tentar guardar</button><button onClick={exportDraft}>Exportar rascunho</button>
+      <button onClick={() => void run(() => queue.flush())}>Repetir operação</button><button onClick={exportDraft}>Exportar rascunho</button>
       {message && <button aria-label="Fechar aviso" onClick={() => setMessage(null)}><X size={16} /></button>}
     </div>}
-    <div className="history-layout" inert={busy} aria-busy={busy}>
+    <div className="history-layout" inert={busy || Boolean(deleteTarget)} aria-busy={busy}>
       <aside id="history-pages" className="history-pages" aria-label="Páginas">
         <header><span>{archived ? 'Arquivadas' : 'As tuas páginas'}</span></header>
         <nav aria-label="Lista de páginas">{isDraft && !archived && <button className="history-page-link" aria-current="page" onClick={() => setPagesOpen(false)}><BookOpenText size={15} /><span>Nova página</span></button>}
@@ -159,10 +182,11 @@ function HistoryWorkspace({ queue, api, actor, onReload }: { queue: LoreQueue; a
         </nav>
         {canEdit && <button className="history-new-page" onClick={newPage}><Plus size={16} /> Nova página</button>}
       </aside>
-      {canEdit || !isDraft ? <HistoryDocument key={page.id} entity={page} canEdit={canEdit} personal={Boolean(data.character_id)} isDraft={isDraft}
+      {canEdit || !isDraft ? <HistoryDocument key={page.id} entity={page} canEdit={canEdit && !deleting} personal={Boolean(data.character_id)} isDraft={isDraft}
         revisions={revisions?.entityId === page.id ? revisions.items : null} onChange={change}
+        onDelete={() => setDeleteTarget(page)}
         onHistory={() => void run(async () => { await queue.flush(); const id = page.id; const items = await api.history(data.scope, id); if (active.current && selectedId.current === id) setRevisions({ entityId: id, items }) })} />
         : <section className="history-paper"><h2>Os teus textos</h2><p>Abre uma página da lista para ler.</p></section>}
-    </div>{leaveDialog}
+    </div>{leaveDialog}{deleteDialog}
   </main>
 }

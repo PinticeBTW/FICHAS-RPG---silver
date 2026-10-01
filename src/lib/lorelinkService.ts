@@ -1,14 +1,7 @@
 import { supabase, SUPABASE_CONFIG_ERROR } from './supabase'
-import type { LoreCharacter, LoreData, LoreEntity, LoreNode, LoreRelation, LoreRevision, LoreScope, LoreSource } from './lorelinkTypes'
+import type { LoreCharacter, LoreData, LoreDeletion, LoreEntity, LoreNode, LoreRelation, LoreRevision, LoreScope, LoreSource } from './lorelinkTypes'
 
-export function loreError(error: unknown): string {
-  const message = error instanceof Error ? error.message : String(error)
-  if (/LORELINK_CONFLICT/.test(message)) return 'Esta ficha ou posição mudou noutra sessão. O teu trabalho foi preservado. Exporta o rascunho e compara com a versão guardada antes de continuar.'
-  if (/WORKSPACE_CHANGED/.test(message)) return 'O universo ativo mudou noutra janela. O teu trabalho continua aqui; regressa ao universo anterior para guardar.'
-  if (/PGRST202|does not exist|Could not find.*function|LORELINK_BASE_REQUIRED/.test(message)) return 'A História ainda não está ativada nesta base de dados. A migração Lorelink precisa de ser aplicada pelo responsável do projeto.'
-  if (/FORBIDDEN|42501|UNAVAILABLE|GM_SYSTEM_REQUIRED/.test(message)) return 'Sem acesso à História desta personagem neste universo. Escolhe uma personagem que te pertence.'
-  return `Não foi possível guardar ou carregar. ${message}`
-}
+export { loreError } from './lorelinkErrors'
 
 export function createLoreApi(actor: string, character?: string) {
   // Immutable character binding: delayed requests cannot follow a later selection.
@@ -33,6 +26,9 @@ export function createLoreApi(actor: string, character?: string) {
         expected_scope: scope, ...binding, expected_revision: value.revision, mutation, payload: value,
       }),
     history: (scope: LoreScope, entity: string) => rpc<LoreRevision[]>(`lorelink_history_${version}`, { expected_scope: scope, ...binding, entity }),
+    remove: (scope: LoreScope, entity: LoreEntity, mutation: string) => rpc<LoreDeletion>(`lorelink_delete_entity_${version}`, {
+      expected_scope: scope, ...binding, entity: entity.id, expected_revision: entity.revision, mutation,
+    }),
     sources: (scope: LoreScope) => rpc<LoreSource[]>('lorelink_sources_v1', { expected_scope: scope }),
     attach: (scope: LoreScope, source: LoreSource) => rpc<LoreEntity>('lorelink_attach_v1', {
       expected_scope: scope, source_id: source.id, source_kind: source.source_kind,

@@ -26,6 +26,8 @@ const args = {
   lorelink_save_node_v2:['expected_scope','requested_character','expected_revision','mutation','payload'],
   lorelink_save_relation_v2:['expected_scope','requested_character','expected_revision','mutation','payload'],
   lorelink_history_v2:['expected_scope','requested_character','entity'],
+  lorelink_delete_entity_v1:['expected_scope','entity','expected_revision','mutation'],
+  lorelink_delete_entity_v2:['expected_scope','requested_character','entity','expected_revision','mutation'],
 }
 const server=createServer(async (req,res)=>{
   res.setHeader('Access-Control-Allow-Origin','http://127.0.0.1:5176')
@@ -40,7 +42,7 @@ const server=createServer(async (req,res)=>{
     let text='';for await(const chunk of req)text+=chunk
     if(text)body=JSON.parse(text)
     if(url.pathname==='/__test/reset'){
-      await db.exec('truncate public.lorelink_revisions,public.lorelink_relations,public.lorelink_nodes,public.lorelink_maps,public.lorelink_entities,public.net_gm_persona_sessions restart identity')
+      await db.exec('truncate public.lorelink_revisions,public.lorelink_relations,public.lorelink_nodes,public.lorelink_maps,public.lorelink_entities,public.net_gm_persona_sessions,lorelink_private.entity_deletions restart identity')
       await db.query('update public.net_identity_os_assignments set primary_os_id=$1 where identity_link_id=$2',['veil',player])
       failNext=false;delayNext=0;return send(200,{ok:true})
     }
@@ -67,8 +69,8 @@ const server=createServer(async (req,res)=>{
     }
     const name=url.pathname.split('/rest/v1/rpc/')[1]
     if(name && args[name]){
-      if(failNext && name.startsWith('lorelink_save_')){failNext=false;return send(503,{code:'TEST_OFFLINE',message:'Falha de rede sintética'})}
-      if(delayNext && name.startsWith('lorelink_save_')){const delay=delayNext;delayNext=0;await new Promise(resolve=>setTimeout(resolve,delay))}
+      if(failNext && /^lorelink_(save_|delete_)/.test(name)){failNext=false;return send(503,{code:'TEST_OFFLINE',message:'Falha de rede sintética'})}
+      if(delayNext && /^lorelink_(save_|delete_)/.test(name)){const delay=delayNext;delayNext=0;await new Promise(resolve=>setTimeout(resolve,delay))}
       const result=await rpc(db,actor,name,args[name].map(key=>body[key]))
       return send(200,result)
     }
